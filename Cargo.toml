@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["proctor-core", "exam-runner"]
+exclude = ["contracts/registry"]
 
 [workspace.package]
 edition = "2021"
