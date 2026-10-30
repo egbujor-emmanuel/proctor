@@ -1,0 +1,7 @@
+{"exam_id":"near-protocol-basics-demo-v1","title":"NEAR protocol basics (public demo exam; real exams stay secret)","pass_mark_bps":6000,"questions":[
+{"id":"q1","prompt":"On NEAR, storage staking costs 1 NEAR per how many bytes of contract storage? Give a single number.","grader":{"type":"number","value":100000,"tolerance":0}},
+{"id":"q2","prompt":"A NEAR smart contract uses yield/resume to wait for an external response. How many blocks can it wait before the yielded promise times out? Give a single number.","grader":{"type":"number","value":200,"tolerance":0}},
+{"id":"q3","prompt":"NEAR gas keys (NEP-611) support up to how many independent nonce lanes per key? Give a single number.","grader":{"type":"number","value":1024,"tolerance":0}},
+{"id":"q4","prompt":"The NEAR Intents protocol fee is how many pips per transaction? Give a single number.","grader":{"type":"number","value":1,"tolerance":0}},
+{"id":"q5","prompt":"When a user signs NEAR Intents with an ECDSA wallet such as MetaMask, which account format does the Verifier contract derive? A) 64-character hex implicit NEAR account B) Ethereum-style 0x address C) a named .near account. Answer with the letter.","grader":{"type":"choice","answer":"B"}}
+]}

@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["proctor-core", "exam-runner"]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "MIT"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+codegen-units = 1
