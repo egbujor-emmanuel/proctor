@@ -7,9 +7,9 @@ Every skill, agent, MCP server and library installed for this build has an assig
 | Step | State |
 |---|---|
 | 1. Exam runner (`proctor-core` + `exam-runner`, wasm32-wasip2) | Done: 15 tests pass, verified in wasmtime with real HTTPS |
-| 2. Certificate registry contract | Written, builds for wasm32; 27 unit tests waiting on the MinGW toolchain |
+| 2. Certificate registry contract | 25 unit tests pass (2026-10-31); builds for wasm32; reviews + audit checklist next |
 | NEAR AI key | Valid; credits not yet issued ("no spending limit configured") |
-| OutLayer CLI | Install blocked by auto-mode; needs the user's choice |
+| OutLayer CLI | Allow rule added 2026-10-31; `cargo install --git https://github.com/out-layer/outlayer-cli --locked` building |
 
 ## Step-by-step, with the tools each step uses
 
@@ -17,7 +17,7 @@ Every skill, agent, MCP server and library installed for this build has an assig
 |---|---|---|---|---|---|
 | 0 | Plan and decisions | `blueprint`, `product-lens`, `council`, `search-first`; agents `planner`, `architect` | firecrawl, perplexity | `hackathon-recon` skill | Plan reviewed |
 | 1 | Exam runner | `rust-patterns`, `rust-testing`, `tdd-workflow`; agent `rust-reviewer` | — | OutLayer ai-example pattern, NEAR AI Cloud (OpenAI-compatible) | Tests pass + wasmtime run + review clean |
-| 2 | Registry contract | `rust-patterns`, `rust-testing`, `security-review`, `defi-amm-security` (checklist parts); agents `rust-reviewer`, `security-reviewer`, `silent-failure-hunter` | — | `near-smart-contracts` + `near-contract-audit` skills (read from research/raw), cargo-near | 27 tests pass + audit checklist + reviews |
+| 2 | Registry contract | `rust-patterns`, `rust-testing`, `security-review`, `defi-amm-security` (checklist parts); agents `rust-reviewer`, `security-reviewer`, `silent-failure-hunter` | — | `near-smart-contracts` + `near-contract-audit` skills (read from research/raw), cargo-near | 25 tests pass + audit checklist + reviews |
 | 3 | OutLayer deploy + secrets | `deployment-patterns`, `agent-security-hardening` | — | OutLayer CLI/dashboard, OutLayer docs + agent-custody skill (reference) | Real TEE run on outlayer.testnet returns a signed result |
 | 4 | Live exams + benchmark (contamination gap, model-swap catch) | `eval-harness`, `ai-regression-testing`, `verification-loop` | — | NEAR AI Cloud TEE models, `near-ai-cloud` skill (reference), `@nearai/inference-sdk` | Reproducible one-command benchmark with published numbers |
 | 5 | Surprise re-tests | `autonomous-loops`, `error-handling` | — | OutLayer VRF, GitHub Actions cron | A revocation happens on testnet from a real failed re-test |
@@ -32,4 +32,4 @@ Every skill, agent, MCP server and library installed for this build has an assig
 - Rust uses the `stable-x86_64-pc-windows-gnu` toolchain (no MSVC build tools on this machine).
 - Contract unit tests need a full MinGW-w64 toolchain (winget `BrechtSanders.WinLibs.POSIX.UCRT`) because some test-only dependencies need `dlltool` + `as`.
 - MCP status: firecrawl connected; playwright and chrome-devtools failed to connect this session (retry with `/mcp` before steps 8–10); perplexity and glif need sign-in.
-- NEAR / OutLayer / Intents Agent API skills are read as reference docs from `research/raw/` (installing them into `~/.claude/skills` was blocked by auto-mode as untrusted code integration).
+- NEAR agent skills (8 from `near/agent-skills` + `near-intents-agent-api`) were reviewed and installed into `~/.claude/skills` on 2026-10-31 via `near-hackathon/tools/install-near-skills.sh`. Use them directly at the steps listed above.

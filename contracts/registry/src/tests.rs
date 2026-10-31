@@ -1,4 +1,5 @@
 use super::*;
+use near_sdk::mock::MockAction;
 use near_sdk::test_utils::{get_created_receipts, get_logs, VMContextBuilder};
 use near_sdk::testing_env;
 
@@ -113,8 +114,19 @@ fn sitting_calls_outlayer_with_public_input_only() {
         .iter()
         .find(|rc| rc.receiver_id == acc("outlayer.testnet"))
         .expect("a receipt to OutLayer");
-    let args = format!("{:?}", call.actions);
-    assert!(args.contains("request_execution"));
+    let (method, args) = call
+        .actions
+        .iter()
+        .find_map(|a| match a {
+            MockAction::FunctionCallWeight { method_name, args, .. } => Some((
+                String::from_utf8(method_name.clone()).unwrap(),
+                String::from_utf8(args.clone()).unwrap(),
+            )),
+            _ => None,
+        })
+        .expect("a function call action");
+    assert_eq!(method, "request_execution");
+    assert!(args.contains(MODEL));
     // The sitting input names the candidate; the exam never leaves OutLayer secrets.
     assert!(!args.contains("questions"));
 }

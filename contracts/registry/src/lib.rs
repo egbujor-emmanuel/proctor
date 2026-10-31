@@ -331,14 +331,20 @@ impl Registry {
         self.start_sitting(exam, cert.candidate_model, SittingKind::Retest { cert_id })
     }
 
-    /// OutLayer's answer for a sitting. Never panics, so the outcome is
-    /// always recorded.
+    /// OutLayer's answer for a sitting. Past the caller check it never
+    /// panics, so the outcome is always recorded.
     #[private]
     pub fn on_sitting_result(
         &mut self,
         sitting_id: u64,
         #[callback_result] result: Result<Option<Value>, PromiseError>,
     ) -> SittingOutcome {
+        // `#[private]` is enforced only in the generated wasm entry point, so
+        // the same check lives here where unit tests can exercise it.
+        require!(
+            env::predecessor_account_id() == env::current_account_id(),
+            "Method on_sitting_result is private"
+        );
         let Some(sitting) = self.sittings.remove(&sitting_id) else {
             return SittingOutcome::Rejected { reason: "unknown sitting".into() };
         };
