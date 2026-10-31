@@ -15,6 +15,9 @@ use serde::{Deserialize, Serialize};
 const RUNNER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_ENDPOINT: &str = "https://cloud-api.near.ai/v1/chat/completions";
 const DEFAULT_MAX_TOKENS: u32 = 1024;
+/// Stop asking new questions after this long. OutLayer kills a run at 180 s;
+/// stopping early still prints an honest, incomplete result.
+const QUESTION_BUDGET_SECS: u64 = 150;
 
 /// Public request: who sits the exam. Never contains exam content.
 #[derive(Debug, Deserialize)]
@@ -63,6 +66,7 @@ struct ChatResponse {
 #[derive(Deserialize)]
 struct ChatChoice {
     message: ChatReply,
+    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -113,29 +117,41 @@ fn run() -> Result<(), String> {
     let mut correct = 0u32;
     let mut failed_calls = 0u32;
     let mut response_ids = Vec::with_capacity(exam.questions.len());
+    let started = std::time::Instant::now();
 
-    for question in &exam.questions {
+    for (index, question) in exam.questions.iter().enumerate() {
+        if started.elapsed().as_secs() >= QUESTION_BUDGET_SECS {
+            eprintln!("question {index}: skipped, time budget used up");
+            failed_calls += 1;
+            continue;
+        }
         match ask(&input.candidate, &api_key, &question.prompt, input.max_tokens) {
             Ok((id, answer)) => {
                 if grade(&question.grader, &answer) {
                     correct += 1;
                 }
-                if let Some(id) = id {
-                    response_ids.push(id);
-                }
+                response_ids.push(id);
             }
             // A failed call is not graded; it marks the sitting incomplete.
-            Err(_) => failed_calls += 1,
+            // The log names the question by position only, never its text.
+            Err(e) => {
+                eprintln!("question {index}: {e}");
+                failed_calls += 1;
+            }
         }
     }
 
+    let complete = failed_calls == 0;
+    let mut exam_result = result(&exam, &exam_bytes, correct);
+    // An incomplete sitting never reads as a pass, whatever its score.
+    exam_result.passed &= complete;
     let output = Output {
         proctor_version: RUNNER_VERSION,
         request_id: &input.request_id,
         exam_id: &exam.exam_id,
         candidate: &input.candidate,
-        result: result(&exam, &exam_bytes, correct),
-        complete: failed_calls == 0,
+        result: exam_result,
+        complete,
         failed_calls,
         response_ids,
     };
@@ -160,16 +176,23 @@ fn build_request_body(candidate: &Candidate, prompt: &str, max_tokens: u32) -> R
     serde_json::to_string(&request).map_err(|e| e.to_string())
 }
 
-fn parse_reply(body: &[u8]) -> Result<(Option<String>, String), String> {
+/// Reads one completion. Anything that is not a whole, signed-off answer is
+/// an error, so it counts as a failed call rather than as a wrong answer: an
+/// outage or a cut-off reply must never fail (or revoke) a candidate.
+fn parse_reply(body: &[u8]) -> Result<(String, String), String> {
     let reply: ChatResponse =
         serde_json::from_slice(body).map_err(|e| format!("unexpected response shape: {e}"))?;
-    let content = reply
-        .choices
-        .into_iter()
-        .next()
-        .and_then(|c| c.message.content)
+    let id = reply.id.filter(|id| !id.is_empty()).ok_or("response had no id")?;
+    let choice = reply.choices.into_iter().next().ok_or("response had no choices")?;
+    if let Some(reason @ ("length" | "content_filter")) = choice.finish_reason.as_deref() {
+        return Err(format!("answer was cut off (finish_reason {reason})"));
+    }
+    let content = choice
+        .message
+        .content
+        .filter(|c| !c.trim().is_empty())
         .ok_or("response had no answer")?;
-    Ok((reply.id, content))
+    Ok((id, content))
 }
 
 #[cfg(target_os = "wasi")]
@@ -178,7 +201,7 @@ fn ask(
     api_key: &str,
     prompt: &str,
     max_tokens: u32,
-) -> Result<(Option<String>, String), String> {
+) -> Result<(String, String), String> {
     use std::time::Duration;
     let body = build_request_body(candidate, prompt, max_tokens)?;
     let response = wasi_http_client::Client::new()
@@ -203,7 +226,7 @@ fn ask(
     _api_key: &str,
     prompt: &str,
     max_tokens: u32,
-) -> Result<(Option<String>, String), String> {
+) -> Result<(String, String), String> {
     // Native builds exist only for tests; the runner itself targets wasm32-wasip2.
     let _ = build_request_body(candidate, prompt, max_tokens)?;
     Err("HTTP is only available in the wasm32-wasip2 build".to_string())
@@ -231,13 +254,40 @@ mod tests {
     fn parses_openai_compatible_reply() {
         let body = br#"{"id":"chatcmpl-1","choices":[{"message":{"role":"assistant","content":"ANSWER: 4"}}]}"#;
         let (id, content) = parse_reply(body).unwrap();
-        assert_eq!(id.as_deref(), Some("chatcmpl-1"));
+        assert_eq!(id, "chatcmpl-1");
         assert_eq!(content, "ANSWER: 4");
     }
 
     #[test]
     fn rejects_reply_without_content() {
         let body = br#"{"id":"x","choices":[]}"#;
+        assert!(parse_reply(body).is_err());
+    }
+
+    #[test]
+    fn empty_or_blank_answers_are_failed_calls() {
+        for content in [r#""""#, r#""   
+ ""#, "null"] {
+            let body = format!(r#"{{"id":"x","choices":[{{"message":{{"content":{content}}}}}]}}"#);
+            assert!(parse_reply(body.as_bytes()).is_err(), "{content}");
+        }
+    }
+
+    #[test]
+    fn cut_off_answers_are_failed_calls() {
+        for reason in ["length", "content_filter"] {
+            let body = format!(
+                r#"{{"id":"x","choices":[{{"message":{{"content":"thinking about"}},"finish_reason":"{reason}"}}]}}"#
+            );
+            assert!(parse_reply(body.as_bytes()).is_err(), "{reason}");
+        }
+        let done = br#"{"id":"x","choices":[{"message":{"content":"ANSWER: 4"},"finish_reason":"stop"}]}"#;
+        assert!(parse_reply(done).is_ok());
+    }
+
+    #[test]
+    fn answers_without_an_id_are_failed_calls() {
+        let body = br#"{"choices":[{"message":{"content":"ANSWER: 4"}}]}"#;
         assert!(parse_reply(body).is_err());
     }
 

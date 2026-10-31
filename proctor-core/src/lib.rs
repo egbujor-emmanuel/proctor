@@ -12,6 +12,9 @@ final answer alone on the last line in the form: ANSWER: <answer>";
 /// Basis points in one whole (100%).
 pub const BPS_SCALE: u32 = 10_000;
 
+/// Most questions one exam may have. Matches the registry's cap on response ids.
+pub const MAX_QUESTIONS: usize = 64;
+
 /// A secret exam. Only its commitment (hash) is ever published.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Exam {
@@ -58,6 +61,8 @@ pub enum ExamError {
     Parse(String),
     Empty,
     InvalidPassMark(u32),
+    TooManyQuestions(usize),
+    InvalidQuestion { index: usize, reason: &'static str },
 }
 
 impl std::fmt::Display for ExamError {
@@ -66,6 +71,8 @@ impl std::fmt::Display for ExamError {
             Self::Parse(msg) => write!(f, "exam is not valid JSON: {msg}"),
             Self::Empty => write!(f, "exam has no questions"),
             Self::InvalidPassMark(bps) => write!(f, "pass mark {bps} bps is above {BPS_SCALE}"),
+            Self::TooManyQuestions(n) => write!(f, "exam has {n} questions; the limit is {MAX_QUESTIONS}"),
+            Self::InvalidQuestion { index, reason } => write!(f, "question {index}: {reason}"),
         }
     }
 }
@@ -82,7 +89,52 @@ pub fn parse_exam(bytes: &[u8]) -> Result<Exam, ExamError> {
     if exam.pass_mark_bps > BPS_SCALE {
         return Err(ExamError::InvalidPassMark(exam.pass_mark_bps));
     }
+    if exam.questions.len() > MAX_QUESTIONS {
+        return Err(ExamError::TooManyQuestions(exam.questions.len()));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for (index, question) in exam.questions.iter().enumerate() {
+        let invalid = |reason| ExamError::InvalidQuestion { index, reason };
+        if question.id.trim().is_empty() {
+            return Err(invalid("id is empty"));
+        }
+        if !seen.insert(question.id.as_str()) {
+            return Err(invalid("id is used twice"));
+        }
+        if question.prompt.trim().is_empty() {
+            return Err(invalid("prompt is empty"));
+        }
+        validate_grader(&question.grader).map_err(invalid)?;
+    }
     Ok(exam)
+}
+
+/// Rejects graders that could never pass, or that would pass any answer.
+fn validate_grader(grader: &Grader) -> Result<(), &'static str> {
+    match grader {
+        Grader::Exact { accepted } => {
+            if accepted.is_empty() || accepted.iter().any(|a| normalize(a).is_empty()) {
+                return Err("exact grader needs non-empty accepted answers");
+            }
+        }
+        Grader::Choice { answer } => {
+            let answer = answer.trim();
+            if answer.len() != 1 || !answer.chars().all(|c| c.is_ascii_alphabetic()) {
+                return Err("choice answer must be a single letter");
+            }
+        }
+        Grader::Number { value, tolerance } => {
+            if !value.is_finite() || !tolerance.is_finite() || *tolerance < 0.0 {
+                return Err("number grader needs a finite value and a tolerance of at least 0");
+            }
+        }
+        Grader::ContainsAll { terms } => {
+            if terms.is_empty() || terms.iter().any(|t| t.trim().is_empty()) {
+                return Err("contains_all grader needs non-empty terms");
+            }
+        }
+    }
+    Ok(())
 }
 
 /// SHA-256 of the exam's exact bytes, hex encoded. Publishing this binds a
@@ -98,7 +150,8 @@ pub fn extract_final_answer(response: &str) -> &str {
     let upper = response.to_ascii_uppercase();
     if let Some(pos) = upper.rfind(marker) {
         let rest = &response[pos + marker.len()..];
-        return rest.lines().next().unwrap_or("").trim();
+        // The answer may sit on the marker's line or on the next non-empty one.
+        return rest.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or("");
     }
     response
         .lines()
@@ -125,13 +178,8 @@ pub fn grade(grader: &Grader, response: &str) -> bool {
             accepted.iter().any(|a| normalize(a) == got)
         }
         Grader::Choice { answer: expected } => {
-            let got = normalize(answer);
-            let letter = got
-                .trim_start_matches('(')
-                .chars()
-                .next()
-                .map(|c| c.to_ascii_lowercase());
-            letter.is_some() && letter == expected.trim().chars().next().map(|c| c.to_ascii_lowercase())
+            let expected = expected.trim().to_ascii_lowercase();
+            choice_letter(answer).is_some_and(|got| got.to_string() == expected)
         }
         Grader::Number { value, tolerance } => parse_number(answer)
             .map(|n| (n - value).abs() <= *tolerance)
@@ -143,18 +191,32 @@ pub fn grade(grader: &Grader, response: &str) -> bool {
     }
 }
 
-/// First number in the text, ignoring thousands separators.
+/// The letter of a multiple-choice answer: "B", "(B)", "B)", "B." or "B: text".
+/// A word that merely starts with the letter ("Because", "Both") is not one.
+fn choice_letter(answer: &str) -> Option<char> {
+    let got = normalize(answer);
+    let got = got.strip_prefix('(').unwrap_or(&got);
+    let mut chars = got.chars();
+    let letter = chars.next().filter(char::is_ascii_alphabetic)?;
+    match chars.next() {
+        None | Some(')' | '.' | ':' | ' ') => Some(letter.to_ascii_lowercase()),
+        _ => None,
+    }
+}
+
+/// First whitespace-separated token that reads as a finite number, ignoring
+/// thousands separators and surrounding symbols such as "$", "%" or brackets.
 fn parse_number(text: &str) -> Option<f64> {
-    let cleaned: String = text.chars().filter(|c| *c != ',').collect();
-    let start = cleaned.find(|c: char| c.is_ascii_digit() || c == '-')?;
-    let tail = &cleaned[start..];
-    let end = tail
-        .char_indices()
-        .skip(1)
-        .find(|(_, c)| !(c.is_ascii_digit() || *c == '.'))
-        .map(|(i, _)| i)
-        .unwrap_or(tail.len());
-    tail[..end].parse().ok()
+    text.split_whitespace()
+        .map(|token| {
+            token
+                .replace(',', "")
+                .trim_matches(|c: char| !(c.is_ascii_digit() || c == '-' || c == '.'))
+                .trim_end_matches('.')
+                .to_string()
+        })
+        .filter(|token| token.chars().any(|c| c.is_ascii_digit()))
+        .find_map(|token| token.parse::<f64>().ok().filter(|n| n.is_finite()))
 }
 
 /// Score in basis points, rounded down.
@@ -250,6 +312,94 @@ mod tests {
         assert!(grade(&g, "ANSWER: about 1000.4 units"));
         assert!(!grade(&g, "ANSWER: 1001"));
         assert!(!grade(&g, "ANSWER: none"));
+    }
+
+    #[test]
+    fn choice_grader_rejects_words_that_start_with_the_letter() {
+        let g = Grader::Choice { answer: "B".into() };
+        assert!(!grade(&g, "ANSWER: Because the second one is right"));
+        assert!(!grade(&g, "ANSWER: Both"));
+        assert!(grade(&g, "ANSWER: B) Ethereum-style address"));
+        assert!(grade(&g, "ANSWER: B."));
+        assert!(grade(&g, "ANSWER: B: the second"));
+    }
+
+    #[test]
+    fn number_grader_skips_words_before_the_number() {
+        let g = Grader::Number { value: 5.0, tolerance: 0.0 };
+        assert!(grade(&g, "ANSWER: well-known 5"));
+        assert!(grade(&g, "ANSWER: $5."));
+        assert!(!grade(&g, "ANSWER: 1.2.3"));
+        let thousand = Grader::Number { value: 1000.0, tolerance: 0.0 };
+        assert!(grade(&thousand, "ANSWER: 1e3"));
+    }
+
+    #[test]
+    fn answer_on_the_line_after_the_marker_is_read() {
+        assert_eq!(extract_final_answer("thinking
+ANSWER:
+
+  Paris  
+"), "Paris");
+    }
+
+    fn exam_with(grader: &str) -> Vec<u8> {
+        format!(
+            r#"{{"exam_id":"t","title":"T","pass_mark_bps":5000,"questions":[
+                {{"id":"q1","prompt":"p","grader":{grader}}}]}}"#
+        )
+        .into_bytes()
+    }
+
+    #[test]
+    fn rejects_graders_that_pass_anything_or_nothing() {
+        for grader in [
+            r#"{"type":"exact","accepted":[]}"#,
+            r#"{"type":"exact","accepted":[""]}"#,
+            r#"{"type":"contains_all","terms":[]}"#,
+            r#"{"type":"contains_all","terms":[" "]}"#,
+            r#"{"type":"number","value":1,"tolerance":-1}"#,
+            r#"{"type":"choice","answer":""}"#,
+            r#"{"type":"choice","answer":"AB"}"#,
+        ] {
+            let err = parse_exam(&exam_with(grader)).unwrap_err();
+            assert!(matches!(err, ExamError::InvalidQuestion { index: 0, .. }), "{grader}: {err:?}");
+        }
+    }
+
+    #[test]
+    fn rejects_duplicate_or_empty_question_ids() {
+        let dup = br#"{"exam_id":"t","title":"T","pass_mark_bps":5000,"questions":[
+            {"id":"q","prompt":"p","grader":{"type":"choice","answer":"A"}},
+            {"id":"q","prompt":"p","grader":{"type":"choice","answer":"A"}}]}"#;
+        assert_eq!(
+            parse_exam(dup).unwrap_err(),
+            ExamError::InvalidQuestion { index: 1, reason: "id is used twice" }
+        );
+        let empty = br#"{"exam_id":"t","title":"T","pass_mark_bps":5000,"questions":[
+            {"id":" ","prompt":"p","grader":{"type":"choice","answer":"A"}}]}"#;
+        assert!(matches!(parse_exam(empty).unwrap_err(), ExamError::InvalidQuestion { index: 0, .. }));
+    }
+
+    #[test]
+    fn rejects_exams_over_the_question_cap() {
+        let questions: Vec<String> = (0..=MAX_QUESTIONS)
+            .map(|i| format!(r#"{{"id":"q{i}","prompt":"p","grader":{{"type":"choice","answer":"A"}}}}"#))
+            .collect();
+        let bytes = format!(
+            r#"{{"exam_id":"t","title":"T","pass_mark_bps":5000,"questions":[{}]}}"#,
+            questions.join(",")
+        );
+        assert_eq!(
+            parse_exam(bytes.as_bytes()).unwrap_err(),
+            ExamError::TooManyQuestions(MAX_QUESTIONS + 1)
+        );
+    }
+
+    #[test]
+    fn demo_exam_is_valid() {
+        let bytes = include_bytes!("../../exams/near-protocol-basics.public.json");
+        assert_eq!(parse_exam(bytes).unwrap().questions.len(), 5);
     }
 
     #[test]

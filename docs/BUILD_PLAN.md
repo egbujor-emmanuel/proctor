@@ -6,8 +6,8 @@ Every skill, agent, MCP server and library installed for this build has an assig
 
 | Step | State |
 |---|---|
-| 1. Exam runner (`proctor-core` + `exam-runner`, wasm32-wasip2) | Done: 15 tests pass, verified in wasmtime with real HTTPS |
-| 2. Certificate registry contract | 25 unit tests pass (2026-10-31); builds for wasm32; reviews + audit checklist next |
+| 1. Exam runner (`proctor-core` + `exam-runner`, wasm32-wasip2) | 25 tests pass (18 core, 7 runner); verified in wasmtime with real HTTPS; review fixes applied 2026-10-31 |
+| 2. Certificate registry contract | 54 tests pass; rust, security and silent-failure reviews done and their CRITICAL/HIGH findings fixed (2026-10-31). Open: owner timelock, two-strike revocation, sandbox (near-workspaces) tests |
 | NEAR AI key | Valid; credits not yet issued ("no spending limit configured") |
 | OutLayer CLI | Allow rule added 2026-10-31; `cargo install --git https://github.com/out-layer/outlayer-cli --locked` building |
 
@@ -17,7 +17,7 @@ Every skill, agent, MCP server and library installed for this build has an assig
 |---|---|---|---|---|---|
 | 0 | Plan and decisions | `blueprint`, `product-lens`, `council`, `search-first`; agents `planner`, `architect` | firecrawl, perplexity | `hackathon-recon` skill | Plan reviewed |
 | 1 | Exam runner | `rust-patterns`, `rust-testing`, `tdd-workflow`; agent `rust-reviewer` | — | OutLayer ai-example pattern, NEAR AI Cloud (OpenAI-compatible) | Tests pass + wasmtime run + review clean |
-| 2 | Registry contract | `rust-patterns`, `rust-testing`, `security-review`, `defi-amm-security` (checklist parts); agents `rust-reviewer`, `security-reviewer`, `silent-failure-hunter` | — | `near-smart-contracts` + `near-contract-audit` skills (read from research/raw), cargo-near | 25 tests pass + audit checklist + reviews |
+| 2 | Registry contract | `rust-patterns`, `rust-testing`, `security-review`, `defi-amm-security` (checklist parts); agents `rust-reviewer`, `security-reviewer`, `silent-failure-hunter` | — | `near-smart-contracts` + `near-contract-audit` skills (read from research/raw), cargo-near | Tests pass + audit checklist + reviews |
 | 3 | OutLayer deploy + secrets | `deployment-patterns`, `agent-security-hardening` | — | OutLayer CLI/dashboard, OutLayer docs + agent-custody skill (reference) | Real TEE run on outlayer.testnet returns a signed result |
 | 4 | Live exams + benchmark (contamination gap, model-swap catch) | `eval-harness`, `ai-regression-testing`, `verification-loop` | — | NEAR AI Cloud TEE models, `near-ai-cloud` skill (reference), `@nearai/inference-sdk` | Reproducible one-command benchmark with published numbers |
 | 5 | Surprise re-tests | `autonomous-loops`, `error-handling` | — | OutLayer VRF, GitHub Actions cron | A revocation happens on testnet from a real failed re-test |
