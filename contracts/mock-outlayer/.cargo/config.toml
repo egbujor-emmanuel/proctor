@@ -1,0 +1,6 @@
+# Unit tests run near-sdk's mocked VM natively. On the windows-gnu toolchain,
+# getrandom's default backend needs dlltool + an assembler that the
+# self-contained MinGW does not ship; the legacy RtlGenRandom backend does not.
+# Affects only native windows-gnu builds, never the wasm32 contract.
+[target.x86_64-pc-windows-gnu]
+rustflags = ["--cfg", 'getrandom_backend="windows_legacy"']

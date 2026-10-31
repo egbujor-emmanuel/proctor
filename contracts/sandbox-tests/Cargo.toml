@@ -1,0 +1,18 @@
+[package]
+name = "proctor-sandbox-tests"
+description = "End-to-end tests of the PROCTOR registry on a local NEAR sandbox node"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dev-dependencies]
+anyhow = "1"
+near-workspaces = { version = "0.24.0", default-features = false, features = ["rustls"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+# The NEAR sandbox node has no Windows build, so only download it elsewhere.
+# On Windows the tests still compile; CI runs them on Linux.
+[target.'cfg(not(windows))'.dev-dependencies]
+near-workspaces = { version = "0.24.0", default-features = false, features = ["rustls", "install"] }

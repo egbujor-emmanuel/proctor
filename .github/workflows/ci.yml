@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  unit:
+    name: Unit tests (core, runner, registry)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown,wasm32-wasip2
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            contracts/registry
+      - name: Grading core and exam runner
+        run: cargo test --workspace
+      - name: Registry contract
+        run: cargo test
+        working-directory: contracts/registry
+      - name: Exam runner builds for OutLayer (wasm32-wasip2)
+        run: cargo build -p exam-runner --target wasm32-wasip2 --release
+
+  sandbox:
+    name: Sandbox tests (registry on a local NEAR node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown,wasm32-wasip2
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            contracts/registry
+            contracts/mock-outlayer
+            contracts/sandbox-tests
+      - name: Install cargo-near 0.22.0
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
+      - name: Build contracts and runner
+        run: bash scripts/build-contracts.sh
+      - name: Run sandbox tests
+        run: cargo test -- --test-threads=2
+        working-directory: contracts/sandbox-tests
