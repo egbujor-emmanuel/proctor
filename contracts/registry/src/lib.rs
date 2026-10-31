@@ -5,9 +5,10 @@
 //! for a sitting. The contract asks OutLayer to run the exam runner inside a
 //! TEE, and a certificate is written **only** from OutLayer's callback, after
 //! the contract re-checks the runner's output against what it registered.
-//! Certified candidates can be re-tested; a complete re-test that scores below
-//! the pass mark revokes the certificate. Outages, incomplete runs and
-//! rejected outputs never revoke.
+//! Certified candidates can be re-tested. A complete re-test below the pass
+//! mark suspends the certificate; a second one in a row revokes it, and a
+//! passing re-test restores it. Outages, incomplete runs and rejected outputs
+//! never suspend or revoke.
 
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::{self, json, Value};
@@ -16,6 +17,10 @@ use near_sdk::{
     env, near, require, AccountId, BorshStorageKey, Gas, GasWeight, NearToken, PanicOnDefault,
     Promise, PromiseError,
 };
+
+pub use admin::PendingRunner;
+use checks::*;
+use verdict::{read_runner_result, RunnerResult};
 
 /// Gas reserved for our own callback. The OutLayer call gets the rest.
 const CALLBACK_GAS: Gas = Gas::from_tgas(50);
@@ -53,7 +58,7 @@ const MAX_INSTRUCTIONS: u64 = 500_000_000_000;
 const MAX_MEMORY_MB: u32 = 4096;
 const MAX_EXECUTION_SECONDS: u64 = 180;
 const EVENT_STANDARD: &str = "proctor";
-const EVENT_VERSION: &str = "1.1.0";
+const EVENT_VERSION: &str = "1.2.0";
 
 #[derive(BorshStorageKey)]
 #[near]
@@ -88,6 +93,9 @@ pub struct Exam {
 #[derive(Clone, Debug, PartialEq)]
 pub enum CertStatus {
     Active,
+    /// One complete re-test fell below the pass mark. Not certified until a
+    /// re-test passes; a second failure revokes.
+    Suspended { reason: String, at_ns: u64 },
     Revoked { reason: String, at_ns: u64 },
 }
 
@@ -147,7 +155,9 @@ pub struct Sitting {
 pub enum SittingOutcome {
     Certified { cert_id: u64, score_bps: u32 },
     Failed { score_bps: u32 },
+    /// Also restores a suspended certificate.
     RetestPassed { cert_id: u64, score_bps: u32 },
+    Suspended { cert_id: u64, score_bps: u32 },
     Revoked { cert_id: u64, score_bps: u32 },
     /// Some questions could not be asked; nothing is certified or revoked.
     Incomplete { failed_calls: u32 },
@@ -182,17 +192,6 @@ pub struct RunnerCandidate {
     pub model: String,
 }
 
-/// What OutLayer handed the callback.
-enum RunnerResult {
-    Output(RunnerOutput),
-    /// The run produced nothing (`null`); OutLayer settled the deposit itself.
-    NoOutput,
-    /// Bytes that are not a runner output.
-    Malformed(String),
-    /// The OutLayer call failed, so NEAR returned the deposit to this contract.
-    CallFailed,
-}
-
 #[near(serializers = [json])]
 pub struct ConfigView {
     pub owner: AccountId,
@@ -205,6 +204,8 @@ pub struct ConfigView {
     pub exams: u32,
     pub certificates: u32,
     pub next_sitting_id: u64,
+    pub pending_runner: Option<PendingRunner>,
+    pub pending_owner: Option<AccountId>,
 }
 
 #[near(contract_state)]
@@ -225,96 +226,8 @@ pub struct Registry {
     /// `candidate_model|exam_id` -> latest certificate id.
     latest: LookupMap<String, u64>,
     next_sitting_id: u64,
-}
-
-fn is_hex64(s: &str) -> bool {
-    s.len() == 64 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-}
-
-/// Free text such as a title: non-empty and bounded.
-fn require_text(value: &str, what: &str, max: usize) {
-    require!(!value.trim().is_empty(), format!("{what} must not be empty"));
-    require!(value.len() <= max, format!("{what} is longer than {max} bytes"));
-}
-
-/// An identifier: bounded, and only `A-Z a-z 0-9 . _ : / @ + -`. Excluding
-/// `|` keeps `latest_key` collision-free; excluding spaces and non-ASCII stops
-/// look-alike names.
-fn require_token(value: &str, what: &str, max: usize) {
-    require_text(value, what, max);
-    require!(
-        value.bytes().all(|b| b.is_ascii_alphanumeric() || b"._:/@+-".contains(&b)),
-        format!("{what} may only use letters, digits and . _ : / @ + -")
-    );
-}
-
-/// An OutLayer secrets profile name, by OutLayer's own rule.
-fn require_profile(value: &str) {
-    require!(
-        !value.is_empty()
-            && value.len() <= MAX_ID_LEN
-            && value.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'),
-        "secrets_profile must be 1-64 letters, digits, - or _"
-    );
-}
-
-fn require_runner_source(runner_source: &Value) {
-    require!(runner_source.is_object(), "runner_source must be an OutLayer ExecutionSource object");
-}
-
-/// Safe as a map key because neither part may contain `|`.
-fn latest_key(model: &str, exam_id: &str) -> String {
-    format!("{model}|{exam_id}")
-}
-
-fn truncated(mut text: String) -> String {
-    if text.len() > MAX_REASON_LEN {
-        let mut end = MAX_REASON_LEN;
-        while !text.is_char_boundary(end) {
-            end -= 1;
-        }
-        text.truncate(end);
-    }
-    text
-}
-
-fn response_ids_hash(ids: &[String]) -> String {
-    hex_encode(&env::sha256(ids.join("\n").as_bytes()))
-}
-
-fn hex_encode(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
-
-/// Reads OutLayer's result without panicking, whatever it contains.
-fn read_runner_result() -> RunnerResult {
-    if env::promise_results_count() != 1 {
-        return RunnerResult::Malformed("expected exactly one promise result".into());
-    }
-    match env::promise_result_checked(0, MAX_OUTPUT_BYTES) {
-        Err(PromiseError::Failed) => RunnerResult::CallFailed,
-        Err(PromiseError::TooLong(len)) => {
-            RunnerResult::Malformed(format!("runner output is {len} bytes; the limit is {MAX_OUTPUT_BYTES}"))
-        }
-        Ok(bytes) => match serde_json::from_slice::<Option<RunnerOutput>>(&bytes) {
-            Ok(Some(output)) => RunnerResult::Output(output),
-            Ok(None) => RunnerResult::NoOutput,
-            Err(e) => RunnerResult::Malformed(truncated(format!("malformed runner output: {e}"))),
-        },
-        // `PromiseError` is non-exhaustive.
-        #[allow(unreachable_patterns)]
-        Err(_) => RunnerResult::Malformed("unreadable promise result".into()),
-    }
-}
-
-fn emit(event: &str, data: Value) {
-    let payload = json!({
-        "standard": EVENT_STANDARD,
-        "version": EVENT_VERSION,
-        "event": event,
-        "data": [data],
-    });
-    env::log_str(&format!("EVENT_JSON:{payload}"));
+    pending_runner: Option<PendingRunner>,
+    pending_owner: Option<AccountId>,
 }
 
 #[near]
@@ -342,46 +255,9 @@ impl Registry {
             outcomes: LookupMap::new(StorageKey::Outcomes),
             latest: LookupMap::new(StorageKey::Latest),
             next_sitting_id: 0,
+            pending_runner: None,
+            pending_owner: None,
         }
-    }
-
-    // ---------------------------------------------------------------- admin
-
-    /// Points future sittings at a new runner build. Sittings already paid
-    /// for, and the certificates they produce, keep the runner they started with.
-    pub fn set_runner(&mut self, runner_source: Value, runner_hash: String) {
-        self.assert_owner();
-        require_runner_source(&runner_source);
-        require!(is_hex64(&runner_hash), "runner_hash must be 64 lowercase hex characters");
-        self.runner_source_json = runner_source.to_string();
-        self.runner_hash = runner_hash.clone();
-        emit("runner_updated", json!({ "runner_hash": runner_hash }));
-    }
-
-    /// Sets the OutLayer resource limits for future sittings, within floors
-    /// that let an exam finish and OutLayer's own caps.
-    pub fn set_limits(&mut self, max_instructions: u64, max_memory_mb: u32, max_execution_seconds: u64) {
-        self.assert_owner();
-        require!(
-            (MIN_INSTRUCTIONS..=MAX_INSTRUCTIONS).contains(&max_instructions),
-            format!("max_instructions must be between {MIN_INSTRUCTIONS} and {MAX_INSTRUCTIONS}")
-        );
-        require!(
-            (MIN_MEMORY_MB..=MAX_MEMORY_MB).contains(&max_memory_mb),
-            format!("max_memory_mb must be between {MIN_MEMORY_MB} and {MAX_MEMORY_MB}")
-        );
-        require!(max_execution_seconds <= MAX_EXECUTION_SECONDS, "OutLayer caps a run at 180 seconds");
-        require!(
-            max_execution_seconds >= MIN_EXECUTION_SECONDS,
-            format!("max_execution_seconds must be at least {MIN_EXECUTION_SECONDS}")
-        );
-        self.max_instructions = max_instructions;
-        self.max_memory_mb = max_memory_mb;
-        self.max_execution_seconds = max_execution_seconds;
-        emit(
-            "limits_updated",
-            json!({ "max_instructions": max_instructions, "max_memory_mb": max_memory_mb, "max_execution_seconds": max_execution_seconds }),
-        );
     }
 
     // ---------------------------------------------------------------- exams
@@ -461,19 +337,19 @@ impl Registry {
         let exam = self.exams.get(&exam_id).cloned().unwrap_or_else(|| env::panic_str("unknown exam"));
         require!(exam.active, "exam is not active");
         require!(
-            !self.is_certified(candidate_model.clone(), exam_id),
-            "candidate already holds an active certificate for this exam; re-test it instead"
+            !self.holds_live_certificate(&candidate_model, &exam_id),
+            "candidate already holds a certificate for this exam; re-test it instead"
         );
         self.start_sitting(exam, candidate_model, SittingKind::Initial)
     }
 
-    /// Re-tests the candidate behind an active certificate with the same
-    /// exam. Anyone may pay for a re-test, one at a time per certificate and
-    /// at most once an hour; a complete re-test below the pass mark revokes.
+    /// Re-tests the candidate behind an active or suspended certificate with
+    /// the same exam. Anyone may pay for a re-test, one at a time per
+    /// certificate and at most once an hour.
     #[payable]
     pub fn retest(&mut self, cert_id: u64) -> Promise {
         let cert = self.cert(cert_id);
-        require!(cert.status == CertStatus::Active, "certificate is not active");
+        require!(!matches!(cert.status, CertStatus::Revoked { .. }), "certificate is revoked");
         require!(cert.retest_in_flight.is_none(), "a re-test of this certificate is already running");
         let now = env::block_timestamp();
         require!(
@@ -557,6 +433,8 @@ impl Registry {
             exams: self.exams.len(),
             certificates: self.certificates.len(),
             next_sitting_id: self.next_sitting_id,
+            pending_runner: self.pending_runner.clone(),
+            pending_owner: self.pending_owner.clone(),
         }
     }
 
@@ -607,14 +485,17 @@ impl Registry {
 }
 
 impl Registry {
-    fn assert_owner(&self) {
-        require!(env::predecessor_account_id() == self.owner, "only the owner can do this");
-    }
-
     fn runner_source(&self) -> Value {
         // Stored only after `require_runner_source`, so it always parses.
         serde_json::from_str(&self.runner_source_json)
             .unwrap_or_else(|_| env::panic_str("stored runner source is not JSON"))
+    }
+
+    /// True when the candidate's latest certificate for this exam is active or
+    /// suspended. Such a candidate must clear it by re-test, not a fresh sitting.
+    fn holds_live_certificate(&self, candidate_model: &str, exam_id: &str) -> bool {
+        self.latest_certificate(candidate_model.to_string(), exam_id.to_string())
+            .is_some_and(|c| !matches!(c.status, CertStatus::Revoked { .. }))
     }
 
     fn cert(&self, cert_id: u64) -> Certificate {
@@ -685,143 +566,11 @@ impl Registry {
             )
     }
 
-    /// Records an outcome, frees the certificate for its next re-test, and
-    /// emits the result (with the completion ids, which are not stored).
-    fn finish_sitting(&mut self, sitting: &Sitting, outcome: SittingOutcome, response_ids: &[String]) -> SittingOutcome {
-        if let SittingKind::Retest { cert_id } = sitting.kind {
-            if let Some(cert) = self.cert_mut(cert_id) {
-                if cert.retest_in_flight == Some(sitting.sitting_id) {
-                    cert.retest_in_flight = None;
-                }
-            }
-        }
-        if let Some(exam) = self.exams.get_mut(&sitting.exam_id) {
-            exam.sittings = exam.sittings.saturating_add(1);
-        }
-        self.outcomes.insert(sitting.sitting_id, outcome.clone());
-        let ids: &[String] = if matches!(outcome, SittingOutcome::Rejected { .. }) { &[] } else { response_ids };
-        emit(
-            "sitting_resolved",
-            json!({
-                "sitting_id": sitting.sitting_id,
-                "exam_id": sitting.exam_id,
-                "candidate_model": sitting.candidate_model,
-                "outcome": outcome,
-                "response_ids": ids,
-            }),
-        );
-        outcome
-    }
-
-    /// Checks a runner output against the sitting and the registered exam.
-    fn check_output(&self, sitting: &Sitting, exam: &Exam, output: &RunnerOutput) -> Result<(), String> {
-        if output.exam_commitment != exam.commitment {
-            return Err(truncated(format!("exam commitment mismatch: got {}", output.exam_commitment)));
-        }
-        if output.exam_id != exam.exam_id {
-            return Err("exam id mismatch".into());
-        }
-        if output.candidate.model != sitting.candidate_model {
-            return Err("candidate mismatch".into());
-        }
-        if output.request_id != format!("sitting-{}", sitting.sitting_id) {
-            return Err("request id mismatch".into());
-        }
-        if output.total != exam.question_count {
-            return Err(format!("runner asked {} questions; the exam has {}", output.total, exam.question_count));
-        }
-        if u64::from(output.correct) + u64::from(output.failed_calls) > u64::from(output.total) {
-            return Err("correct answers plus failed calls exceed the question count".into());
-        }
-        if output.complete != (output.failed_calls == 0) {
-            return Err("complete flag disagrees with failed_calls".into());
-        }
-        let expected_bps = ((u64::from(output.correct) * u64::from(BPS_SCALE)) / u64::from(output.total)) as u32;
-        if output.score_bps != expected_bps {
-            return Err(format!("score {} bps does not match {}/{}", output.score_bps, output.correct, output.total));
-        }
-        let answered = output.total - output.failed_calls;
-        if output.response_ids.len() != answered as usize {
-            return Err(format!("{} response ids for {answered} answered questions", output.response_ids.len()));
-        }
-        if output.response_ids.iter().any(|id| id.is_empty() || id.len() > MAX_RESPONSE_ID_LEN) {
-            return Err(format!("response ids must be 1-{MAX_RESPONSE_ID_LEN} bytes"));
-        }
-        Ok(())
-    }
-
-    /// Certifies, fails, re-verifies or revokes, once the output checks out.
-    fn apply_output(&mut self, sitting: &Sitting, output: &RunnerOutput) -> SittingOutcome {
-        let Some(exam) = self.exams.get(&sitting.exam_id).cloned() else {
-            return SittingOutcome::Rejected { reason: "exam no longer registered".into() };
-        };
-        if let Err(reason) = self.check_output(sitting, &exam, output) {
-            return SittingOutcome::Rejected { reason };
-        }
-        if !output.complete {
-            return SittingOutcome::Incomplete { failed_calls: output.failed_calls };
-        }
-
-        let passed = output.score_bps >= exam.pass_mark_bps;
-        let now = env::block_timestamp();
-        match &sitting.kind {
-            SittingKind::Initial if passed => {
-                // Two initial sittings can be in flight at once; only the first
-                // pass may certify.
-                if self.is_certified(sitting.candidate_model.clone(), exam.exam_id.clone()) {
-                    return SittingOutcome::Rejected { reason: "candidate is already certified".into() };
-                }
-                let cert_id = u64::from(self.certificates.len());
-                self.certificates.push(Certificate {
-                    cert_id,
-                    exam_id: exam.exam_id.clone(),
-                    exam_commitment: exam.commitment.clone(),
-                    candidate_model: sitting.candidate_model.clone(),
-                    runner_hash: sitting.runner_hash.clone(),
-                    score_bps: output.score_bps,
-                    correct: output.correct,
-                    total: output.total,
-                    issued_at_ns: now,
-                    last_verified_ns: now,
-                    retests_passed: 0,
-                    status: CertStatus::Active,
-                    requested_by: sitting.requested_by.clone(),
-                    sitting_id: sitting.sitting_id,
-                    response_ids_hash: response_ids_hash(&output.response_ids),
-                    response_count: output.response_ids.len() as u32,
-                    retest_in_flight: None,
-                    last_retest_requested_ns: None,
-                });
-                self.latest.insert(latest_key(&sitting.candidate_model, &exam.exam_id), cert_id);
-                SittingOutcome::Certified { cert_id, score_bps: output.score_bps }
-            }
-            SittingKind::Initial => SittingOutcome::Failed { score_bps: output.score_bps },
-            SittingKind::Retest { cert_id } => {
-                let cert_id = *cert_id;
-                let Some(cert) = self.cert_mut(cert_id) else {
-                    return SittingOutcome::Rejected { reason: "unknown certificate".into() };
-                };
-                if cert.status != CertStatus::Active {
-                    return SittingOutcome::Rejected { reason: "certificate already revoked".into() };
-                }
-                if passed {
-                    cert.retests_passed = cert.retests_passed.saturating_add(1);
-                    cert.last_verified_ns = now;
-                    SittingOutcome::RetestPassed { cert_id, score_bps: output.score_bps }
-                } else {
-                    cert.status = CertStatus::Revoked {
-                        reason: format!(
-                            "re-test scored {} bps, below the pass mark of {} bps",
-                            output.score_bps, exam.pass_mark_bps
-                        ),
-                        at_ns: now,
-                    };
-                    SittingOutcome::Revoked { cert_id, score_bps: output.score_bps }
-                }
-            }
-        }
-    }
 }
+
+mod admin;
+mod checks;
+mod verdict;
 
 #[cfg(test)]
 mod tests;

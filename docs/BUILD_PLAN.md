@@ -7,7 +7,7 @@ Every skill, agent, MCP server and library installed for this build has an assig
 | Step | State |
 |---|---|
 | 1. Exam runner (`proctor-core` + `exam-runner`, wasm32-wasip2) | 25 tests pass (18 core, 7 runner); verified in wasmtime with real HTTPS; review fixes applied 2026-10-31 |
-| 2. Certificate registry contract | 54 tests pass; rust, security and silent-failure reviews done and their CRITICAL/HIGH findings fixed (2026-10-31). Open: owner timelock, two-strike revocation, sandbox (near-workspaces) tests |
+| 2. Certificate registry contract | 69 tests pass. Reviews done and CRITICAL/HIGH findings fixed; 24 h runner timelock, two-step ownership and two-strike revocation added (2026-10-31) |
 | NEAR AI key | Valid; credits not yet issued ("no spending limit configured") |
 | OutLayer CLI | Installed: `outlayer 0.2.1` (official release binary, SHA-256 checked against GitHub's asset digest) |
 
