@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import { useRegistry } from "@/hooks/useRegistry";
 import { candidateId, runCheck, type CandidateKind, type Verdict } from "@/lib/check";
@@ -19,45 +19,82 @@ const EXAMPLES: { kind: CandidateKind; value: string; label: string }[] = [
   { kind: "market", value: "dailybriefer", label: "market: dailybriefer" },
 ];
 
+const HINT: Record<CandidateKind, string> = {
+  model: "A NEAR AI model id, such as org/model-name. Letters, digits and . _ : / @ + - only.",
+  market: "The agent's handle from its market.near.ai page, such as dailybriefer.",
+};
+
+/** One short sentence for screen readers, instead of reading the whole card. */
+function announcement(status: Status): string {
+  if (status.kind === "checking") return "Checking the registry.";
+  if (status.kind === "error") return status.message;
+  if (status.kind === "done") {
+    const { decision, candidate, reasons } = status.verdict;
+    return `${decision === "hire" ? "Hire" : "Do not hire"}: ${candidate}. ${reasons[0] ?? ""}`;
+  }
+  return "";
+}
+
 /** The buyer check: hire or don't, from the candidate's live certificates. */
 export function CheckAgent() {
   const { data, error: registryError } = useRegistry();
   const [kind, setKind] = useState<CandidateKind>("model");
   const [value, setValue] = useState("");
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  // Only the most recent check may set the result: an older, slower one
+  // must never overwrite a newer verdict.
+  const latest = useRef(0);
+  const input = useRef<HTMLInputElement>(null);
+  const isChecking = status.kind === "checking";
 
   async function check(nextKind: CandidateKind, nextValue: string) {
     const id = candidateId({ kind: nextKind, value: nextValue });
     if ("error" in id) {
-      setStatus({ kind: "error", message: id.error });
+      setFieldError(id.error);
+      input.current?.focus();
       return;
     }
+    setFieldError(null);
     if (!data) {
       setStatus({ kind: "error", message: registryError ? registryError.message : "The registry is still loading. Try again in a moment." });
       return;
     }
+    const mine = ++latest.current;
     setStatus({ kind: "checking" });
     try {
       const verdict = await runCheck(id.id, data.exams);
-      const handle = nextKind === "market" ? nextValue.trim().replace(/^market:/, "") : undefined;
+      if (mine !== latest.current) return;
+      const handle = nextKind === "market" ? id.id.replace(/^market:/, "") : undefined;
       setStatus({ kind: "done", verdict, market: handle });
     } catch (e) {
+      if (mine !== latest.current) return;
       setStatus({ kind: "error", message: e instanceof Error ? e.message : "The check failed. Try again." });
     }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void check(kind, value);
+    if (!isChecking) void check(kind, value);
   }
 
   function handleExample(example: (typeof EXAMPLES)[number]) {
+    if (isChecking) return;
     setKind(example.kind);
     setValue(example.value);
     void check(example.kind, example.value);
   }
 
+  function handleKindChange(next: CandidateKind) {
+    setKind(next);
+    setFieldError(null);
+    // A verdict for the other kind of candidate no longer answers this form.
+    latest.current += 1;
+    setStatus({ kind: "idle" });
+  }
+
   const isHire = status.kind === "done" && status.verdict.decision === "hire";
+  const describedBy = `candidate-hint${fieldError ? " candidate-error" : ""}`;
 
   return (
     <section id="check" aria-labelledby="check-title" className="border-y border-rule bg-paper-sunk">
@@ -72,49 +109,70 @@ export function CheckAgent() {
             hire. A failed re-test, or no certificate at all, says don’t.
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-8 grid gap-4" noValidate>
+          <form onSubmit={handleSubmit} className="mt-8 grid gap-3" noValidate>
             <fieldset className="flex flex-wrap gap-2">
               <legend className="sr-only">Candidate type</legend>
               {(["model", "market"] as const).map((k) => (
                 <label
                   key={k}
-                  className="cursor-pointer rounded-full border border-rule px-4 py-2 text-sm text-ink-muted has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-paper has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--focus)]"
+                  className="group cursor-pointer rounded-full border border-ink-muted/50 px-4 py-2 text-sm text-ink-muted has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-paper has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--focus)] forced-colors:has-[:checked]:underline"
                 >
-                  <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => setKind(k)} className="sr-only" />
+                  <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => handleKindChange(k)} className="sr-only" />
+                  <span aria-hidden="true" className="hidden group-has-[:checked]:inline">
+                    ✓{" "}
+                  </span>
                   {k === "model" ? "NEAR AI model" : "Agent Market handle"}
                 </label>
               ))}
             </fieldset>
-            <label htmlFor="candidate" className="text-sm font-medium text-ink">
+            <label htmlFor="candidate" className="mt-2 text-sm font-medium text-ink">
               {kind === "model" ? "Model id" : "Market handle"}
             </label>
+            <p id="candidate-hint" className="-mt-1 text-sm text-ink-muted">
+              {HINT[kind]}
+            </p>
             <div className="flex flex-col gap-3 sm:flex-row">
               <input
+                ref={input}
                 id="candidate"
                 name="candidate"
                 value={value}
-                onChange={(e) => setValue(e.target.value)}
+                onChange={(e) => {
+                  setValue(e.target.value);
+                  setFieldError(null);
+                }}
                 placeholder={kind === "model" ? "deepseek-ai/DeepSeek-V4.1-Flash-1017" : "dailybriefer"}
                 autoComplete="off"
                 spellCheck={false}
-                className="hash min-h-12 w-full rounded border border-rule bg-paper-raised px-4 text-ink placeholder:text-ink-muted/60 focus:border-seal"
+                aria-required="true"
+                aria-invalid={fieldError ? true : undefined}
+                aria-describedby={describedBy}
+                className="hash min-h-12 w-full rounded border border-ink-muted bg-paper-raised px-4 text-ink placeholder:text-ink-muted focus:border-seal"
               />
               <button
                 type="submit"
-                disabled={status.kind === "checking"}
-                className="min-h-12 shrink-0 rounded bg-ink px-6 font-medium text-paper transition-transform hover:bg-seal active:translate-y-px disabled:opacity-60"
+                aria-disabled={isChecking}
+                className="min-h-12 shrink-0 rounded bg-ink px-6 font-medium text-paper transition-colors hover:bg-seal active:translate-y-px aria-disabled:cursor-progress aria-disabled:opacity-70"
               >
-                {status.kind === "checking" ? "Checking…" : "Check"}
+                {isChecking ? "Checking…" : "Check"}
               </button>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-ink-muted">Try:</span>
+            {fieldError && (
+              <p id="candidate-error" className="text-sm font-medium text-revoked">
+                {fieldError}
+              </p>
+            )}
+            <div role="group" aria-labelledby="examples-label" className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+              <span id="examples-label" className="text-ink-muted">
+                Try:
+              </span>
               {EXAMPLES.map((ex) => (
                 <button
                   key={ex.value}
                   type="button"
                   onClick={() => handleExample(ex)}
-                  className="min-h-9 rounded border border-rule px-3 text-ink hover:border-seal hover:text-seal"
+                  aria-disabled={isChecking}
+                  className="min-h-9 rounded border border-ink-muted/50 px-3 text-ink hover:border-seal hover:text-seal aria-disabled:opacity-60"
                 >
                   {ex.label}
                 </button>
@@ -123,36 +181,40 @@ export function CheckAgent() {
           </form>
         </div>
 
-        <div aria-live="polite" className="min-h-[320px]">
+        <div className="min-h-[320px]">
+          <p role="status" className="sr-only">
+            {announcement(status)}
+          </p>
           {status.kind === "idle" && (
             <div className="flex h-full min-h-[320px] items-center justify-center rounded-sm border border-dashed border-rule p-8 text-center text-ink-muted">
               Enter a candidate, or pick one of the examples.
             </div>
           )}
           {status.kind === "checking" && (
-            <div className="h-full min-h-[320px] animate-pulse rounded-sm border border-rule bg-paper-raised motion-reduce:animate-none" />
+            <div aria-hidden="true" className="h-full min-h-[320px] animate-pulse rounded-sm border border-rule bg-paper-raised motion-reduce:animate-none" />
           )}
           {status.kind === "error" && (
-            <div role="alert" className="rounded-sm border border-revoked bg-revoked-soft p-6 text-revoked">
-              {status.message}
-            </div>
+            <div className="rounded-sm border border-revoked bg-revoked-soft p-6 text-revoked">{status.message}</div>
           )}
           {status.kind === "done" && (
-            <div className={`rounded-sm border-2 bg-paper-raised p-6 sm:p-8 ${isHire ? "border-active" : "border-revoked"}`}>
+            <div aria-label="Verdict" className={`rounded-sm border-2 bg-paper-raised p-6 sm:p-8 ${isHire ? "border-active" : "border-revoked"}`}>
               <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink-muted">Verdict</p>
               <p className={`mt-2 font-serif text-5xl ${isHire ? "text-active" : "text-revoked"}`}>{isHire ? "Hire" : "Do not hire"}</p>
               <p className="hash mt-3 text-sm text-ink">{status.verdict.candidate}</p>
-              <ul className="mt-6 grid gap-3">
+              <ul role="list" className="mt-6 grid gap-3">
                 {status.verdict.exams.map((exam) => (
                   <li key={exam.exam_id} className="flex flex-wrap items-center gap-3 border-t border-rule pt-3">
                     <StatusBadge state={exam.state} />
-                    <span className="hash text-sm text-ink-muted">{exam.exam_id}</span>
+                    <span className="hash text-sm text-ink-muted">
+                      <span className="sr-only">Exam </span>
+                      {exam.exam_id}
+                    </span>
                   </li>
                 ))}
               </ul>
-              <ul className="mt-5 grid gap-2 text-sm text-ink">
-                {status.verdict.reasons.map((r) => (
-                  <li key={r}>{r}</li>
+              <ul role="list" className="mt-5 grid gap-2 text-sm text-ink">
+                {status.verdict.reasons.map((r, i) => (
+                  <li key={`${i}-${r}`}>{r}</li>
                 ))}
               </ul>
               {status.market && (
@@ -164,7 +226,7 @@ export function CheckAgent() {
                     rel="noopener noreferrer"
                     className="text-seal underline underline-offset-4"
                   >
-                    Open {status.market} on the market
+                    Open {status.market} on the market<span className="sr-only"> (opens in a new tab)</span>
                   </a>
                 </p>
               )}

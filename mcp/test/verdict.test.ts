@@ -61,3 +61,12 @@ describe("marketCandidateId", () => {
     expect(marketCandidateId("dailybriefer")).toBe("market:dailybriefer");
   });
 });
+
+describe("summary times", () => {
+  it("reads real nanosecond timestamps and never throws on an out-of-range one", () => {
+    const real = checkExam("e", certificate({ last_verified_ns: 1793533263771828645 }));
+    expect(real.certificate?.last_verified).toBe("2026-11-01T11:41:03.771Z");
+    const broken = checkExam("e", certificate({ last_verified_ns: 1e30 }));
+    expect(broken.certificate?.last_verified).toBe("unknown");
+  });
+});

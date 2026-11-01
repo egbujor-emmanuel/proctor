@@ -82,12 +82,18 @@ body {
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 3px;
-  border-radius: 2px;
 }
 
-/* Anchor jumps land below the sticky header. */
-section[id] {
-  scroll-margin-top: 4.5rem;
+/* Focus scrolling and anchor jumps keep their target below the sticky
+   header (WCAG 2.4.11). It wraps to two rows on small screens. */
+html {
+  scroll-padding-top: 6.5rem;
+}
+
+@media (min-width: 768px) {
+  html {
+    scroll-padding-top: 4.5rem;
+  }
 }
 
 /* Hashes and ids wrap instead of overflowing on narrow screens. */

@@ -78,8 +78,10 @@ export function certState(cert: Certificate | null): CertState {
   return "Suspended" in cert.status ? "suspended" : "revoked";
 }
 
+/** ISO time for a nanosecond timestamp, or "unknown" if it is out of range. */
 function isoFromNs(ns: number): string {
-  return new Date(Math.floor(ns / 1_000_000)).toISOString();
+  const date = new Date(Math.floor(ns / 1_000_000));
+  return Number.isNaN(date.getTime()) ? "unknown" : date.toISOString();
 }
 
 export function summarize(cert: Certificate): CertificateSummary {

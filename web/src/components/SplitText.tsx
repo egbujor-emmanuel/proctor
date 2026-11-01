@@ -114,7 +114,6 @@ const SplitText = ({
   const onCompleteRef = useRef(onLetterAnimationComplete);
   const liveRef = useRef({ trigger, hoverEffect, accentColor });
   const [fontsLoaded, setFontsLoaded] = useState(fontsAreLoaded);
-  const [ready, setReady] = useState(false);
 
   useIsoLayoutEffect(() => {
     onCompleteRef.current = onLetterAnimationComplete;
@@ -149,7 +148,6 @@ const SplitText = ({
       };
 
       if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-        setReady(true);
         finish();
         return;
       }
@@ -392,7 +390,6 @@ const SplitText = ({
           return intro;
         }
       });
-      setReady(true);
       if (revealed) queue();
 
       el.addEventListener('pointerenter', onEnter);
@@ -454,7 +451,9 @@ const SplitText = ({
         textAlign,
         wordWrap: 'break-word',
         color,
-        visibility: ready ? undefined : 'hidden'
+        // PROCTOR edit: never hide the text before the split. It sits below
+        // the fold, so there is no visible flash, and it reads without JS.
+        visibility: undefined
       }}
     >
       {text}

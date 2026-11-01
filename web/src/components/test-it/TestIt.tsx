@@ -49,7 +49,7 @@ export function TestIt() {
               .
             </p>
           </div>
-          <ol className="grid gap-8">
+          <ol role="list" className="grid gap-8">
             {STEPS.map((step, i) => (
               <li key={step.title} className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-x-4">
                 <span aria-hidden="true" className="font-serif text-3xl leading-none text-seal">

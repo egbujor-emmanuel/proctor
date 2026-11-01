@@ -11,6 +11,7 @@ Every skill, agent, MCP server and library installed for this build has an assig
 | NEAR AI key | Working with credits (2026-11-01) |
 | 3. OutLayer deploy + live sitting | Done 2026-11-01: runner released at egbujor-emmanuel/proctor-runner v0.1.0 (FastFS testnet was down); exam secrets locked to the runner hash and to calls via the registry; first certificate (cert 0) issued on testnet, tx JAtLV29Xd6DDnomfUURN11R7iqvk6ya8F71baC6ww1Jp |
 | 7. MCP server + buyer skill | Done: 4 read-only tools, 29 tests; verified against the live registry |
+| 8. Website | Built 2026-11-01 (web/): live registry reads, buyer check, GSAP/Lenis/React Bits, Glif share card. Lighthouse 100 x4 categories desktop+mobile; LCP 1.75 s on Slow 4G + 4x CPU, CLS 0; react, typescript, a11y and performance reviews done and fixed. Not yet deployed (needs a host; set NEXT_PUBLIC_SITE_URL) |
 | OutLayer CLI | Installed: `outlayer 0.2.1` (official release binary, SHA-256 checked against GitHub's asset digest) |
 
 ## Step-by-step, with the tools each step uses

@@ -15,7 +15,7 @@ export function Footer() {
         <p>
           <span className="font-serif text-lg text-ink">PROCTOR</span> · built for the NEAR hackathon on NEAR testnet
         </p>
-        <ul className="flex flex-wrap gap-x-6 gap-y-2">
+        <ul role="list" className="flex flex-wrap gap-x-6 gap-y-2">
           {LINKS.map((l) => (
             <li key={l.href}>
               <a href={l.href} target="_blank" rel="noopener noreferrer" className="hover:text-ink">

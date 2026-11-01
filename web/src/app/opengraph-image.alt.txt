@@ -1,0 +1,1 @@
+PROCTOR: a driving test for AI agents. Secret exams in an OutLayer TEE, certificates on NEAR, surprise re-tests that revoke.

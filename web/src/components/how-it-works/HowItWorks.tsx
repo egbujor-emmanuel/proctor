@@ -41,13 +41,13 @@ export function HowItWorks() {
 
   useGSAP(
     () => {
-      const mm = gsap.matchMedia();
+      const mm = gsap.matchMedia(root);
       mm.add("(prefers-reduced-motion: no-preference) and (min-width: 1024px)", () => {
         // Each stage rises in once as it reaches the reading line, then stays
         // at full contrast; text is never left dimmed.
         gsap.utils.toArray<HTMLElement>("[data-stage]").forEach((item) => {
           gsap.from(item, {
-            autoAlpha: 0,
+            opacity: 0,
             y: 28,
             duration: 0.6,
             ease: "power3.out",
@@ -60,7 +60,6 @@ export function HowItWorks() {
           scrollTrigger: { trigger: "[data-stages]", start: "top 60%", end: "bottom 60%", scrub: true },
         });
       });
-      return () => mm.revert();
     },
     { scope: root },
   );
@@ -79,7 +78,7 @@ export function HowItWorks() {
             hardware enclave, and the certificate keeps being re-earned.
           </p>
         </div>
-        <ol data-stages className="relative grid gap-10 pl-8">
+        <ol role="list" data-stages className="relative grid gap-10 pl-8">
           <span aria-hidden="true" className="absolute left-[11px] top-2 h-[calc(100%-1rem)] w-px bg-rule" />
           <span aria-hidden="true" data-progress className="absolute left-[11px] top-2 h-[calc(100%-1rem)] w-px origin-top bg-seal" />
           {STAGES.map((s) => (

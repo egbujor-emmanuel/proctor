@@ -50,6 +50,33 @@ describe("registry view calls", () => {
   });
 });
 
+describe("real registry data", () => {
+  it("accepts real nanosecond timestamps, which are above 2^53", async () => {
+    const real = cert({ issued_at_ns: 1793533263771828645, last_verified_ns: 1793533263771828645 });
+    const found = await registry.latest("m", "e1", (async () => rpc(real)) as unknown as typeof fetch);
+    expect(found?.issued_at_ns).toBeGreaterThan(Number.MAX_SAFE_INTEGER);
+  });
+
+  it("pages through lists longer than the contract's 100-row page", async () => {
+    const pages = [Array.from({ length: 100 }, (_, i) => exam(`e${i}`)), [exam("last")]];
+    const fetchMock = vi.fn<typeof fetch>(async () => rpc(pages.shift()));
+    const listing = await registry.exams(fetchMock);
+    expect(listing.rows).toHaveLength(101);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips and counts a malformed row instead of blanking the list", async () => {
+    const listing = await registry.certificates((async () => rpc([cert(), { bogus: true }])) as unknown as typeof fetch);
+    expect(listing.rows).toHaveLength(1);
+    expect(listing.skipped).toBe(1);
+  });
+
+  it("reports a contract error with its reason", async () => {
+    const failing = (async () => Response.json({ jsonrpc: "2.0", id: "x", result: { error: "wasm execution failed" } })) as unknown as typeof fetch;
+    await expect(registry.config(failing)).rejects.toThrow("wasm execution failed");
+  });
+});
+
 describe("runCheck", () => {
   it("checks only active exams and hires on a live certificate", async () => {
     const fetchMock = vi.fn(async () => rpc(cert()));

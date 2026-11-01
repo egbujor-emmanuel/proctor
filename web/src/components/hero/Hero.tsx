@@ -5,17 +5,26 @@ import { useRegistry } from "@/hooks/useRegistry";
 
 function Stat({ label, value, isLoading }: { label: string; value?: number; isLoading: boolean }) {
   return (
-    <div className="border-l border-rule pl-4">
-      <dd className="font-serif text-4xl text-ink tabular-nums">
-        {value === undefined ? <span className="text-ink-muted">{isLoading ? "·" : "–"}</span> : <Counter value={value} />}
-      </dd>
+    <div className="flex flex-col-reverse border-l border-rule pl-4">
       <dt className="mt-1 text-xs uppercase tracking-wide text-ink-muted">{label}</dt>
+      <dd className="font-serif text-4xl text-ink tabular-nums">
+        {value === undefined ? (
+          <>
+            <span aria-hidden="true" className="text-ink-muted">
+              {isLoading ? "·" : "–"}
+            </span>
+            <span className="sr-only">{isLoading ? "Loading" : "Unavailable"}</span>
+          </>
+        ) : (
+          <Counter value={value} />
+        )}
+      </dd>
     </div>
   );
 }
 
 export function Hero() {
-  const { data, isLoading, error } = useRegistry();
+  const { data, isLoading, error, isStale } = useRegistry();
   const sittings = data?.config.next_sitting_id;
   const active = data?.certificates.filter((c) => c.status === "Active").length;
   const openExams = data?.exams.filter((e) => e.active).length;
@@ -38,12 +47,20 @@ export function Hero() {
           Test it in 5 minutes
         </a>
       </div>
-      <dl className="mt-16 grid max-w-2xl grid-cols-3 gap-6" aria-label="Live registry figures from NEAR testnet" aria-busy={isLoading}>
+      <h2 className="sr-only">Live registry figures from NEAR testnet</h2>
+      <dl className="mt-16 grid max-w-2xl grid-cols-3 gap-6">
         <Stat label="Open exams" value={openExams} isLoading={isLoading} />
         <Stat label="Sittings" value={sittings} isLoading={isLoading} />
         <Stat label="Live certificates" value={active} isLoading={isLoading} />
       </dl>
-      {error && !data && <p className="mt-4 text-sm text-revoked">Live figures unavailable: {error.message}</p>}
+      {error && !data && (
+        <p role="status" className="mt-4 text-sm text-revoked">
+          Live figures unavailable: {error.message}
+        </p>
+      )}
+      {isStale && data && (
+        <p className="mt-4 text-sm text-suspended">Refresh failed; showing figures read at {new Date(data.readAt).toLocaleTimeString()}.</p>
+      )}
     </section>
   );
 }

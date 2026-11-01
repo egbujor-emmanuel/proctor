@@ -6,11 +6,11 @@
   ],
   "accessibility": {
     "status": "pass",
-    "evidence": "Lighthouse (chrome-devtools MCP) Accessibility 100 and Agentic Browsing 100 on desktop and mobile after fixing contrast (dimmed stages), a prohibited aria-label on SplitText and a malformed dl. Playwright: skip link is the first Tab stop and becomes visible; logical tab order with a solid focus outline on every stop; status shown as text as well as colour."
+    "evidence": "Lighthouse (chrome-devtools MCP) Accessibility, Best Practices, SEO and Agentic Browsing 100 on desktop and mobile, re-run after the review fixes. a11y-architect review (7 HIGH) fixed: focus never hidden under the sticky header (scroll-padding; Playwright Shift+Tab over 25 stops found no covered control), field error tied to the input (aria-invalid, aria-describedby, focus moves to it), one concise role=status announcement instead of a live verdict card, registry no longer a live region, full hashes in the DOM with copy buttons, copy failures announced, input border at 7.4:1. Skip link first; dl order dt then dd; time elements; new-tab links say so."
   },
   "responsive": {
     "status": "pass",
-    "evidence": "Playwright at 390x844: document scrollWidth equals clientWidth (375) with zero elements past the right edge after scrolling the whole page; commands wrap instead of scrolling; hero headline left-aligned. Desktop 1440x900 full-page capture reviewed."
+    "evidence": "Playwright at 390x844: scrollWidth equals clientWidth (375) with zero overflowing elements; all five nav links reachable on mobile in a swipeable row; mouse-wheel scrolling reaches the end of the page (react-reviewer found Lenis had frozen wheel scrolling; fixed and re-verified at 1440x900 and 390x844)."
   },
   "contentStates": {
     "loading": {

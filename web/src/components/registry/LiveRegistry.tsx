@@ -12,7 +12,7 @@ function Skeleton() {
 
 /** Certificates and exams, read live from the registry contract. */
 export function LiveRegistry() {
-  const { data, error, isLoading, mutate } = useRegistry();
+  const { data, error, isLoading, isStale, mutate } = useRegistry();
   const certificates = data ? [...data.certificates].reverse() : [];
   const exams = data?.exams.filter((e) => e.active) ?? [];
 
@@ -29,13 +29,17 @@ export function LiveRegistry() {
           href={explorerAccount(REGISTRY)}
           target="_blank"
           rel="noopener noreferrer"
-          className="hash text-sm text-ink-muted underline decoration-rule underline-offset-4 hover:text-seal"
+          className="hash text-sm text-ink-muted underline decoration-ink-muted underline-offset-4 hover:text-seal"
         >
           {REGISTRY}
+          <span className="sr-only"> on NEAR Explorer (opens in a new tab)</span>
         </a>
       </div>
 
-      <div aria-live="polite" aria-busy={isLoading} className="mt-10">
+      <p role="status" className="sr-only">
+        {data ? `${certificates.length} ${certificates.length === 1 ? "certificate" : "certificates"} loaded from the registry.` : ""}
+      </p>
+      <div className="mt-10">
         {isLoading && <Skeleton />}
 
         {error && !data && (
@@ -50,6 +54,21 @@ export function LiveRegistry() {
               Try again
             </button>
           </div>
+        )}
+
+        {isStale && data && (
+          <p role="status" className="mb-6 rounded-sm border border-suspended bg-suspended-soft px-4 py-3 text-sm text-suspended">
+            The last refresh failed, so this shows the registry as read at {new Date(data.readAt).toLocaleTimeString()}.{" "}
+            <button type="button" onClick={() => mutate()} className="underline underline-offset-4">
+              Refresh now
+            </button>
+          </p>
+        )}
+        {data && data.skipped > 0 && (
+          <p role="status" className="mb-6 rounded-sm border border-rule bg-paper-sunk px-4 py-3 text-sm text-ink-muted">
+            {data.skipped} registry {data.skipped === 1 ? "entry is" : "entries are"} in a format this page doesn’t read yet and{" "}
+            {data.skipped === 1 ? "is" : "are"} not shown.
+          </p>
         )}
 
         {data && certificates.length === 0 && (
@@ -70,7 +89,7 @@ export function LiveRegistry() {
               <h3 id="exams-title" className="font-mono text-xs uppercase tracking-[0.18em] text-ink-muted">
                 Open exams
               </h3>
-              <ul className="mt-4 divide-y divide-rule">
+              <ul role="list" className="mt-4 divide-y divide-rule">
                 {exams.map((exam) => (
                   <li key={exam.exam_id} className="py-4">
                     <p className="font-medium text-ink">{exam.title}</p>
