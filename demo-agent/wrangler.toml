@@ -1,0 +1,9 @@
+name = "proctor-demo-agent"
+main = "src/index.ts"
+compatibility_date = "2026-10-15"
+
+# Which model answers: "strong" (Claude Sonnet 5.5) or "weak" (GPT-5.4 nano).
+# Switching is a redeploy (`npm run deploy:weak`), so every swap is visible
+# in Cloudflare's deployment history. NEARAI_API_KEY is a Wrangler secret.
+[vars]
+MODE = "strong"

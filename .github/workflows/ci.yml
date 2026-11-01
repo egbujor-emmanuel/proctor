@@ -51,6 +51,24 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  demo-agent:
+    name: Demo agent Worker (typecheck, tests, bundle)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: demo-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: demo-agent/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx wrangler deploy --dry-run --outdir dist
+
   web:
     name: Website (typecheck, lint, tests, static build)
     runs-on: ubuntu-latest

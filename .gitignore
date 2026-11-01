@@ -9,3 +9,6 @@ web/.next/
 web/qa/*.json.gz
 web/qa/lighthouse-*/
 .playwright-mcp/
+.dev.vars
+.wrangler/
+demo-agent/dist/
