@@ -31,8 +31,12 @@ const MIN_SITTING_GAS: Gas = Gas::from_tgas(150);
 /// measures 880 bytes (see the storage test), this covers 1,500. The
 /// rest goes to OutLayer, which refunds unused compute to the payer.
 const SITTING_STORAGE_FEE: NearToken = NearToken::from_millinear(15);
-/// Smallest deposit accepted for a sitting (storage fee plus a compute floor).
-const MIN_SITTING_DEPOSIT: NearToken = NearToken::from_millinear(25);
+/// Smallest deposit accepted for a sitting: the storage fee plus a compute
+/// floor. OutLayer's `estimate_execution_cost` asks 19.005 mNEAR for the
+/// default limits (2026-11-01), so 25 mNEAR of compute leaves headroom. With
+/// higher limits a sitter attaches more; an underfunded request is refused by
+/// OutLayer and refunded by this contract.
+const MIN_SITTING_DEPOSIT: NearToken = NearToken::from_millinear(40);
 const BPS_SCALE: u32 = 10_000;
 const MAX_ID_LEN: usize = 64;
 const MAX_TITLE_LEN: usize = 160;
