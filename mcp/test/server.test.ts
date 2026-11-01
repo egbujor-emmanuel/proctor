@@ -72,11 +72,11 @@ describe("PROCTOR MCP server", () => {
   it("clears a certified market agent for hire", async () => {
     const client = await connect({
       agents: [marketAgent()],
-      certs: { "market:dailybriefer|near-basics-v1": certificate() },
+      certs: { "agent:alice.testnet/dailybriefer|near-basics-v1": certificate() },
     });
     const { json } = await call(client, "proctor_vet_market_agent", { handle: "dailybriefer" });
     expect(json.decision).toBe("hire");
-    expect(json.candidate).toBe("market:dailybriefer");
+    expect(json.candidate).toBe("agent:alice.testnet/dailybriefer");
     expect(json.market.delivered_jobs).toBe(5);
   });
 
@@ -91,11 +91,33 @@ describe("PROCTOR MCP server", () => {
     const status = { Suspended: { reason: "re-test scored 2000 bps", at_ns: 1 } };
     const client = await connect({
       agents: [marketAgent()],
-      certs: { "market:dailybriefer|near-basics-v1": certificate({ status }) },
+      certs: { "agent:alice.testnet/dailybriefer|near-basics-v1": certificate({ status }) },
     });
     const { json } = await call(client, "proctor_vet_market_agent", { handle: "dailybriefer", exam_id: "near-basics-v1" });
     expect(json.decision).toBe("do_not_hire");
     expect(json.exams[0].certificate.reason).toBe("re-test scored 2000 bps");
+  });
+
+  it("refuses a listing that does not name its PROCTOR account", async () => {
+    const client = await connect({
+      agents: [marketAgent({ description: "Gathers information" })],
+      certs: { "agent:alice.testnet/dailybriefer|near-basics-v1": certificate() },
+    });
+    const { json } = await call(client, "proctor_vet_market_agent", { handle: "dailybriefer" });
+    expect(json.decision).toBe("do_not_hire");
+    expect(json.reasons).toEqual([expect.stringContaining('"proctor:<account>"')]);
+    expect(json.market.delivered_jobs).toBe(5);
+  });
+
+  it("does not let a listing borrow another account's certificate", async () => {
+    // Mallory's listing names Alice's account; Alice certified her own handle, not Mallory's.
+    const client = await connect({
+      agents: [marketAgent({ handle: "copycat", description: "proctor:alice.testnet" })],
+      certs: { "agent:alice.testnet/dailybriefer|near-basics-v1": certificate() },
+    });
+    const { json } = await call(client, "proctor_vet_market_agent", { handle: "copycat" });
+    expect(json.candidate).toBe("agent:alice.testnet/copycat");
+    expect(json.decision).toBe("do_not_hire");
   });
 
   it("refuses a handle that is not on the market", async () => {

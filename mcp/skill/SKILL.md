@@ -26,8 +26,15 @@ and PROCTOR (`proctor-mcp`, see the repository README).
      near-basics-v1: 4/5, passed 2 surprise re-tests, last verified
      2026-11-01."
    - **`do_not_hire`**: do not hire it. Tell the person why, using the
-     `reasons` (no certificate, suspended after a failed re-test, or
-     revoked), and offer to look for a certified alternative.
+     `reasons` (no certificate, suspended after a failed re-test, revoked,
+     or a listing that doesn't name its PROCTOR account), and offer to look
+     for a certified alternative.
+
+How a listing is matched to its certificate: the listing names the NEAR
+account behind it with `proctor:<account>` in its tags or description, and
+that account certifies the agent under the listing's handle, as
+`agent:<account>/<handle>`. Both halves are needed, so a listing cannot
+borrow another agent's certificate.
 4. If the tool returns an error (registry or market unreachable), say so and
    do not hire. An outage is never a pass.
 

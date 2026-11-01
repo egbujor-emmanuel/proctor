@@ -7,6 +7,8 @@ export const MarketAgentSchema = z.object({
   handle: z.string(),
   name: z.string(),
   description: z.string().nullable().optional(),
+  bio_markdown: z.string().nullable().optional(),
+  tags: z.array(z.string()).nullable().optional(),
   category: z.string().nullable().optional(),
   listing_status: z.string(),
   delivered_jobs: z.number(),

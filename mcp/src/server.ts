@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import type { MarketReader } from "./market.js";
 import type { RegistryReader } from "./near.js";
-import { checkExam, decide, marketCandidateId, summarize, type ExamCheck } from "./verdict.js";
+import { checkExam, decide, marketCandidate, summarize, type ExamCheck } from "./verdict.js";
 
 export interface ProctorDeps {
   registry: RegistryReader;
@@ -61,9 +61,9 @@ export function createProctorServer(deps: ProctorDeps): McpServer {
     {
       title: "Check a candidate's PROCTOR certification",
       description:
-        "Checks whether a candidate (a NEAR AI model id such as 'deepseek-ai/DeepSeek-V4.1-Flash-1017', or 'market:<handle>' for an Agent Market agent) holds a live PROCTOR certificate. Pass exam_id to check one exam, or omit it to check every active exam. Returns hire / do_not_hire with reasons. A certificate is live only if the candidate passed the secret exam and every surprise re-test since.",
+        "Checks whether a candidate (a NEAR AI model id such as 'deepseek-ai/DeepSeek-V4.1-Flash-1017', or 'agent:<owner-account>/<name>' for an agent certified through its own endpoint) holds a live PROCTOR certificate. Pass exam_id to check one exam, or omit it to check every active exam. Returns hire / do_not_hire with reasons. A certificate is live only if the candidate passed the secret exam and every surprise re-test since.",
       inputSchema: {
-        candidate: z.string().min(1).max(MAX_ID).describe("Candidate id: a model id, or market:<handle>"),
+        candidate: z.string().min(1).max(MAX_ID).describe("Candidate id: a model id, or agent:<owner-account>/<name>"),
         exam_id: z.string().min(1).max(64).optional().describe("Exam to require; omit to check all active exams"),
       },
       annotations: READ_ONLY,
@@ -76,7 +76,7 @@ export function createProctorServer(deps: ProctorDeps): McpServer {
     {
       title: "Vet an Agent Market agent before hiring",
       description:
-        "Call this BEFORE hiring any agent on the NEAR AI Agent Market. Looks the agent up by its market handle, then checks its PROCTOR certificates (candidate id 'market:<handle>'). Returns decision 'hire' only if the agent holds a live certificate; marketplace stats (jobs delivered, success rate, builder verification) are included as context but never override a missing, suspended or revoked certificate. If the decision is 'do_not_hire', do not hire the agent; tell the user why.",
+        "Call this BEFORE hiring any agent on the NEAR AI Agent Market. Looks the agent up by its market handle and finds its PROCTOR certificate: the listing must name its NEAR account with 'proctor:<account>' in its tags or description, and that account must have certified an agent named after the handle (candidate id 'agent:<account>/<handle>'). Returns decision 'hire' only if the agent holds a live certificate; marketplace stats (jobs delivered, success rate, builder verification) are included as context but never override a missing, suspended or revoked certificate. If the decision is 'do_not_hire', do not hire the agent; tell the user why.",
       inputSchema: {
         handle: z.string().min(1).max(64).describe("The agent's Agent Market handle, e.g. 'dailybriefer'"),
         exam_id: z.string().min(1).max(64).optional().describe("Exam the job requires; omit to accept any active exam"),
@@ -86,11 +86,14 @@ export function createProctorServer(deps: ProctorDeps): McpServer {
     ({ handle, exam_id }) =>
       guarded(async () => {
         const agent = await market.findByHandle(handle);
-        const candidate = marketCandidateId(handle);
         if (agent === null) {
-          return { decision: "do_not_hire", candidate, reasons: [`no Agent Market agent has the handle '${handle}'`], exams: [] };
+          return { decision: "do_not_hire", candidate: `market:${handle}`, reasons: [`no Agent Market agent has the handle '${handle}'`], exams: [] };
         }
-        return decide(candidate, await checkCandidate(registry, candidate, exam_id), agent);
+        const bound = marketCandidate(agent);
+        if ("error" in bound) {
+          return { ...decide(`market:${handle}`, [], agent), reasons: [bound.error] };
+        }
+        return decide(bound.id, await checkCandidate(registry, bound.id, exam_id), agent);
       }),
   );
 
@@ -107,7 +110,7 @@ export function createProctorServer(deps: ProctorDeps): McpServer {
       guarded(async () => {
         const cert = await registry.getCertificate(cert_id);
         if (cert === null) throw new Error(`no certificate with id ${cert_id}`);
-        return { ...summarize(cert), candidate: cert.candidate_model, exam_commitment: cert.exam_commitment, response_ids_hash: cert.response_ids_hash, sitting_id: cert.sitting_id };
+        return { ...summarize(cert), candidate: cert.candidate_model, endpoint: cert.candidate_endpoint ?? null, exam_commitment: cert.exam_commitment, response_ids_hash: cert.response_ids_hash, sitting_id: cert.sitting_id };
       }),
   );
 

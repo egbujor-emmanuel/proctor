@@ -26,6 +26,9 @@ export interface Certificate {
 export interface MarketAgent {
   handle: string;
   name: string;
+  description?: string | null;
+  bio_markdown?: string | null;
+  tags?: string[] | null;
   listing_status: string;
   delivered_jobs: number;
   success_rate: number | null;
@@ -67,9 +70,50 @@ export interface Verdict {
   };
 }
 
-/** Market agents are certified under this candidate id. */
-export function marketCandidateId(handle: string): string {
-  return `market:${handle}`;
+/** An agent sitting through its own endpoint is certified as this id (registry `sit_exam_as_agent`). */
+export function agentCandidateId(owner: string, name: string): string {
+  return `agent:${owner}/${name}`;
+}
+
+// A listing names the NEAR account that certifies it with `proctor:<account>`
+// in its tags, description or bio. NEAR account ids are lowercase.
+const DECLARATION = /(?:^|[^A-Za-z0-9])(?:proctor|PROCTOR|Proctor):([a-z0-9._-]+\.(?:near|testnet))(?![a-z0-9_-])/g;
+const NEAR_ACCOUNT = /^(?:(?:[a-z\d]+[-_])*[a-z\d]+\.)*(?:[a-z\d]+[-_])*[a-z\d]+$/;
+/** The registry's rule for agent names: its id charset without "/", at most 48 bytes. */
+const AGENT_NAME = /^[A-Za-z0-9._:@+-]{1,48}$/;
+
+function declaredAccounts(agent: MarketAgent): string[] {
+  const texts = [...(agent.tags ?? []), agent.description ?? "", agent.bio_markdown ?? ""];
+  const found = new Set<string>();
+  for (const text of texts) {
+    for (const match of text.matchAll(DECLARATION)) {
+      const account = match[1]!;
+      if (account.length <= 64 && NEAR_ACCOUNT.test(account)) found.add(account);
+    }
+  }
+  return [...found];
+}
+
+/**
+ * The PROCTOR candidate behind a market listing. Both sides must agree: the
+ * listing (which only its owner can edit) names a NEAR account, and that
+ * account certifies an agent named exactly the listing's handle (which only
+ * that account can do). Copying someone else's account into a listing points
+ * at agent:<them>/<your-handle>, which they never certified.
+ */
+export function marketCandidate(agent: MarketAgent): { id: string; account: string } | { error: string } {
+  const accounts = declaredAccounts(agent);
+  if (accounts.length === 0) {
+    return { error: `the listing does not name the NEAR account that certifies it (its owner adds "proctor:<account>" to its tags or description)` };
+  }
+  if (accounts.length > 1) {
+    return { error: `the listing names more than one PROCTOR account (${accounts.join(", ")}), so it cannot be matched to one certificate` };
+  }
+  if (!AGENT_NAME.test(agent.handle)) {
+    return { error: `the handle '${agent.handle}' cannot be a PROCTOR agent name` };
+  }
+  const account = accounts[0]!;
+  return { id: agentCandidateId(account, agent.handle), account };
 }
 
 export function certState(cert: Certificate | null): CertState {

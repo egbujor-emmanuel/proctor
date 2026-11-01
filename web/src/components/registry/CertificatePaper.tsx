@@ -87,6 +87,11 @@ export function CertificatePaper({ cert }: { cert: Certificate }) {
           <p className="mt-3 text-sm text-ink-muted">
             passed the sealed exam <span className="hash text-ink">{cert.exam_id}</span>
           </p>
+          {cert.candidate_endpoint && (
+            <p className="mt-1 text-sm text-ink-muted">
+              answering at <span className="hash break-all text-ink">{cert.candidate_endpoint}</span>, where every re-test asks again
+            </p>
+          )}
         </div>
         <div className="text-left sm:text-right">
           <p className="font-serif text-5xl leading-none text-ink">

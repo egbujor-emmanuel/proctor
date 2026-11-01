@@ -19,10 +19,16 @@ const cert = (overrides: Partial<Certificate> = {}): Certificate => ({
 });
 
 describe("candidateId", () => {
-  it("uses model ids as they are and prefixes market handles", () => {
+  it("uses model ids as they are and builds agent ids the way the registry does", () => {
     expect(candidateId({ kind: "model", value: " deepseek-ai/DeepSeek-V4.1-Flash-1017 " })).toEqual({ id: "deepseek-ai/DeepSeek-V4.1-Flash-1017" });
-    expect(candidateId({ kind: "market", value: "dailybriefer" })).toEqual({ id: "market:dailybriefer" });
-    expect(candidateId({ kind: "market", value: "market:dailybriefer" })).toEqual({ id: "market:dailybriefer" });
+    expect(candidateId({ kind: "agent", value: "attrito.testnet/demo-agent" })).toEqual({ id: "agent:attrito.testnet/demo-agent" });
+    expect(candidateId({ kind: "agent", value: "agent:attrito.testnet/demo-agent" })).toEqual({ id: "agent:attrito.testnet/demo-agent" });
+  });
+
+  it("refuses agent ids the registry could never issue", () => {
+    expect(candidateId({ kind: "agent", value: "demo-agent" })).toHaveProperty("error");
+    expect(candidateId({ kind: "agent", value: "attrito.testnet/a/b" })).toHaveProperty("error");
+    expect(candidateId({ kind: "agent", value: `attrito.testnet/${"n".repeat(49)}` })).toHaveProperty("error");
   });
 
   it("rejects empty input and characters the registry would refuse", () => {

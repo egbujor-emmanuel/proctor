@@ -14,6 +14,8 @@ export const CertificateSchema = z.object({
   exam_id: z.string(),
   exam_commitment: z.string(),
   candidate_model: z.string(),
+  /** For agents: the endpoint that answered; re-tests ask the same one. Absent on v1 registries. */
+  candidate_endpoint: z.string().nullable().optional(),
   runner_hash: z.string(),
   score_bps: z.number(),
   correct: z.number(),

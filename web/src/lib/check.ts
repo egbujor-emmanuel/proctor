@@ -2,31 +2,33 @@
 // in the browser from live registry reads. The rules live in one place,
 // mcp/src/verdict.ts, which both the server and this site import.
 
-import { checkExam, decide, marketCandidateId, type ExamCheck, type Verdict } from "../../../mcp/src/verdict";
+import { agentCandidateId, checkExam, decide, type ExamCheck, type Verdict } from "../../../mcp/src/verdict";
 import { registry, type Exam } from "./registry";
 
-export type CandidateKind = "model" | "market";
+export type CandidateKind = "model" | "agent";
 
 export interface CheckRequest {
   kind: CandidateKind;
-  /** A NEAR AI model id, or an Agent Market handle. */
+  /** A NEAR AI model id, or an agent as <owner-account>/<name>. */
   value: string;
 }
 
 /** The registry's charset for candidate ids, and its length limit. */
 const ID_PATTERN = /^[A-Za-z0-9._:/@+-]+$/;
 const MAX_ID = 128;
+/** <owner-account>/<name>, as the registry builds agent ids (agent names: 48 bytes, no "/"). */
+const AGENT = /^([a-z0-9._-]+\.(?:near|testnet))\/([A-Za-z0-9._:@+-]{1,48})$/;
 
 /** The registry's candidate id for a request, or an error message. */
 export function candidateId(request: CheckRequest): { id: string } | { error: string } {
   const value = request.value.trim();
-  if (!value) return { error: "Enter a model id or an Agent Market handle." };
+  if (!value) return { error: request.kind === "agent" ? "Enter the agent as owner-account/name." : "Enter a model id." };
   if (!ID_PATTERN.test(value)) return { error: "Ids may only use letters, digits and . _ : / @ + -" };
   let id = value;
-  if (request.kind === "market") {
-    const handle = value.replace(/^(market:)+/, "");
-    if (!handle) return { error: "Enter the agent's market handle, e.g. dailybriefer." };
-    id = marketCandidateId(handle);
+  if (request.kind === "agent") {
+    const match = AGENT.exec(value.replace(/^agent:/, ""));
+    if (!match) return { error: "Agents are owner-account/name, such as attrito.testnet/demo-agent." };
+    id = agentCandidateId(match[1]!, match[2]!);
   }
   if (id.length > MAX_ID) return { error: `Ids are at most ${MAX_ID} characters.` };
   return { id };

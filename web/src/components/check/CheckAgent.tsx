@@ -4,7 +4,6 @@ import { useRef, useState, type FormEvent } from "react";
 
 import { useRegistry } from "@/hooks/useRegistry";
 import { candidateId, runCheck, type CandidateKind, type Verdict } from "@/lib/check";
-import { MARKET } from "@/lib/config";
 import LatticeLoader from "@/components/bits/LatticeLoader";
 import { StatusBadge } from "../registry/StatusBadge";
 import { Eyebrow } from "@/components/ui/Eyebrow";
@@ -12,18 +11,18 @@ import { Eyebrow } from "@/components/ui/Eyebrow";
 type Status =
   | { kind: "idle" }
   | { kind: "checking" }
-  | { kind: "done"; verdict: Verdict; market?: string }
+  | { kind: "done"; verdict: Verdict }
   | { kind: "error"; message: string };
 
 const EXAMPLES: { kind: CandidateKind; value: string; label: string }[] = [
   { kind: "model", value: "deepseek-ai/DeepSeek-V4.1-Flash-1017", label: "DeepSeek V4.1 Flash" },
   { kind: "model", value: "openai/gpt-5.4-nano", label: "GPT-5.4 nano" },
-  { kind: "market", value: "dailybriefer", label: "market: dailybriefer" },
+  { kind: "agent", value: "attrito.testnet/demo-agent", label: "agent: demo-agent" },
 ];
 
 const HINT: Record<CandidateKind, string> = {
   model: "A NEAR AI model id, such as org/model-name. Letters, digits and . _ : / @ + - only.",
-  market: "The agent's handle from its market.near.ai page, such as dailybriefer.",
+  agent: "An agent that sits exams through its own endpoint: the NEAR account that registered it, a slash, and its name.",
 };
 
 /** One short sentence for screen readers, instead of reading the whole card. */
@@ -67,8 +66,7 @@ export function CheckAgent() {
     try {
       const verdict = await runCheck(id.id, data.exams);
       if (mine !== latest.current) return;
-      const handle = nextKind === "market" ? id.id.replace(/^market:/, "") : undefined;
-      setStatus({ kind: "done", verdict, market: handle });
+      setStatus({ kind: "done", verdict });
     } catch (e) {
       if (mine !== latest.current) return;
       setStatus({ kind: "error", message: e instanceof Error ? e.message : "The check failed. Try again." });
@@ -114,7 +112,7 @@ export function CheckAgent() {
           <form onSubmit={handleSubmit} className="mt-8 grid gap-3" noValidate>
             <fieldset className="flex flex-wrap gap-2">
               <legend className="sr-only">Candidate type</legend>
-              {(["model", "market"] as const).map((k) => (
+              {(["model", "agent"] as const).map((k) => (
                 <label
                   key={k}
                   className="group cursor-pointer rounded-full border border-ink-muted/50 px-4 py-2 text-sm text-ink-muted has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-paper has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[var(--focus)] forced-colors:has-[:checked]:underline"
@@ -123,12 +121,12 @@ export function CheckAgent() {
                   <span aria-hidden="true" className="hidden group-has-[:checked]:inline">
                     ✓{" "}
                   </span>
-                  {k === "model" ? "NEAR AI model" : "Agent Market handle"}
+                  {k === "model" ? "NEAR AI model" : "Agent endpoint"}
                 </label>
               ))}
             </fieldset>
             <label htmlFor="candidate" className="mt-2 text-sm font-medium text-ink">
-              {kind === "model" ? "Model id" : "Market handle"}
+              {kind === "model" ? "Model id" : "Agent (owner/name)"}
             </label>
             <p id="candidate-hint" className="-mt-1 text-sm text-ink-muted">
               {HINT[kind]}
@@ -143,7 +141,7 @@ export function CheckAgent() {
                   setValue(e.target.value);
                   setFieldError(null);
                 }}
-                placeholder={kind === "model" ? "deepseek-ai/DeepSeek-V4.1-Flash-1017" : "dailybriefer"}
+                placeholder={kind === "model" ? "deepseek-ai/DeepSeek-V4.1-Flash-1017" : "attrito.testnet/demo-agent"}
                 autoComplete="off"
                 spellCheck={false}
                 aria-required="true"
@@ -181,6 +179,11 @@ export function CheckAgent() {
               ))}
             </div>
           </form>
+          <p className="mt-6 max-w-prose text-sm text-ink-muted">
+            Hiring from the NEAR AI Agent Market? The MCP server’s <code className="hash text-ink">proctor_vet_market_agent</code> matches a
+            listing to its certificate: the listing names its account with <code className="hash text-ink">proctor:&lt;account&gt;</code>, and
+            that account certifies the agent under the listing’s handle.
+          </p>
         </div>
 
         <div className="min-h-[320px]">
@@ -221,19 +224,6 @@ export function CheckAgent() {
                   <li key={`${i}-${r}`}>{r}</li>
                 ))}
               </ul>
-              {status.market && (
-                <p className="mt-5 rounded border border-rule bg-paper-sunk px-3 py-2 text-sm text-ink-muted">
-                  Market track record isn’t shown here: the Agent Market API doesn’t serve browsers on other sites. The MCP server includes it.{" "}
-                  <a
-                    href={`${MARKET}/a/${encodeURIComponent(status.market)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-seal underline underline-offset-4"
-                  >
-                    Open {status.market} on the market<span className="sr-only"> (opens in a new tab)</span>
-                  </a>
-                </p>
-              )}
             </div>
           )}
         </div>

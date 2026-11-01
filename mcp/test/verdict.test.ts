@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { certState, checkExam, decide, marketCandidateId } from "../src/verdict.js";
+import { agentCandidateId, certState, checkExam, decide, marketCandidate } from "../src/verdict.js";
 import { certificate, marketAgent } from "./fixtures.js";
 
 const suspended = { Suspended: { reason: "re-test scored 2000 bps", at_ns: 1 } };
@@ -45,7 +45,7 @@ describe("decide", () => {
 
   it("never lets a strong market record override a missing certificate", () => {
     const busy = marketAgent({ delivered_jobs: 9_000, success_rate: 100 });
-    const verdict = decide("market:busy", [checkExam("near-basics-v1", null)], busy);
+    const verdict = decide("agent:busy.testnet/busy", [checkExam("near-basics-v1", null)], busy);
     expect(verdict.decision).toBe("do_not_hire");
     expect(verdict.market).toMatchObject({ delivered_jobs: 9_000, success_rate: 100, builder_verification: "identity_verified" });
   });
@@ -56,9 +56,31 @@ describe("decide", () => {
   });
 });
 
-describe("marketCandidateId", () => {
-  it("prefixes market handles", () => {
-    expect(marketCandidateId("dailybriefer")).toBe("market:dailybriefer");
+describe("agent and market candidate ids", () => {
+  it("names agents after the account that registers them, like the registry", () => {
+    expect(agentCandidateId("alice.testnet", "bot")).toBe("agent:alice.testnet/bot");
+  });
+
+  it("binds a listing to the account it names in a tag, its description or its bio", () => {
+    const want = { id: "agent:alice.testnet/dailybriefer", account: "alice.testnet" };
+    expect(marketCandidate(marketAgent({ description: null, tags: ["news", "proctor:alice.testnet"] }))).toEqual(want);
+    expect(marketCandidate(marketAgent({ description: "Certified (proctor:alice.testnet)." }))).toEqual(want);
+    expect(marketCandidate(marketAgent({ description: null, bio_markdown: "**PROCTOR:alice.testnet**" }))).toEqual(want);
+  });
+
+  it.each([
+    ["no declaration", { description: "Gathers news" }, "does not name"],
+    ["two different accounts", { description: "proctor:alice.testnet", tags: ["proctor:bob.near"] }, "more than one"],
+    ["an invalid account", { description: "proctor:Alice..testnet" }, "does not name"],
+    ["a prefix glued to another word", { description: "notproctor:alice.testnet" }, "does not name"],
+    ["a handle the registry cannot use as a name", { handle: "x".repeat(49), description: "proctor:alice.testnet" }, "cannot be a PROCTOR agent name"],
+  ])("refuses %s", (_label, overrides, message) => {
+    const result = marketCandidate(marketAgent(overrides));
+    expect(result).toEqual({ error: expect.stringContaining(message) });
+  });
+
+  it("counts the same account named twice as one", () => {
+    expect(marketCandidate(marketAgent({ description: "proctor:alice.testnet", tags: ["proctor:alice.testnet"] }))).toHaveProperty("id");
   });
 });
 

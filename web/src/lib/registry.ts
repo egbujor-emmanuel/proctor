@@ -31,6 +31,8 @@ export const CertificateSchema = z
     exam_id: z.string(),
     exam_commitment: z.string(),
     candidate_model: z.string(),
+    // Agents only; absent on certificates from the first registry.
+    candidate_endpoint: z.optional(z.nullable(z.string())),
     runner_hash: z.string(),
     score_bps: bps,
     correct: u32,
