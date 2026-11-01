@@ -28,7 +28,8 @@ const CALLBACK_GAS: Gas = Gas::from_tgas(50);
 const MIN_SITTING_GAS: Gas = Gas::from_tgas(150);
 /// Kept by the registry from each sitting deposit to pay for the storage the
 /// sitting and its outcome or certificate use: a worst-case certificate
-/// measures 880 bytes (see the storage test), this covers 1,500. The
+/// measures 881 bytes for a model and 1,123 for an agent with a 256-byte
+/// endpoint (see the storage tests); this covers 1,500. The
 /// rest goes to OutLayer, which refunds unused compute to the payer.
 const SITTING_STORAGE_FEE: NearToken = NearToken::from_millinear(15);
 /// Smallest deposit accepted for a sitting: the storage fee plus a compute
@@ -41,6 +42,9 @@ const BPS_SCALE: u32 = 10_000;
 const MAX_ID_LEN: usize = 64;
 const MAX_TITLE_LEN: usize = 160;
 const MAX_MODEL_LEN: usize = 128;
+/// Longest agent name inside an `agent:<owner>/<name>` candidate id.
+const MAX_AGENT_NAME_LEN: usize = 48;
+const MAX_ENDPOINT_LEN: usize = 256;
 /// Most questions an exam may have; also the most response ids a run reports.
 const MAX_QUESTIONS: u32 = 64;
 const MAX_RESPONSE_ID_LEN: usize = 96;
@@ -110,6 +114,9 @@ pub struct Certificate {
     pub exam_id: String,
     pub exam_commitment: String,
     pub candidate_model: String,
+    /// For agents: the endpoint that answered the exam. Re-tests ask the same
+    /// endpoint, so an agent cannot move to dodge one. `None` for NEAR AI models.
+    pub candidate_endpoint: Option<String>,
     /// SHA-256 of the exam-runner wasm that produced the score.
     pub runner_hash: String,
     pub score_bps: u32,
@@ -144,6 +151,7 @@ pub struct Sitting {
     pub sitting_id: u64,
     pub exam_id: String,
     pub candidate_model: String,
+    pub candidate_endpoint: Option<String>,
     pub requested_by: AccountId,
     pub kind: SittingKind,
     pub requested_at_ns: u64,
@@ -194,6 +202,9 @@ pub struct RunnerOutput {
 #[serde(crate = "near_sdk::serde")]
 pub struct RunnerCandidate {
     pub model: String,
+    /// The endpoint the runner actually called.
+    #[serde(default)]
+    pub endpoint: Option<String>,
 }
 
 #[near(serializers = [json])]
@@ -343,7 +354,27 @@ impl Registry {
             !self.holds_live_certificate(&candidate_model, &exam_id),
             "candidate already holds a certificate for this exam; re-test it instead"
         );
-        self.start_sitting(exam, candidate_model, SittingKind::Initial)
+        self.start_sitting(exam, candidate_model, None, SittingKind::Initial)
+    }
+
+    /// Pays for a sitting by an agent behind its own OpenAI-compatible
+    /// endpoint. The candidate id is `agent:<caller>/<name>`, so only the
+    /// account that registers an agent can first certify it; anyone can still
+    /// pay for its re-tests. The endpoint gets no credentials: the runner sends
+    /// PROCTOR's NEAR AI key only to NEAR AI's own gateway.
+    #[payable]
+    pub fn sit_exam_as_agent(&mut self, exam_id: String, name: String, endpoint: String) -> Promise {
+        require_token(&name, "name", MAX_AGENT_NAME_LEN);
+        require!(!name.contains('/'), "name must not contain /");
+        require_endpoint(&endpoint);
+        let candidate_model = agent_candidate_id(&env::predecessor_account_id(), &name);
+        let exam = self.exams.get(&exam_id).cloned().unwrap_or_else(|| env::panic_str("unknown exam"));
+        require!(exam.active, "exam is not active");
+        require!(
+            !self.holds_live_certificate(&candidate_model, &exam_id),
+            "candidate already holds a certificate for this exam; re-test it instead"
+        );
+        self.start_sitting(exam, candidate_model, Some(endpoint), SittingKind::Initial)
     }
 
     /// Re-tests the candidate behind an active or suspended certificate with
@@ -361,7 +392,7 @@ impl Registry {
         );
         let exam = self.exams.get(&cert.exam_id).cloned().unwrap_or_else(|| env::panic_str("unknown exam"));
         let sitting_id = self.next_sitting_id;
-        let promise = self.start_sitting(exam, cert.candidate_model, SittingKind::Retest { cert_id });
+        let promise = self.start_sitting(exam, cert.candidate_model, cert.candidate_endpoint, SittingKind::Retest { cert_id });
         if let Some(cert) = self.cert_mut(cert_id) {
             cert.retest_in_flight = Some(sitting_id);
             cert.last_retest_requested_ns = Some(now);
@@ -509,7 +540,7 @@ impl Registry {
         u32::try_from(cert_id).ok().and_then(|i| self.certificates.get_mut(i))
     }
 
-    fn start_sitting(&mut self, exam: Exam, candidate_model: String, kind: SittingKind) -> Promise {
+    fn start_sitting(&mut self, exam: Exam, candidate_model: String, candidate_endpoint: Option<String>, kind: SittingKind) -> Promise {
         let deposit = env::attached_deposit();
         require!(deposit >= MIN_SITTING_DEPOSIT, format!("attach at least {MIN_SITTING_DEPOSIT}"));
         let compute = deposit.saturating_sub(SITTING_STORAGE_FEE);
@@ -525,6 +556,7 @@ impl Registry {
             sitting_id,
             exam_id: exam.exam_id.clone(),
             candidate_model: candidate_model.clone(),
+            candidate_endpoint: candidate_endpoint.clone(),
             requested_by: requested_by.clone(),
             kind: kind.clone(),
             requested_at_ns: env::block_timestamp(),
@@ -533,10 +565,11 @@ impl Registry {
         };
         self.sittings.insert(sitting_id, sitting);
 
-        let input = json!({
-            "request_id": format!("sitting-{sitting_id}"),
-            "candidate": { "model": candidate_model },
-        });
+        let candidate = match &candidate_endpoint {
+            Some(endpoint) => json!({ "model": candidate_model, "endpoint": endpoint }),
+            None => json!({ "model": candidate_model }),
+        };
+        let input = json!({ "request_id": format!("sitting-{sitting_id}"), "candidate": candidate });
         let args = json!({
             "source": self.runner_source(),
             "resource_limits": {

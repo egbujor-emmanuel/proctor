@@ -23,6 +23,22 @@ pub(crate) fn require_token(value: &str, what: &str, max: usize) {
     );
 }
 
+/// An agent's endpoint: https only (the only scheme the TEE can reach),
+/// bounded, and free of whitespace.
+pub(crate) fn require_endpoint(endpoint: &str) {
+    require!(endpoint.len() <= MAX_ENDPOINT_LEN, format!("endpoint is longer than {MAX_ENDPOINT_LEN} bytes"));
+    require!(
+        endpoint.starts_with("https://") && endpoint.len() > "https://".len(),
+        "endpoint must be an https:// URL"
+    );
+    require!(!endpoint.bytes().any(|b| b.is_ascii_whitespace() || b.is_ascii_control()), "endpoint must not contain spaces");
+}
+
+/// `agent:<owner>/<name>`: the owner is the account that registered the agent.
+pub(crate) fn agent_candidate_id(owner: &AccountId, name: &str) -> String {
+    format!("agent:{owner}/{name}")
+}
+
 /// An OutLayer secrets profile name, by OutLayer's own rule.
 pub(crate) fn require_profile(value: &str) {
     require!(

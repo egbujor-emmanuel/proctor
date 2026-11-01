@@ -76,6 +76,10 @@ impl Registry {
         if output.candidate.model != sitting.candidate_model {
             return Err("candidate mismatch".into());
         }
+        // An agent sitting must have been answered by the endpoint on record.
+        if sitting.candidate_endpoint.is_some() && output.candidate.endpoint != sitting.candidate_endpoint {
+            return Err("candidate endpoint mismatch".into());
+        }
         if output.request_id != format!("sitting-{}", sitting.sitting_id) {
             return Err("request id mismatch".into());
         }
@@ -129,6 +133,7 @@ impl Registry {
                     exam_id: exam.exam_id.clone(),
                     exam_commitment: exam.commitment.clone(),
                     candidate_model: sitting.candidate_model.clone(),
+                    candidate_endpoint: sitting.candidate_endpoint.clone(),
                     runner_hash: sitting.runner_hash.clone(),
                     score_bps: output.score_bps,
                     correct: output.correct,

@@ -21,6 +21,9 @@ use wstd::runtime::block_on;
 
 const RUNNER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_ENDPOINT: &str = "https://cloud-api.near.ai/v1/chat/completions";
+/// The only origin that receives PROCTOR's NEAR AI key. Agents sitting
+/// through their own endpoint get no credentials.
+const NEAR_AI_ORIGIN: &str = "https://cloud-api.near.ai/";
 /// Room for reasoning models to think before they answer.
 const DEFAULT_MAX_TOKENS: u32 = 4096;
 /// Questions in flight at once. A reasoning model can take a minute per
@@ -177,6 +180,13 @@ async fn run() -> Result<(), String> {
         .map_err(|e| format!("cannot write output: {e}"))
 }
 
+/// True only for NEAR AI's own gateway. The prefix includes the path's first
+/// slash, so look-alike hosts such as `cloud-api.near.ai.evil.example` and
+/// userinfo tricks such as `cloud-api.near.ai@evil.example` never match.
+fn sends_api_key(endpoint: &str) -> bool {
+    endpoint.starts_with(NEAR_AI_ORIGIN)
+}
+
 fn build_request_body(candidate: &Candidate, prompt: &str, max_tokens: u32) -> Result<String, String> {
     let request = ChatRequest {
         model: &candidate.model,
@@ -236,9 +246,11 @@ async fn ask(
     use wstd::http::{Body, Client, Request};
 
     let body = build_request_body(candidate, prompt, max_tokens)?;
-    let request = Request::post(&candidate.endpoint)
-        .header("Content-Type", "application/json")
-        .header("Authorization", format!("Bearer {api_key}"))
+    let mut builder = Request::post(&candidate.endpoint).header("Content-Type", "application/json");
+    if sends_api_key(&candidate.endpoint) {
+        builder = builder.header("Authorization", format!("Bearer {api_key}"));
+    }
+    let request = builder
         .body(Body::from(body.into_bytes()))
         .map_err(|e| format!("cannot build request: {e}"))?;
     let mut client = Client::new();
@@ -335,6 +347,30 @@ mod tests {
         let past = Instant::now() - Duration::from_secs(1);
         let answer = block_on(ask_before(&candidate(), "key", "2+2?", 64, past));
         assert_eq!(answer, Err("skipped, time budget used up".to_string()));
+    }
+
+    #[test]
+    fn only_near_ai_receives_the_api_key() {
+        assert!(sends_api_key(DEFAULT_ENDPOINT));
+        for agent in [
+            "https://agent.example.org/v1/chat/completions",
+            "https://cloud-api.near.ai.evil.example/v1/chat/completions",
+            "https://cloud-api.near.ai@evil.example/v1/chat/completions",
+            "http://cloud-api.near.ai/v1/chat/completions",
+            "https://evil.example/https://cloud-api.near.ai/",
+        ] {
+            assert!(!sends_api_key(agent), "{agent} must not get the key");
+        }
+    }
+
+    #[test]
+    fn the_output_echoes_the_endpoint_that_was_asked() {
+        let input: Input = serde_json::from_str(
+            r#"{"request_id":"r","candidate":{"model":"agent:alice.testnet/bot","endpoint":"https://agent.example.org/v1/chat/completions"}}"#,
+        )
+        .unwrap();
+        let echoed = serde_json::to_value(&input.candidate).unwrap();
+        assert_eq!(echoed["endpoint"], "https://agent.example.org/v1/chat/completions");
     }
 
     #[test]
