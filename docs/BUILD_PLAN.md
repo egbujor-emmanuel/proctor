@@ -7,8 +7,10 @@ Every skill, agent, MCP server and library installed for this build has an assig
 | Step | State |
 |---|---|
 | 1. Exam runner (`proctor-core` + `exam-runner`, wasm32-wasip2) | 26 tests pass (18 core, 8 runner). Asks questions concurrently (8 at a time) under a 165 s hard deadline. Live run 2026-11-01: DeepSeek V4.1 Flash (TEE) scored 3/5 on the demo exam in 50 s, complete, 5 completion ids. `proctor-seal` prepares exams byte-exactly |
-| 2. Certificate registry contract | 69 tests pass. Reviews done and CRITICAL/HIGH findings fixed; 24 h runner timelock, two-step ownership and two-strike revocation added (2026-10-31) |
+| 2. Certificate registry contract | 74 tests pass. Reviews done and CRITICAL/HIGH findings fixed; 24 h runner timelock, two-step ownership and two-strike revocation added (2026-10-31). Deployed to `registry.attrito.testnet` (runner pinned by hash) |
 | NEAR AI key | Working with credits (2026-11-01) |
+| 3. OutLayer deploy + live sitting | Done 2026-11-01: runner released at egbujor-emmanuel/proctor-runner v0.1.0 (FastFS testnet was down); exam secrets locked to the runner hash and to calls via the registry; first certificate (cert 0) issued on testnet, tx JAtLV29Xd6DDnomfUURN11R7iqvk6ya8F71baC6ww1Jp |
+| 7. MCP server + buyer skill | Done: 4 read-only tools, 29 tests; verified against the live registry |
 | OutLayer CLI | Installed: `outlayer 0.2.1` (official release binary, SHA-256 checked against GitHub's asset digest) |
 
 ## Step-by-step, with the tools each step uses
