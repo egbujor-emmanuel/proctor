@@ -1,0 +1,78 @@
+{
+  "contract": "Surface: PROCTOR public website (static export, live reads from the testnet registry). Job: Let a judge or agent buyer verify PROCTOR is real and check whether a candidate holds a live certificate. Primary action: Check an agent (verdict from live registry reads, same rules as the MCP server). Hierarchy: Hero with live counts -> Test it in 5 minutes -> How it works -> Live registry (stamped certificate papers) -> Check an agent -> Trust model. Reference: Issuing-authority record aesthetic: paper and ink, mono hashes, colour reserved for certificate status (active/suspended/revoked).",
+  "targetViewports": [
+    "1440x900",
+    "390x844"
+  ],
+  "accessibility": {
+    "status": "pass",
+    "evidence": "Lighthouse (chrome-devtools MCP) Accessibility 100 and Agentic Browsing 100 on desktop and mobile after fixing contrast (dimmed stages), a prohibited aria-label on SplitText and a malformed dl. Playwright: skip link is the first Tab stop and becomes visible; logical tab order with a solid focus outline on every stop; status shown as text as well as colour."
+  },
+  "responsive": {
+    "status": "pass",
+    "evidence": "Playwright at 390x844: document scrollWidth equals clientWidth (375) with zero elements past the right edge after scrolling the whole page; commands wrap instead of scrolling; hero headline left-aligned. Desktop 1440x900 full-page capture reviewed."
+  },
+  "contentStates": {
+    "loading": {
+      "status": "pass",
+      "evidence": "Registry and verdict areas render fixed-height skeletons (pulse disabled under reduced motion); hero counters show a placeholder dot while aria-busy is true."
+    },
+    "empty": {
+      "status": "pass",
+      "evidence": "With no certificates the registry shows 'No certificates yet' and points to 'Test it in 5 minutes'; Check an agent shows a prompt before any input."
+    },
+    "error": {
+      "status": "pass",
+      "evidence": "RPC failure shows a role=alert panel with the specific message and a Try again button, never guessed numbers; invalid candidate ids are rejected before any request ('Ids may only use letters, digits and . _ : / @ + -', verified in Playwright)."
+    },
+    "partial": {
+      "status": "pass",
+      "evidence": "Market handles get the registry verdict plus a labelled note that market track record is unavailable in browsers (the Agent Market API sends no CORS header), with a link to the agent's real page at /a/<handle>; verified for dailybriefer."
+    },
+    "success": {
+      "status": "pass",
+      "evidence": "Live testnet data: hero shows 1 open exam, 3 sittings, 1 live certificate; certificate 0 renders with its real hashes; verdicts verified in Playwright: DeepSeek V4.1 Flash -> Hire, GPT-5.4 nano -> Do not hire, market dailybriefer -> Do not hire."
+    },
+    "permission": {
+      "status": "not-applicable",
+      "reason": "Every read is a public, keyless NEAR view call and the site has no accounts or gated content, so no permission boundary exists."
+    }
+  },
+  "renderedEvidence": [
+    {
+      "viewport": "1440x900",
+      "artifact": "desktop-1440-hero.png",
+      "observation": "Hero with live counts read from registry.attrito.testnet, editorial serif headline, two CTAs."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "desktop-1440-full.png",
+      "observation": "Whole page in order; certificate seal absent in this capture because its scroll trigger had not fired, confirmed rendered in certificate-card.png."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "certificate-card.png",
+      "observation": "Certificate 0 as a stamped paper: candidate, 3/5, runner/commitment/answer hashes, issued time, PASS seal."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "check-agent-hire.png",
+      "observation": "Live verdict Hire for DeepSeek V4.1 Flash with the active badge and reason from the registry."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "mobile-390-hero.png",
+      "observation": "Left-aligned headline, stacked CTAs, three live counters fit the width."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "mobile-390-test-it.png",
+      "observation": "Commands wrap inside their boxes with the copy button clear of the text."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "mobile-390-certificate.png",
+      "observation": "Certificate fields stack in one column; hashes wrap without overflow."
+    }
+  ]
+}

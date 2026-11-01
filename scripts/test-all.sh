@@ -21,6 +21,9 @@ step "registry contract"
 step "MCP server"
 (cd mcp && npm ci --silent && npm run -s typecheck && npm test)
 
+step "website"
+(cd web && npm ci --silent && npm run -s typecheck && npm run -s lint && npm test && npm run -s build)
+
 if [[ "${OS:-}" == "Windows_NT" ]]; then
   step "sandbox tests skipped: the NEAR sandbox node has no Windows build (CI runs them on Linux)"
 else

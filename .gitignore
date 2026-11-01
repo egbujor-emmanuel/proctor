@@ -4,3 +4,8 @@ target/
 *.secret.json
 node_modules/
 mcp/dist/
+web/out/
+web/.next/
+web/qa/*.json.gz
+web/qa/lighthouse-*/
+.playwright-mcp/

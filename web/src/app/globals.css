@@ -1,0 +1,109 @@
+@import "tailwindcss";
+@import "lenis/dist/lenis.css";
+
+/* PROCTOR: an issuing authority's record, not a crypto landing page.
+   Paper and ink; colour is reserved for certificate status. */
+:root {
+  --paper: #f4f1ea;
+  --paper-raised: #fbf9f4;
+  --paper-sunk: #ebe6da;
+  --ink: #16140f;
+  --ink-muted: #57524a;
+  --rule: #d4ccbb;
+  --seal: #1f3a5f;
+  --seal-soft: #dfe6ee;
+  --active: #1d6b45;
+  --active-soft: #dcefe4;
+  --suspended: #8a5a0c;
+  --suspended-soft: #f6ead2;
+  --revoked: #a3221b;
+  --revoked-soft: #f6dcda;
+  --focus: #1f3a5f;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #12110e;
+    --paper-raised: #1b1915;
+    --paper-sunk: #0c0b09;
+    --ink: #efe9dc;
+    --ink-muted: #aaa293;
+    --rule: #3a362e;
+    --seal: #9fb8d6;
+    --seal-soft: #1c2633;
+    --active: #6fcf9a;
+    --active-soft: #15291e;
+    --suspended: #e5b55c;
+    --suspended-soft: #2e2412;
+    --revoked: #f08a82;
+    --revoked-soft: #321816;
+    --focus: #9fb8d6;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-sunk: var(--paper-sunk);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-rule: var(--rule);
+  --color-seal: var(--seal);
+  --color-seal-soft: var(--seal-soft);
+  --color-active: var(--active);
+  --color-active-soft: var(--active-soft);
+  --color-suspended: var(--suspended);
+  --color-suspended-soft: var(--suspended-soft);
+  --color-revoked: var(--revoked);
+  --color-revoked-soft: var(--revoked-soft);
+  --font-serif: var(--font-newsreader);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
+}
+
+html {
+  background: var(--paper);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--seal);
+  color: var(--paper);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* Anchor jumps land below the sticky header. */
+section[id] {
+  scroll-margin-top: 4.5rem;
+}
+
+/* Hashes and ids wrap instead of overflowing on narrow screens. */
+.hash {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  overflow-wrap: anywhere;
+  font-variant-ligatures: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

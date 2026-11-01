@@ -3,9 +3,34 @@
 // Only a live (Active) PROCTOR certificate earns "hire". Marketplace track
 // record is reported alongside as context but never overrides the exam:
 // a busy agent that failed its last re-test is still a "do not hire".
+//
+// Deliberately dependency-free (no imports), so the website imports this same
+// file and shows exactly the verdicts the MCP server gives. The two shapes
+// below are the fields it reads; the registry's and the market's full types
+// satisfy them structurally.
 
-import type { Certificate } from "./near.js";
-import type { MarketAgent } from "./market.js";
+/** The certificate fields the verdict reads. */
+export interface Certificate {
+  cert_id: number;
+  exam_id: string;
+  runner_hash: string;
+  score_bps: number;
+  correct: number;
+  total: number;
+  last_verified_ns: number;
+  retests_passed: number;
+  status: "Active" | { Suspended: { reason: string; at_ns: number } } | { Revoked: { reason: string; at_ns: number } };
+}
+
+/** The Agent Market fields the verdict reads. */
+export interface MarketAgent {
+  handle: string;
+  name: string;
+  listing_status: string;
+  delivered_jobs: number;
+  success_rate: number | null;
+  builder?: { verification?: { level: string } | null } | null;
+}
 
 export type CertState = "active" | "suspended" | "revoked" | "none";
 export type Decision = "hire" | "do_not_hire";
