@@ -13,6 +13,9 @@ path = "src/main.rs"
 proctor-core = { path = "../proctor-core" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+futures = { version = "0.3.34", default-features = false, features = ["std", "executor"] }
 
 [target.'cfg(target_os = "wasi")'.dependencies]
-wasi-http-client = "0.2"
+# Async HTTP for WASI 0.2 from the Bytecode Alliance (the wasmtime team), so
+# questions can be asked concurrently.
+wstd = "0.6.8"

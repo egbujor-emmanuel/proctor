@@ -8,16 +8,29 @@
 //! commitment and the score but no question text and no answers.
 
 use std::io::{self, Read, Write};
+use std::time::{Duration, Instant};
 
+use futures::stream::{self, StreamExt};
 use proctor_core::{grade, parse_exam, result, ANSWER_INSTRUCTION};
 use serde::{Deserialize, Serialize};
 
+#[cfg(not(target_os = "wasi"))]
+use futures::executor::block_on;
+#[cfg(target_os = "wasi")]
+use wstd::runtime::block_on;
+
 const RUNNER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const DEFAULT_ENDPOINT: &str = "https://cloud-api.near.ai/v1/chat/completions";
-const DEFAULT_MAX_TOKENS: u32 = 1024;
-/// Stop asking new questions after this long. OutLayer kills a run at 180 s;
-/// stopping early still prints an honest, incomplete result.
-const QUESTION_BUDGET_SECS: u64 = 150;
+/// Room for reasoning models to think before they answer.
+const DEFAULT_MAX_TOKENS: u32 = 4096;
+/// Questions in flight at once. A reasoning model can take a minute per
+/// question, so asking one at a time would not fit OutLayer's 180 s cap.
+const CONCURRENCY: usize = 8;
+/// No model call may still be running after this long. OutLayer kills a run
+/// at 180 s; stopping first still prints an honest, incomplete result.
+const RUN_DEADLINE_SECS: u64 = 165;
+#[cfg(target_os = "wasi")]
+const CONNECT_TIMEOUT_SECS: u64 = 30;
 
 /// Public request: who sits the exam. Never contains exam content.
 #[derive(Debug, Deserialize)]
@@ -92,14 +105,14 @@ struct Output<'a> {
 }
 
 fn main() {
-    if let Err(message) = run() {
+    if let Err(message) = block_on(run()) {
         // Errors never include exam content.
         eprintln!("exam-runner error: {message}");
         std::process::exit(1);
     }
 }
 
-fn run() -> Result<(), String> {
+async fn run() -> Result<(), String> {
     let mut raw_input = String::new();
     io::stdin()
         .read_to_string(&mut raw_input)
@@ -114,18 +127,19 @@ fn run() -> Result<(), String> {
         std::env::var("NEARAI_API_KEY").map_err(|_| "NEARAI_API_KEY secret is not set")?;
     let exam = parse_exam(&exam_bytes).map_err(|e| e.to_string())?;
 
+    let deadline = Instant::now() + Duration::from_secs(RUN_DEADLINE_SECS);
+    // `buffered` keeps answers in question order while CONCURRENCY run at once.
+    let answers: Vec<Result<(String, String), String>> = stream::iter(&exam.questions)
+        .map(|question| ask_before(&input.candidate, &api_key, &question.prompt, input.max_tokens, deadline))
+        .buffered(CONCURRENCY)
+        .collect()
+        .await;
+
     let mut correct = 0u32;
     let mut failed_calls = 0u32;
     let mut response_ids = Vec::with_capacity(exam.questions.len());
-    let started = std::time::Instant::now();
-
-    for (index, question) in exam.questions.iter().enumerate() {
-        if started.elapsed().as_secs() >= QUESTION_BUDGET_SECS {
-            eprintln!("question {index}: skipped, time budget used up");
-            failed_calls += 1;
-            continue;
-        }
-        match ask(&input.candidate, &api_key, &question.prompt, input.max_tokens) {
+    for (index, (question, answer)) in exam.questions.iter().zip(answers).enumerate() {
+        match answer {
             Ok((id, answer)) => {
                 if grade(&question.grader, &answer) {
                     correct += 1;
@@ -195,37 +209,62 @@ fn parse_reply(body: &[u8]) -> Result<(String, String), String> {
     Ok((id, content))
 }
 
-#[cfg(target_os = "wasi")]
-fn ask(
+/// Asks one question, but only in the time left before the run deadline.
+async fn ask_before(
     candidate: &Candidate,
     api_key: &str,
     prompt: &str,
     max_tokens: u32,
+    deadline: Instant,
 ) -> Result<(String, String), String> {
-    use std::time::Duration;
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        return Err("skipped, time budget used up".into());
+    }
+    ask(candidate, api_key, prompt, max_tokens, remaining).await
+}
+
+#[cfg(target_os = "wasi")]
+async fn ask(
+    candidate: &Candidate,
+    api_key: &str,
+    prompt: &str,
+    max_tokens: u32,
+    limit: Duration,
+) -> Result<(String, String), String> {
+    use wstd::future::FutureExt as _;
+    use wstd::http::{Body, Client, Request};
+
     let body = build_request_body(candidate, prompt, max_tokens)?;
-    let response = wasi_http_client::Client::new()
-        .post(&candidate.endpoint)
+    let request = Request::post(&candidate.endpoint)
         .header("Content-Type", "application/json")
         .header("Authorization", format!("Bearer {api_key}"))
-        .connect_timeout(Duration::from_secs(30))
-        .body(body.as_bytes())
-        .send()
-        .map_err(|e| format!("request failed: {e:?}"))?;
-    let status = response.status();
-    let bytes = response.body().map_err(|e| format!("cannot read body: {e:?}"))?;
-    if !(200..300).contains(&status) {
-        return Err(format!("model endpoint returned HTTP {status}"));
-    }
-    parse_reply(&bytes)
+        .body(Body::from(body.into_bytes()))
+        .map_err(|e| format!("cannot build request: {e}"))?;
+    let mut client = Client::new();
+    client.set_connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS));
+    let call = async {
+        let response = client.send(request).await.map_err(|e| format!("request failed: {e}"))?;
+        let status = response.status();
+        let mut body = response.into_body();
+        let bytes = body.contents().await.map_err(|e| format!("cannot read body: {e}"))?.to_vec();
+        if !status.is_success() {
+            return Err(format!("model endpoint returned HTTP {status}"));
+        }
+        parse_reply(&bytes)
+    };
+    call.timeout(wstd::time::Duration::from(limit))
+        .await
+        .map_err(|_| "no answer before the run deadline".to_string())?
 }
 
 #[cfg(not(target_os = "wasi"))]
-fn ask(
+async fn ask(
     candidate: &Candidate,
     _api_key: &str,
     prompt: &str,
     max_tokens: u32,
+    _limit: Duration,
 ) -> Result<(String, String), String> {
     // Native builds exist only for tests; the runner itself targets wasm32-wasip2.
     let _ = build_request_body(candidate, prompt, max_tokens)?;
@@ -289,6 +328,13 @@ mod tests {
     fn answers_without_an_id_are_failed_calls() {
         let body = br#"{"choices":[{"message":{"content":"ANSWER: 4"}}]}"#;
         assert!(parse_reply(body).is_err());
+    }
+
+    #[test]
+    fn questions_after_the_deadline_are_failed_calls() {
+        let past = Instant::now() - Duration::from_secs(1);
+        let answer = block_on(ask_before(&candidate(), "key", "2+2?", 64, past));
+        assert_eq!(answer, Err("skipped, time budget used up".to_string()));
     }
 
     #[test]

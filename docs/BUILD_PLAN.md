@@ -6,9 +6,9 @@ Every skill, agent, MCP server and library installed for this build has an assig
 
 | Step | State |
 |---|---|
-| 1. Exam runner (`proctor-core` + `exam-runner`, wasm32-wasip2) | 25 tests pass (18 core, 7 runner); verified in wasmtime with real HTTPS; review fixes applied 2026-10-31 |
+| 1. Exam runner (`proctor-core` + `exam-runner`, wasm32-wasip2) | 26 tests pass (18 core, 8 runner). Asks questions concurrently (8 at a time) under a 165 s hard deadline. Live run 2026-11-01: DeepSeek V4.1 Flash (TEE) scored 3/5 on the demo exam in 50 s, complete, 5 completion ids. `proctor-seal` prepares exams byte-exactly |
 | 2. Certificate registry contract | 69 tests pass. Reviews done and CRITICAL/HIGH findings fixed; 24 h runner timelock, two-step ownership and two-strike revocation added (2026-10-31) |
-| NEAR AI key | Valid; credits not yet issued ("no spending limit configured") |
+| NEAR AI key | Working with credits (2026-11-01) |
 | OutLayer CLI | Installed: `outlayer 0.2.1` (official release binary, SHA-256 checked against GitHub's asset digest) |
 
 ## Step-by-step, with the tools each step uses
