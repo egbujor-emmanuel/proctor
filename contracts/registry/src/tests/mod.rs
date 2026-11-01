@@ -36,8 +36,13 @@ fn set_at(predecessor: &str, deposit: NearToken, at_ns: u64) {
     testing_env!(ctx(predecessor, deposit, 300, at_ns).build());
 }
 
+/// A runner build pinned by hash, as the registry requires.
+fn source_for(hash: &str) -> Value {
+    json!({ "WasmUrl": { "url": format!("https://example.org/{hash}.wasm"), "hash": hash, "build_target": "wasm32-wasip2" } })
+}
+
 fn runner_source() -> Value {
-    json!({ "Project": { "project_id": "owner.testnet/proctor-exam-runner", "version_key": null } })
+    source_for(RUNNER_HASH)
 }
 
 fn setup() -> Registry {

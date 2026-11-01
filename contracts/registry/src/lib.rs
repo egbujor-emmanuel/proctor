@@ -239,8 +239,7 @@ impl Registry {
         runner_source: Value,
         runner_hash: String,
     ) -> Self {
-        require_runner_source(&runner_source);
-        require!(is_hex64(&runner_hash), "runner_hash must be 64 lowercase hex characters");
+        require_runner_source(&runner_source, &runner_hash);
         Self {
             owner,
             outlayer_account,

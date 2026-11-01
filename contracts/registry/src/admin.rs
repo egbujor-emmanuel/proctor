@@ -27,8 +27,7 @@ impl Registry {
     /// `RUNNER_CHANGE_DELAY_NS` has passed; a new proposal restarts the clock.
     pub fn propose_runner(&mut self, runner_source: Value, runner_hash: String) {
         self.assert_owner();
-        require_runner_source(&runner_source);
-        require!(is_hex64(&runner_hash), "runner_hash must be 64 lowercase hex characters");
+        require_runner_source(&runner_source, &runner_hash);
         let now = env::block_timestamp();
         let effective_at_ns = now.saturating_add(RUNNER_CHANGE_DELAY_NS);
         self.pending_runner = Some(PendingRunner {

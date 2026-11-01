@@ -45,7 +45,7 @@ async fn deploy() -> anyhow::Result<Env> {
         .args_json(json!({
             "owner": registry.id(),
             "outlayer_account": mock.id(),
-            "runner_source": { "Project": { "project_id": "attrito.testnet/proctor-exam-runner", "version_key": null } },
+            "runner_source": { "WasmUrl": { "url": format!("https://example.org/{RUNNER_HASH}.wasm"), "hash": RUNNER_HASH, "build_target": "wasm32-wasip2" } },
             "runner_hash": RUNNER_HASH,
         }))
         .transact()

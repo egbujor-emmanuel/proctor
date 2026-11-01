@@ -6,7 +6,7 @@ const DAY_NS: u64 = RUNNER_CHANGE_DELAY_NS;
 
 fn propose(r: &mut Registry, hash: &str, at_ns: u64) {
     set_at("owner.testnet", NearToken::from_yoctonear(0), at_ns);
-    r.propose_runner(runner_source(), hash.into());
+    r.propose_runner(source_for(hash), hash.into());
 }
 
 fn apply_at(r: &mut Registry, at_ns: u64) {
@@ -19,15 +19,56 @@ fn apply_at(r: &mut Registry, at_ns: u64) {
 fn only_owner_can_propose_a_runner() {
     let mut r = setup();
     set("mallory.testnet", NearToken::from_yoctonear(0), 300);
-    r.propose_runner(runner_source(), OTHER_HASH.into());
+    r.propose_runner(source_for(OTHER_HASH), OTHER_HASH.into());
+}
+
+fn propose_source(source: Value, hash: &str) {
+    let mut r = setup();
+    set("owner.testnet", NearToken::from_yoctonear(0), 300);
+    r.propose_runner(source, hash.into());
 }
 
 #[test]
-#[should_panic(expected = "runner_source must be an OutLayer ExecutionSource object")]
-fn runner_source_must_be_an_object() {
+#[should_panic(expected = "runner_source must be a WasmUrl (pinned by hash) or GitHub (pinned by commit)")]
+fn runner_source_must_be_an_execution_source() {
+    propose_source(Value::Null, OTHER_HASH);
+}
+
+#[test]
+#[should_panic(expected = "runner_source must be a WasmUrl (pinned by hash) or GitHub (pinned by commit)")]
+fn a_project_source_is_refused_because_its_active_version_can_change() {
+    let project = json!({ "Project": { "project_id": "owner.testnet/proctor-exam-runner", "version_key": null } });
+    propose_source(project, OTHER_HASH);
+}
+
+#[test]
+#[should_panic(expected = "WasmUrl hash must equal runner_hash")]
+fn a_wasm_url_must_carry_the_registered_hash() {
+    propose_source(source_for(RUNNER_HASH), OTHER_HASH);
+}
+
+#[test]
+#[should_panic(expected = "WasmUrl url must be https://")]
+fn a_wasm_url_must_be_https() {
+    let source = json!({ "WasmUrl": { "url": "ipfs://bafy", "hash": OTHER_HASH, "build_target": "wasm32-wasip2" } });
+    propose_source(source, OTHER_HASH);
+}
+
+#[test]
+#[should_panic(expected = "GitHub runner source must pin a full 40-character commit")]
+fn a_github_source_must_pin_a_full_commit() {
+    let source = json!({ "GitHub": { "repo": "https://github.com/a/b", "commit": "main", "build_target": "wasm32-wasip2" } });
+    propose_source(source, OTHER_HASH);
+}
+
+#[test]
+fn a_github_source_at_a_full_commit_is_accepted() {
     let mut r = setup();
     set("owner.testnet", NearToken::from_yoctonear(0), 300);
-    r.propose_runner(Value::Null, OTHER_HASH.into());
+    let commit = "c872714".repeat(6)[..40].to_string();
+    let source = json!({ "GitHub": { "repo": "https://github.com/a/b", "commit": commit, "build_target": "wasm32-wasip2" } });
+    r.propose_runner(source, OTHER_HASH.into());
+    assert_eq!(r.get_config().pending_runner.unwrap().runner_hash, OTHER_HASH);
 }
 
 #[test]
@@ -116,7 +157,7 @@ fn ownership_moves_only_when_the_new_owner_accepts() {
     assert_eq!(config.owner, acc("next.testnet"));
     assert!(config.pending_owner.is_none());
     // The new owner holds the owner powers; the old one no longer does.
-    r.propose_runner(runner_source(), OTHER_HASH.into());
+    r.propose_runner(source_for(OTHER_HASH), OTHER_HASH.into());
 }
 
 #[test]
@@ -128,7 +169,7 @@ fn previous_owner_loses_owner_powers() {
     set("next.testnet", NearToken::from_yoctonear(0), 300);
     r.accept_owner();
     set("owner.testnet", NearToken::from_yoctonear(0), 300);
-    r.propose_runner(runner_source(), OTHER_HASH.into());
+    r.propose_runner(source_for(OTHER_HASH), OTHER_HASH.into());
 }
 
 #[test]

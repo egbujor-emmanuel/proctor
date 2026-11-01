@@ -33,8 +33,32 @@ pub(crate) fn require_profile(value: &str) {
     );
 }
 
-pub(crate) fn require_runner_source(runner_source: &Value) {
-    require!(runner_source.is_object(), "runner_source must be an OutLayer ExecutionSource object");
+/// The exam runner must be pinned to exact code, so the timelock on runner
+/// changes cannot be bypassed outside this contract:
+/// - `WasmUrl` whose `hash` is `runner_hash` (OutLayer's worker refuses any
+///   download that does not hash to it), or
+/// - `GitHub` at a full 40-character commit, which OutLayer compiles itself.
+///
+/// A `Project` source is refused: it runs the project's *active* version,
+/// which the project owner can switch at any time.
+pub(crate) fn require_runner_source(runner_source: &Value, runner_hash: &str) {
+    require!(is_hex64(runner_hash), "runner_hash must be 64 lowercase hex characters");
+    if let Some(wasm) = runner_source.get("WasmUrl") {
+        let url = wasm.get("url").and_then(Value::as_str).unwrap_or_default();
+        require!(url.starts_with("https://"), "WasmUrl url must be https://, the only scheme OutLayer fetches");
+        require!(
+            wasm.get("hash").and_then(Value::as_str) == Some(runner_hash),
+            "WasmUrl hash must equal runner_hash"
+        );
+    } else if let Some(github) = runner_source.get("GitHub") {
+        let commit = github.get("commit").and_then(Value::as_str).unwrap_or_default();
+        require!(
+            commit.len() == 40 && commit.bytes().all(|b| b.is_ascii_hexdigit()),
+            "GitHub runner source must pin a full 40-character commit"
+        );
+    } else {
+        env::panic_str("runner_source must be a WasmUrl (pinned by hash) or GitHub (pinned by commit) ExecutionSource");
+    }
 }
 
 /// Safe as a map key because neither part may contain `|`.
