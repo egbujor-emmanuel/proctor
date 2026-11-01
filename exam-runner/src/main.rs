@@ -64,7 +64,10 @@ struct ChatRequest<'a> {
     model: &'a str,
     messages: [ChatMessage<'a>; 2],
     max_tokens: u32,
-    temperature: f32,
+    /// 0 for repeatable grading. Left out only for models that reject any
+    /// value but their default (see `rejects_temperature`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
 }
 
 #[derive(Serialize)]
@@ -187,7 +190,7 @@ fn sends_api_key(endpoint: &str) -> bool {
     endpoint.starts_with(NEAR_AI_ORIGIN)
 }
 
-fn build_request_body(candidate: &Candidate, prompt: &str, max_tokens: u32) -> Result<String, String> {
+fn build_request_body(candidate: &Candidate, prompt: &str, max_tokens: u32, pin_temperature: bool) -> Result<String, String> {
     let request = ChatRequest {
         model: &candidate.model,
         messages: [
@@ -195,9 +198,16 @@ fn build_request_body(candidate: &Candidate, prompt: &str, max_tokens: u32) -> R
             ChatMessage { role: "user", content: prompt },
         ],
         max_tokens,
-        temperature: 0.0,
+        temperature: pin_temperature.then_some(0.0),
     };
     serde_json::to_string(&request).map_err(|e| e.to_string())
+}
+
+/// True when an HTTP 400 says the model refuses a pinned temperature (some
+/// reasoning models accept only their default). Only then is the question
+/// asked again without it; every other error stays a failed call.
+fn rejects_temperature(status: u16, body: &[u8]) -> bool {
+    status == 400 && String::from_utf8_lossy(body).to_ascii_lowercase().contains("temperature")
 }
 
 /// Reads one completion. Anything that is not a whole, signed-off answer is
@@ -245,21 +255,31 @@ async fn ask(
     use wstd::future::FutureExt as _;
     use wstd::http::{Body, Client, Request};
 
-    let body = build_request_body(candidate, prompt, max_tokens)?;
-    let mut builder = Request::post(&candidate.endpoint).header("Content-Type", "application/json");
-    if sends_api_key(&candidate.endpoint) {
-        builder = builder.header("Authorization", format!("Bearer {api_key}"));
-    }
-    let request = builder
-        .body(Body::from(body.into_bytes()))
-        .map_err(|e| format!("cannot build request: {e}"))?;
     let mut client = Client::new();
     client.set_connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS));
+    let send = |pin_temperature: bool| {
+        let client = client.clone();
+        async move {
+            let body = build_request_body(candidate, prompt, max_tokens, pin_temperature)?;
+            let mut builder = Request::post(&candidate.endpoint).header("Content-Type", "application/json");
+            if sends_api_key(&candidate.endpoint) {
+                builder = builder.header("Authorization", format!("Bearer {api_key}"));
+            }
+            let request = builder
+                .body(Body::from(body.into_bytes()))
+                .map_err(|e| format!("cannot build request: {e}"))?;
+            let response = client.send(request).await.map_err(|e| format!("request failed: {e}"))?;
+            let status = response.status();
+            let mut body = response.into_body();
+            let bytes = body.contents().await.map_err(|e| format!("cannot read body: {e}"))?.to_vec();
+            Ok::<_, String>((status, bytes))
+        }
+    };
     let call = async {
-        let response = client.send(request).await.map_err(|e| format!("request failed: {e}"))?;
-        let status = response.status();
-        let mut body = response.into_body();
-        let bytes = body.contents().await.map_err(|e| format!("cannot read body: {e}"))?.to_vec();
+        let (mut status, mut bytes) = send(true).await?;
+        if rejects_temperature(status.as_u16(), &bytes) {
+            (status, bytes) = send(false).await?;
+        }
         if !status.is_success() {
             return Err(format!("model endpoint returned HTTP {status}"));
         }
@@ -279,7 +299,7 @@ async fn ask(
     _limit: Duration,
 ) -> Result<(String, String), String> {
     // Native builds exist only for tests; the runner itself targets wasm32-wasip2.
-    let _ = build_request_body(candidate, prompt, max_tokens)?;
+    let _ = build_request_body(candidate, prompt, max_tokens, true)?;
     Err("HTTP is only available in the wasm32-wasip2 build".to_string())
 }
 
@@ -293,7 +313,7 @@ mod tests {
 
     #[test]
     fn request_body_pins_temperature_and_instruction() {
-        let body = build_request_body(&candidate(), "What is 2+2?", 64).unwrap();
+        let body = build_request_body(&candidate(), "What is 2+2?", 64, true).unwrap();
         let v: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(v["temperature"], 0.0);
         assert_eq!(v["messages"][0]["content"], ANSWER_INSTRUCTION);
@@ -347,6 +367,17 @@ mod tests {
         let past = Instant::now() - Duration::from_secs(1);
         let answer = block_on(ask_before(&candidate(), "key", "2+2?", 64, past));
         assert_eq!(answer, Err("skipped, time budget used up".to_string()));
+    }
+
+    #[test]
+    fn temperature_is_left_out_only_for_models_that_refuse_it() {
+        let unpinned: serde_json::Value =
+            serde_json::from_str(&build_request_body(&candidate(), "2+2?", 64, false).unwrap()).unwrap();
+        assert!(unpinned.get("temperature").is_none());
+        let refusal = br#"{"error":{"message":"Unsupported value: 'temperature' does not support 0.0 with this model."}}"#;
+        assert!(rejects_temperature(400, refusal));
+        assert!(!rejects_temperature(400, br#"{"error":{"message":"unknown model"}}"#));
+        assert!(!rejects_temperature(500, refusal));
     }
 
     #[test]
