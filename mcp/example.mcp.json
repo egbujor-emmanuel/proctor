@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "proctor": {
+      "command": "node",
+      "args": ["mcp/dist/index.js"],
+      "env": {
+        "PROCTOR_REGISTRY": "registry.attrito.testnet",
+        "NEAR_RPC_URL": "https://rpc.testnet.fastnear.com"
+      }
+    },
+    "agent-market": {
+      "type": "http",
+      "url": "https://market.near.ai/mcp"
+    }
+  }
+}

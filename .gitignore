@@ -3,3 +3,4 @@ target/
 .env.*
 *.secret.json
 node_modules/
+mcp/dist/
