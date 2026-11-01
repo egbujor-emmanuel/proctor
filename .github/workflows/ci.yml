@@ -57,6 +57,32 @@ jobs:
           echo "expected: $expected"
           test "${{ steps.build.outputs.sha256 }}" = "$expected"
 
+  registry-build:
+    name: Registry contract release build (hash-checked)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+          targets: wasm32-unknown-unknown
+      - name: Install cargo-near 0.22.0
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
+      - name: Build with remapped paths
+        id: build
+        run: echo "sha256=$(bash scripts/build-registry.sh | tail -1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: proctor-registry-${{ steps.build.outputs.sha256 }}
+          path: contracts/registry/target/near/proctor_registry.wasm
+          if-no-files-found: error
+      - name: Hash matches the pinned release
+        run: |
+          expected="$(cut -d' ' -f1 contracts/registry/RELEASE.sha256)"
+          echo "built:    ${{ steps.build.outputs.sha256 }}"
+          echo "expected: $expected"
+          test "${{ steps.build.outputs.sha256 }}" = "$expected"
+
   mcp:
     name: MCP server (typecheck, tests, build)
     runs-on: ubuntu-latest
