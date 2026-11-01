@@ -53,5 +53,5 @@ jobs:
       - name: Build contracts and runner
         run: bash scripts/build-contracts.sh
       - name: Run sandbox tests
-        run: cargo test -- --test-threads=2
+        run: cargo test -- --test-threads=2 --nocapture
         working-directory: contracts/sandbox-tests

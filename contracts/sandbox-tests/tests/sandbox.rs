@@ -17,8 +17,11 @@ const RUNNER_HASH: &str = "11111111111111111111111111111111111111111111111111111
 const MODEL: &str = "Qwen/Qwen3.8-27B";
 const QUESTIONS: u32 = 5;
 const SITTING_DEPOSIT: NearToken = NearToken::from_millinear(100);
-/// Comfortably past the registry's one-hour re-test cooldown.
-const BLOCKS_PAST_COOLDOWN: u64 = 4_000;
+/// The registry's re-test cooldown, plus a margin.
+const COOLDOWN_NS: u64 = 61 * 60 * 1_000_000_000;
+/// Blocks per fast-forward step while waiting out the cooldown, and a cap.
+const FORWARD_STEP: u64 = 5_000;
+const MAX_FORWARD_BLOCKS: u64 = 400_000;
 
 struct Env {
     worker: Worker<Sandbox>,
@@ -93,6 +96,24 @@ async fn retest(env: &Env, cert_id: u64) -> anyhow::Result<Value> {
         .transact()
         .await?;
     Ok(result.into_result()?.json()?)
+}
+
+/// Fast-forwards until the chain clock has moved past the re-test cooldown.
+/// How much time a fast-forwarded block adds depends on the sandbox, so this
+/// measures the clock rather than assuming a block time.
+async fn wait_out_cooldown(env: &Env) -> anyhow::Result<()> {
+    let start = env.worker.view_block().await?.timestamp();
+    let mut forwarded = 0;
+    loop {
+        let now = env.worker.view_block().await?.timestamp();
+        if now.saturating_sub(start) >= COOLDOWN_NS {
+            eprintln!("cooldown passed after {forwarded} blocks ({} ns/block)", (now - start) / forwarded.max(1));
+            return Ok(());
+        }
+        anyhow::ensure!(forwarded < MAX_FORWARD_BLOCKS, "chain clock moved only {} s in {forwarded} blocks", (now - start) / 1_000_000_000);
+        env.worker.fast_forward(FORWARD_STEP).await?;
+        forwarded += FORWARD_STEP;
+    }
 }
 
 async fn view(env: &Env, method: &str, args: Value) -> anyhow::Result<Value> {
@@ -199,13 +220,13 @@ async fn two_failed_retests_in_a_row_revoke_and_outages_change_nothing() -> anyh
     assert!(is_certified(&env).await?);
 
     // First complete failure suspends.
-    env.worker.fast_forward(BLOCKS_PAST_COOLDOWN).await?;
+    wait_out_cooldown(&env).await?;
     set_mode(&env, "Fail").await?;
     assert_eq!(retest(&env, 0).await?, json!({ "Suspended": { "cert_id": 0, "score_bps": 0 } }));
     assert!(!is_certified(&env).await?);
 
     // A second one in a row revokes.
-    env.worker.fast_forward(BLOCKS_PAST_COOLDOWN).await?;
+    wait_out_cooldown(&env).await?;
     assert_eq!(retest(&env, 0).await?, json!({ "Revoked": { "cert_id": 0, "score_bps": 0 } }));
     let cert = view(&env, "get_certificate", json!({ "cert_id": 0 })).await?;
     assert!(cert["status"].get("Revoked").is_some(), "{cert}");
