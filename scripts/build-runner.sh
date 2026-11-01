@@ -30,7 +30,7 @@ unset RUSTFLAGS
 
 cargo "+$toolchain" build -p exam-runner --target wasm32-wasip2 --release --locked
 wasm=target/wasm32-wasip2/release/exam-runner.wasm
-if grep -a -q -E '[A-Za-z]:\Users|/home/|/Users/' "$wasm"; then
+if grep -a -q -E '[A-Za-z]:.Users|/home/|/Users/' "$wasm"; then
   echo "error: $wasm still embeds a local path" >&2
   exit 1
 fi

@@ -44,7 +44,9 @@ jobs:
           targets: wasm32-wasip2
       - name: Build with remapped paths
         id: build
-        run: echo "sha256=$(bash scripts/build-runner.sh | tail -1)" >> "$GITHUB_OUTPUT"
+        run: |
+          bash scripts/build-runner.sh > build.out
+          echo "sha256=$(tail -1 build.out)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: exam-runner-${{ steps.build.outputs.sha256 }}
@@ -70,7 +72,9 @@ jobs:
         run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
       - name: Build with remapped paths
         id: build
-        run: echo "sha256=$(bash scripts/build-registry.sh | tail -1)" >> "$GITHUB_OUTPUT"
+        run: |
+          bash scripts/build-registry.sh > build.out
+          echo "sha256=$(tail -1 build.out)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: proctor-registry-${{ steps.build.outputs.sha256 }}
