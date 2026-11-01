@@ -6,7 +6,7 @@
   ],
   "accessibility": {
     "status": "pass",
-    "evidence": "Lighthouse (chrome-devtools MCP) Accessibility, Best Practices, SEO and Agentic Browsing 100 on desktop and mobile, re-run after the review fixes. a11y-architect review (7 HIGH) fixed: focus never hidden under the sticky header (scroll-padding; Playwright Shift+Tab over 25 stops found no covered control), field error tied to the input (aria-invalid, aria-describedby, focus moves to it), one concise role=status announcement instead of a live verdict card, registry no longer a live region, full hashes in the DOM with copy buttons, copy failures announced, input border at 7.4:1. Skip link first; dl order dt then dd; time elements; new-tab links say so."
+    "evidence": "Lighthouse (chrome-devtools MCP) Accessibility, Best Practices, SEO and Agentic Browsing 100 on desktop and mobile, re-run after the review fixes. a11y-architect review (7 HIGH) fixed: focus never hidden under the sticky header (scroll-padding; Playwright Shift+Tab over 25 stops found no covered control), field error tied to the input (aria-invalid, aria-describedby, focus moves to it), one concise role=status announcement instead of a live verdict card, registry no longer a live region, full hashes in the DOM with copy buttons, copy failures announced, input border at 7.4:1. Skip link first; dl order dt then dd; time elements; new-tab links say so. Re-run after the React Bits pass: Lighthouse mobile accessibility 100; animated board, radar, marquee and shuffled labels are aria-hidden with plain sr-only text; reduced motion verified."
   },
   "responsive": {
     "status": "pass",
@@ -15,7 +15,7 @@
   "contentStates": {
     "loading": {
       "status": "pass",
-      "evidence": "Registry and verdict areas render fixed-height skeletons (pulse disabled under reduced motion); hero counters show a placeholder dot while aria-busy is true."
+      "evidence": "RPC held 4s in Playwright: LatticeLoader with label and elapsed timer replaces the result panel; a role=status line announces 'Checking the registry.' (check-agent-loading.png)."
     },
     "empty": {
       "status": "pass",
@@ -42,12 +42,12 @@
     {
       "viewport": "1440x900",
       "artifact": "desktop-1440-hero.png",
-      "observation": "Hero with live counts read from registry.attrito.testnet, editorial serif headline, two CTAs."
+      "observation": "Two-column hero: serif headline, live odometer counts from registry.attrito.testnet, and the re-test radar whose split-flap board cycles ACTIVE, SUSPENDED, REVOKED with matching captions and stage buttons."
     },
     {
       "viewport": "1440x900",
       "artifact": "desktop-1440-full.png",
-      "observation": "Whole page in order; certificate seal absent in this capture because its scroll trigger had not fired, confirmed rendered in certificate-card.png."
+      "observation": "Whole page after a real wheel scroll to 4780px (Lenis still scrolls): Runs-on marquee, shuffled section labels, how-it-works stages, certificate with PASS seal, buyer check, trust model; paper grain over all."
     },
     {
       "viewport": "1440x900",
@@ -62,7 +62,7 @@
     {
       "viewport": "390x844",
       "artifact": "mobile-390-hero.png",
-      "observation": "Left-aligned headline, stacked CTAs, three live counters fit the width."
+      "observation": "Headline, stacked CTAs, three live counters top-aligned even when a label wraps to two lines; no horizontal overflow."
     },
     {
       "viewport": "390x844",
@@ -73,6 +73,26 @@
       "viewport": "390x844",
       "artifact": "mobile-390-certificate.png",
       "observation": "Certificate fields stack in one column; hashes wrap without overflow."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "desktop-1440-hero-dark.png",
+      "observation": "Dark scheme: radar glows in the suspended amber token, board glyphs legible on the dark tile, stage button pressed state inverted."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "desktop-1440-hero-reduced.png",
+      "observation": "prefers-reduced-motion: board holds on ACTIVE without auto-advancing, radar paused, marquee stopped; stage buttons still switch stages."
+    },
+    {
+      "viewport": "1440x900",
+      "artifact": "check-agent-loading.png",
+      "observation": "Loading state with RPC held 4s: LatticeLoader with 'Reading certificates from NEAR testnet' and a live timer, Check button disabled as Checking."
+    },
+    {
+      "viewport": "390x844",
+      "artifact": "mobile-390-scope.png",
+      "observation": "Radar and status board scale to the column; board, caption and three stage buttons fit at 390px."
     }
   ]
 }

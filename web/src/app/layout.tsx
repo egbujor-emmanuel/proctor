@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, Newsreader } from "next/font/google";
 
+import Noise from "@/components/bits/Noise";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import "./globals.css";
 
@@ -34,6 +35,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${newsreader.variable} ${plexSans.variable} ${plexMono.variable} antialiased`}>
       <body className="min-h-dvh">
         <SmoothScroll>{children}</SmoothScroll>
+        {/* Static paper grain (fps 0 paints once); purely decorative. */}
+        <Noise fixed fps={0} opacity={0.07} contrast={0.5} blendMode="multiply" zIndex={60} className="dark:hidden" />
+        <Noise fixed fps={0} opacity={0.05} contrast={0.5} blendMode="screen" zIndex={60} className="hidden dark:block" />
       </body>
     </html>
   );

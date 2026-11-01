@@ -1,5 +1,6 @@
 import { CopyCommand } from "@/components/ui/CopyCommand";
 import { explorerAccount, REGISTRY } from "@/lib/config";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 
 const EXAM = "near-protocol-basics-demo-v1";
 const MODEL = "deepseek-ai/DeepSeek-V4.1-Flash-1017";
@@ -37,7 +38,7 @@ export function TestIt() {
       <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
           <div>
-            <p className="font-mono text-xs uppercase tracking-[0.18em] text-seal">For judges and builders</p>
+            <Eyebrow text="For judges and builders" />
             <h2 id="test-it-title" className="mt-3 font-serif text-4xl text-ink sm:text-5xl">
               Test it in 5 minutes
             </h2>

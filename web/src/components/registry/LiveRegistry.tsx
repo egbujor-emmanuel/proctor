@@ -3,6 +3,7 @@
 import { useRegistry } from "@/hooks/useRegistry";
 import { explorerAccount, REGISTRY } from "@/lib/config";
 import { CertificatePaper } from "./CertificatePaper";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 
 function Skeleton() {
   return (
@@ -20,7 +21,7 @@ export function LiveRegistry() {
     <section id="registry" aria-labelledby="registry-title" className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
       <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-seal">Live from NEAR testnet</p>
+          <Eyebrow text="Live from NEAR testnet" />
           <h2 id="registry-title" className="mt-3 font-serif text-4xl text-ink sm:text-5xl">
             The registry
           </h2>

@@ -1,11 +1,13 @@
 "use client";
 
-import { Counter } from "@/components/Counter";
+import Counter from "@/components/bits/Counter";
 import { useRegistry } from "@/hooks/useRegistry";
+import { HeroScope } from "./HeroScope";
+import { RunsOn } from "./RunsOn";
 
 function Stat({ label, value, isLoading }: { label: string; value?: number; isLoading: boolean }) {
   return (
-    <div className="flex flex-col-reverse border-l border-rule pl-4">
+    <div className="flex flex-col-reverse justify-end border-l border-rule pl-4">
       <dt className="mt-1 text-xs uppercase tracking-wide text-ink-muted">{label}</dt>
       <dd className="font-serif text-4xl text-ink tabular-nums">
         {value === undefined ? (
@@ -16,7 +18,7 @@ function Stat({ label, value, isLoading }: { label: string; value?: number; isLo
             <span className="sr-only">{isLoading ? "Loading" : "Unavailable"}</span>
           </>
         ) : (
-          <Counter value={value} />
+          <Counter value={value} fontSize="1em" fontWeight="inherit" duration={1.1} stagger={0.08} fade={0.18} />
         )}
       </dd>
     </div>
@@ -30,9 +32,11 @@ export function Hero() {
   const openExams = data?.exams.filter((e) => e.active).length;
 
   return (
-    <section id="top" aria-labelledby="hero-title" className="mx-auto max-w-6xl px-5 pb-20 pt-16 sm:px-8 sm:pt-24">
+    <section id="top" aria-labelledby="hero-title" className="mx-auto max-w-6xl px-5 pb-12 pt-16 sm:px-8 sm:pt-24">
+      <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+      <div>
       <p className="font-mono text-xs uppercase tracking-[0.18em] text-seal">Agent certification on NEAR · OutLayer TEE · NEAR AI</p>
-      <h1 id="hero-title" className="mt-6 max-w-4xl font-serif text-5xl leading-[1.02] tracking-tight text-ink sm:text-7xl">
+      <h1 id="hero-title" className="mt-6 max-w-4xl font-serif text-5xl leading-[1.02] tracking-tight text-ink sm:text-7xl lg:text-[5.25rem]">
         A driving test for AI agents.
       </h1>
       <p className="mt-8 max-w-2xl text-lg leading-relaxed text-ink-muted">
@@ -61,6 +65,10 @@ export function Hero() {
       {isStale && data && (
         <p className="mt-4 text-sm text-suspended">Refresh failed; showing figures read at {new Date(data.readAt).toLocaleTimeString()}.</p>
       )}
+      </div>
+      <HeroScope />
+      </div>
+      <RunsOn />
     </section>
   );
 }

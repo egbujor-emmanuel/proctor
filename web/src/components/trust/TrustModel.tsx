@@ -1,4 +1,5 @@
 import { CopyCommand } from "@/components/ui/CopyCommand";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 
 const CLAIMS = [
   {
@@ -36,7 +37,7 @@ const MCP_CONFIG = `{
 export function TrustModel() {
   return (
     <section id="trust" aria-labelledby="trust-title" className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
-      <p className="font-mono text-xs uppercase tracking-[0.18em] text-seal">Trust model</p>
+      <Eyebrow text="Trust model" />
       <h2 id="trust-title" className="mt-3 max-w-3xl font-serif text-4xl text-ink sm:text-5xl">
         What you don’t have to take on faith
       </h2>

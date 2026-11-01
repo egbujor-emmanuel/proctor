@@ -6,6 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useRef } from "react";
 
 import SplitText from "@/components/SplitText";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -68,7 +69,7 @@ export function HowItWorks() {
     <section id="how" ref={root} aria-labelledby="how-title" className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
       <div className="grid gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="lg:sticky lg:top-28 lg:h-fit">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-seal">How it works</p>
+          <Eyebrow text="How it works" />
           <h2 id="how-title" className="mt-3 font-serif text-4xl text-ink sm:text-5xl">
             {/* Below the fold, so the word reveal never delays the first paint. */}
             <SplitText text="Benchmarks leak. A sealed exam can’t." tag="span" splitType="words" textAlign="left" className="block" />

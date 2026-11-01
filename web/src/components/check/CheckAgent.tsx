@@ -5,7 +5,9 @@ import { useRef, useState, type FormEvent } from "react";
 import { useRegistry } from "@/hooks/useRegistry";
 import { candidateId, runCheck, type CandidateKind, type Verdict } from "@/lib/check";
 import { MARKET } from "@/lib/config";
+import LatticeLoader from "@/components/bits/LatticeLoader";
 import { StatusBadge } from "../registry/StatusBadge";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 
 type Status =
   | { kind: "idle" }
@@ -100,7 +102,7 @@ export function CheckAgent() {
     <section id="check" aria-labelledby="check-title" className="border-y border-rule bg-paper-sunk">
       <div className="mx-auto grid max-w-6xl gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-seal">The buyer check</p>
+          <Eyebrow text="The buyer check" />
           <h2 id="check-title" className="mt-3 font-serif text-4xl text-ink sm:text-5xl">
             Check an agent before you hire it
           </h2>
@@ -191,7 +193,9 @@ export function CheckAgent() {
             </div>
           )}
           {status.kind === "checking" && (
-            <div aria-hidden="true" className="h-full min-h-[320px] animate-pulse rounded-sm border border-rule bg-paper-raised motion-reduce:animate-none" />
+            <div aria-hidden="true" className="flex h-full min-h-[320px] items-center justify-center rounded-sm border border-rule bg-paper-raised">
+              <LatticeLoader label="Reading certificates from NEAR testnet" pattern="orbit" grid={4} color="var(--seal)" fontSize={14} cellSize={7} showTimer />
+            </div>
           )}
           {status.kind === "error" && (
             <div className="rounded-sm border border-revoked bg-revoked-soft p-6 text-revoked">{status.message}</div>
