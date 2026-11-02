@@ -1,0 +1,749 @@
+{
+  "exam_id": "near-protocol-basics-demo-v1",
+  "exam_commitment": "aed0590cdb979c1bea7f5d2c3c0f76151524c618a8f71a37ce9a9a4e44bed51c",
+  "question_count": 5,
+  "pass_mark_bps": 6000,
+  "started_utc": "2026-11-02 00:38 UTC",
+  "command": "cargo run -p proctor-bench --release -- --exam exams/near-protocol-basics.public.json --runs 10 --models anthropic/claude-sonnet-5-5,openai/gpt-5.4-nano,deepseek-ai/DeepSeek-V4.1-Flash-1017,google/gemini-3.5-flash,openai/gpt-5.5",
+  "runs_per_model": 10,
+  "models": [
+    {
+      "model": "anthropic/claude-sonnet-5-5",
+      "runs": 10,
+      "complete": 10,
+      "passes": 10,
+      "pass_rate": 1.0,
+      "pass_rate_ci95": [
+        0.7224672001371107,
+        0.9999999999999999
+      ],
+      "mean_score_bps": 8600.0,
+      "min_score_bps": 6000,
+      "max_score_bps": 10000
+    },
+    {
+      "model": "openai/gpt-5.4-nano",
+      "runs": 10,
+      "complete": 10,
+      "passes": 0,
+      "pass_rate": 0.0,
+      "pass_rate_ci95": [
+        0.0,
+        0.2775327998628892
+      ],
+      "mean_score_bps": 3600.0,
+      "min_score_bps": 2000,
+      "max_score_bps": 4000
+    },
+    {
+      "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "runs": 10,
+      "complete": 8,
+      "passes": 7,
+      "pass_rate": 0.875,
+      "pass_rate_ci95": [
+        0.5291118177871464,
+        0.9775825085499433
+      ],
+      "mean_score_bps": 5750.0,
+      "min_score_bps": 4000,
+      "max_score_bps": 6000
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "runs": 10,
+      "complete": 8,
+      "passes": 8,
+      "pass_rate": 1.0,
+      "pass_rate_ci95": [
+        0.6755924351161198,
+        1.0
+      ],
+      "mean_score_bps": 6500.0,
+      "min_score_bps": 6000,
+      "max_score_bps": 8000
+    },
+    {
+      "model": "openai/gpt-5.5",
+      "runs": 10,
+      "complete": 6,
+      "passes": 3,
+      "pass_rate": 0.5,
+      "pass_rate_ci95": [
+        0.18761630648265054,
+        0.8123836935173494
+      ],
+      "mean_score_bps": 5000.0,
+      "min_score_bps": 4000,
+      "max_score_bps": 6000
+    }
+  ],
+  "runs": [
+    {
+      "model": "anthropic/claude-sonnet-5-5",
+      "runs": [
+        {
+          "correct": 5,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 10000,
+          "response_ids": [
+            "msg_011CgdAg8hDRQScpr8BSpg8Q",
+            "msg_011CgdAg8UKYes1YfeZYAPMu",
+            "msg_011CgdAg7mQgzHAbY399ZySA",
+            "msg_011CgdAg89j832DLRStjxGbU",
+            "msg_011CgdAg7jvfWDjbXuiGuhwV"
+          ]
+        },
+        {
+          "correct": 4,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 8000,
+          "response_ids": [
+            "msg_011CgdAggQTZeJxbBfYNDTNh",
+            "msg_011CgdAggZsk1iov3az8KuE1",
+            "msg_011CgdAgfy9v6GNB5R2WyB3g",
+            "msg_011CgdAgjLKcybkVYUftC5Ze",
+            "msg_011CgdAgjQmmn6HAkjXMYiUJ"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "msg_011CgdAh9RQWmKkZ8A4tkYWg",
+            "msg_011CgdAh9QACBLf293hv9CsS",
+            "msg_011CgdAh9PBJtZFJdNzigNZM",
+            "msg_011CgdAhEuZPVVP3eYfdpuaS",
+            "msg_011CgdAhGofEBvqxfrSwgueY"
+          ]
+        },
+        {
+          "correct": 5,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 10000,
+          "response_ids": [
+            "msg_011CgdAhgFK2KX57MfbDHZD2",
+            "msg_011CgdAhfi4ADSXtZMnJmr3P",
+            "msg_011CgdAhgJHf1urf3Tf2jeg9",
+            "msg_011CgdAhiw2qvWgmF3VKi5fM",
+            "msg_011CgdAhipbCZaTeVxdfK3v9"
+          ]
+        },
+        {
+          "correct": 4,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 8000,
+          "response_ids": [
+            "msg_011CgdAiG8zeNfKbyR9j7Z8f",
+            "msg_011CgdAiGBySr5CZcVq2Krto",
+            "msg_011CgdAiG1Jt4HQSjggikLxu",
+            "msg_011CgdAiKKzQZd9Xte1EVhYB",
+            "msg_011CgdAiKAaCxeQonVG1AQVQ"
+          ]
+        },
+        {
+          "correct": 4,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 8000,
+          "response_ids": [
+            "msg_011CgdAijUZ2udf3gQxV31jw",
+            "msg_011CgdAiodprSdpmxeGUd4Gn",
+            "msg_011CgdAijYmGRrz5TC6tU8Rc",
+            "msg_011CgdAijEfST4gNtcyrmtBz",
+            "msg_011CgdAinaLfRr3unDLSuNG1"
+          ]
+        },
+        {
+          "correct": 4,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 8000,
+          "response_ids": [
+            "msg_011CgdAjTVQYWtPikM6t33PT",
+            "msg_011CgdAjTqyxXyMoJ9pUCT4g",
+            "msg_011CgdAjTTQqmk3Kv8CLxQ99",
+            "msg_011CgdAjWcBRKBDHnG956TGY",
+            "msg_011CgdAjWfQDYY8pSN1RM66e"
+          ]
+        },
+        {
+          "correct": 4,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 8000,
+          "response_ids": [
+            "msg_011CgdAjy68sFckzb2oQ653Y",
+            "msg_011CgdAjxwCuK5RJkw5cFwk3",
+            "msg_011CgdAjyWvxshSLuP5EfBN4",
+            "msg_011CgdAk1mcs2UkRx8atWPDY",
+            "msg_011CgdAkUDqbfVmr7LghLERW"
+          ]
+        },
+        {
+          "correct": 5,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 10000,
+          "response_ids": [
+            "msg_011CgdAkoH3vhb3esiKifrCL",
+            "msg_011CgdAkk35yuoCbPPuEiZ4q",
+            "msg_011CgdAkk7oiNaeGLLdTRfTc",
+            "msg_011CgdAkkFEtti48xwW6JFjv",
+            "msg_011CgdAkoF4yHRPtvxFhzxnc"
+          ]
+        },
+        {
+          "correct": 5,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 10000,
+          "response_ids": [
+            "msg_011CgdAmESeLufjJpDEXws1K",
+            "msg_011CgdAmDv993uHB1321P56w",
+            "msg_011CgdAmHcspsxaSyXtDctp1",
+            "msg_011CgdAmEDk1FVKn8qQHBGUb",
+            "msg_011CgdAmHibCqTsE3aPnDBRs"
+          ]
+        }
+      ]
+    },
+    {
+      "model": "openai/gpt-5.4-nano",
+      "runs": [
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaN3uymXtjXjT81BPoOqlQyN2QmK",
+            "chatcmpl-EfaN3vZZmkDT25w8jAV4xCzc42mVs",
+            "chatcmpl-EfaN4YGyyciVM5py7yU5tgTBaTgSN",
+            "chatcmpl-EfaN3VCmOdMWAdMX6uZUm3iFrIMPl",
+            "chatcmpl-EfaN4YTZSsAPDociyhiVaJmMDvYBU"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaN5yZpUgJXVEy5bBH69lP2thZpW",
+            "chatcmpl-EfaN5jWtzEsokEMkFoRmnNAfujDqp",
+            "chatcmpl-EfaN6nDMijD7Q8ZUeaVX6bPGx9z57",
+            "chatcmpl-EfaN5QsoaRwmbkp7b4DGl68UxxrXd",
+            "chatcmpl-EfaN6kZakAsYBkNSMxceZQqKMcOt8"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaN8bJI6UgQbbg4xMIT6vXYFd3dB",
+            "chatcmpl-EfaN7I7k4iv0G9airSzRpOKDGHnT1",
+            "chatcmpl-EfaN7t0N4RdCDd6fRHn5p4Q1JzV3K",
+            "chatcmpl-EfaN7vitLqOxrSQNbe7ISrg7YkZXS",
+            "chatcmpl-EfaN8MJgFcMQJwJ6IiSch08fywii3"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaN9d2Vs9D6EzzYJoR6ljSsGSDuq",
+            "chatcmpl-EfaN9LtX7qlAAjedA4FEKZDZuiYVj",
+            "chatcmpl-EfaN9wtAF502iByfpRQIXOOl3Lb3A",
+            "chatcmpl-EfaN9Hs63d3DLT0fJ8YRThSoM6yuv",
+            "chatcmpl-EfaN953XCNSNPgn7QK3YBMO8c8Rlc"
+          ]
+        },
+        {
+          "correct": 1,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 2000,
+          "response_ids": [
+            "chatcmpl-EfaNCxwdDUAAQ4dPyQBJjBCYCyMPo",
+            "chatcmpl-EfaNB6IU6MSuN11W0lcaZ29UiEYV5",
+            "chatcmpl-EfaNBvGQlK5IYAwIUM030UUHipp3N",
+            "chatcmpl-EfaNBIJ0KxmVk535SpFbKw9Z0WrCl",
+            "chatcmpl-EfaNC4BOQKnabSFSYV3w5WiLPQmXE"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaNDRWFHwH3jJJm6LTAPP8qi4zlm",
+            "chatcmpl-EfaND8LZwB83nzkR251bPWf95Z0VH",
+            "chatcmpl-EfaNDHdWn0SeulMdhLXNva50gOPwh",
+            "chatcmpl-EfaNDyY8OmtDvwkWR5ZmGELXSjVtT",
+            "chatcmpl-EfaNDMuqkf1648YpwtjMqwI3kgGJk"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaNFsMUDzGZ2nfd1WihKNiJxAmP4",
+            "chatcmpl-EfaNGs6LE5VUCUdTUfGJT4rRV8Bnq",
+            "chatcmpl-EfaNFpqqiUWRTqoKk2j4ey34kihi0",
+            "chatcmpl-EfaNFIpDLXZFpuJli9SaxKVG9xOIb",
+            "chatcmpl-EfaNG8zRyRoOJhri682BdJkkBJhbL"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaNHUa5o2gaIDfTY3GElYqIdhqLX",
+            "chatcmpl-EfaNHaEUhJ7gRrio4nCa0MO0CG2we",
+            "chatcmpl-EfaNHfy1udzS5qCyUkVDDWE0ydPuR",
+            "chatcmpl-EfaNHznJ0Si27YUZlUh109v5MM1Fw",
+            "chatcmpl-EfaNIl3uw8zEjscCKnbPsH1mt5GSR"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaNI2jnjA3xXZAlXh0GDdq3DwU3l",
+            "chatcmpl-EfaNId14Da905s5VshXAtftn28TcO",
+            "chatcmpl-EfaNIEyf1wZtcVa90IrsDSXixfeWC",
+            "chatcmpl-EfaNKZDKU9pRwi0iM8fLvWeg2TzRd",
+            "chatcmpl-EfaNKIi4VE9XCFXOaInup5DxEK7Gl"
+          ]
+        },
+        {
+          "correct": 1,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 2000,
+          "response_ids": [
+            "chatcmpl-EfaNM5cH0xITH6IMIhokMbQ1qapgP",
+            "chatcmpl-EfaNMcGFrQx7Q4KJIzszyWp3aFFKG",
+            "chatcmpl-EfaNMoQTPPZs0vSdZ2o87cOH0rxXx",
+            "chatcmpl-EfaNN1HoaUayaovFYe4yr8qIpaTHy",
+            "chatcmpl-EfaNNww6DQP5rr82LH8ginvaOh2Tb"
+          ]
+        }
+      ]
+    },
+    {
+      "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "runs": [
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-aec63aa5-8c73-4d22-8dd1-885412753359",
+            "chatcmpl-1ee2c7bd-4bd8-4fb2-839c-d1aaf8b02d64",
+            "chatcmpl-277e0bf5-81ef-46fd-9a9b-de4017a2654f",
+            "chatcmpl-ff30fbf1-cfc3-4b6d-9575-1d6bf5668968",
+            "chatcmpl-357bba8b-b8dc-4931-8cdb-bc912dc07b4e"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-c7d3a2b4-69cb-4d90-b18e-f87c1d952ee2",
+            "chatcmpl-1ce12558-8728-4e8f-8137-3245629295dd",
+            "chatcmpl-0e1e215f-58d5-4959-bccd-4b91f2a5e690",
+            "chatcmpl-d725b3dd-813f-4f99-aa30-fbbe89dec5a2",
+            "chatcmpl-9801113a-8779-4fdd-8eec-28b3f7365a0b"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-ff6694f0-b0d1-44d0-8d78-72c2384032e9",
+            "chatcmpl-edc993f8-3546-4737-b444-ef6a516b9aad",
+            "chatcmpl-08f9394e-ff56-45a6-90e8-2cb8b3033948",
+            "chatcmpl-80b429e1-d17c-4777-8b2f-e14ba9927d3b",
+            "chatcmpl-2a082d14-3133-464f-948b-069321fe0b25"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-66271a4a-8354-48cf-9cd6-9fc1d33d1bc7",
+            "chatcmpl-51794968-ae6b-4b2d-ad88-d747577b3927",
+            "chatcmpl-398e744d-ca6a-415a-b63c-67d8c099ea75",
+            "chatcmpl-40195ad6-e78b-429c-a29b-bdb9a3023f3e",
+            "chatcmpl-4effd94a-6389-47e8-a50e-dde47362898c"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-cd1ede04-630d-40e5-bba5-3243bf648b82",
+            "chatcmpl-59708e3d-687f-4df4-8400-c481916c5765",
+            "chatcmpl-40729b62-d0ae-4ffc-87a9-7a2cf04c4c30",
+            "chatcmpl-500ae61c-27f0-4ceb-8815-58992b15d371",
+            "chatcmpl-b49b9167-da3b-48a5-8f06-bd3869c6bf1b"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 1,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-f4c2e4c2-d75a-4be4-9cce-951d454b7244",
+            "chatcmpl-41809f92-5a3e-4782-b8be-a18455ec558f",
+            "chatcmpl-b1e47f38-ac4e-47b2-9042-71ff645bb9b6",
+            "chatcmpl-8a47f594-8a2b-4233-8fd6-d49b6fada097"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-31f0deab-434f-42c1-a295-315fbcb7026d",
+            "chatcmpl-7f0fedfe-5ebb-412a-a448-165f603a73c6",
+            "chatcmpl-984f01c9-fb2b-416c-a47b-62267720ed2b",
+            "chatcmpl-ce17faba-f898-4cd3-a6d9-c36269ab086a",
+            "chatcmpl-07210d0e-0d96-443d-92b4-67588fc37b5c"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-09533348-daf9-4574-94d0-c22332d00e95",
+            "chatcmpl-208fe552-9e3e-4141-b684-9cedb0f646ac",
+            "chatcmpl-0eefe744-7dc1-4a17-a600-930e6d20e153",
+            "chatcmpl-230bfbf6-4dad-4d85-9f01-d73bed3a4b74",
+            "chatcmpl-8f257188-acbb-4493-96bd-109d7b6cd2e5"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 1,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-51b61567-97a2-4863-b9b8-a1ee28c1f896",
+            "chatcmpl-ddf55eb6-14f3-49c5-9eff-edddb1edbec8",
+            "chatcmpl-0038d0dc-8dbe-4507-80ef-f2ae2c0fd13b",
+            "chatcmpl-027a6258-9d71-4983-84e2-cdbeefdc6e81"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-672dc886-3db8-481d-b8e4-e434f2b8fd21",
+            "chatcmpl-902b973f-b4ca-49a2-8390-e227d162c4b2",
+            "chatcmpl-68aa0231-6905-4992-9679-b4dd572d9247",
+            "chatcmpl-c2b73eb7-cae8-484c-bda3-cd904409db43",
+            "chatcmpl-92f326d3-630b-49a0-a40a-674b9b3d356c"
+          ]
+        }
+      ]
+    },
+    {
+      "model": "google/gemini-3.5-flash",
+      "runs": [
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "gemini-ac3de937-e6d9-496c-b1ab-f8765e575632",
+            "gemini-e32dea9d-97a0-42c9-88b9-f7e24967fc26",
+            "gemini-b32e9f68-0264-41c8-a791-8432fb8871b0",
+            "gemini-c52d2be2-bd6c-452c-8b46-46753eda92f7",
+            "gemini-516e908d-2423-4aac-9850-5c979035ccf9"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "gemini-4c6a5122-8b1e-40dc-b9dc-2f3d2e2bba4c",
+            "gemini-f402e4dc-2587-479c-ad24-75c04f2e4575",
+            "gemini-cd7f0a7b-d55b-48d5-8f95-11442bda4c7b",
+            "gemini-7b6070f5-3a56-4ede-be26-650f31362a64",
+            "gemini-c51dcc2c-fc78-4160-adbc-1e6b848a06dd"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "gemini-f69e9837-36f5-4e27-be8f-bbb8c0a797dd",
+            "gemini-f9e1b4f8-cd09-4c2b-b652-91f589900812",
+            "gemini-5d482750-d99f-4c43-b2ea-4bad5f3f6637",
+            "gemini-d0c6df41-02b6-4623-bd18-adc25b893e89",
+            "gemini-efd9d1b6-4820-43f7-b0b0-6f45cf4bd5e3"
+          ]
+        },
+        {
+          "correct": 4,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 8000,
+          "response_ids": [
+            "gemini-8013a8db-2f1c-41d0-b2c7-f8cbd1addf93",
+            "gemini-f166a91e-7067-464a-8d2a-f793e791ec73",
+            "gemini-53a439ea-b07d-4dcb-86f1-8a98fdcf4ff9",
+            "gemini-f8ca3f1e-b604-4914-8bce-bc1f9d7c51bd",
+            "gemini-8dc806d6-26dd-47c5-9a32-f72858776bab"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "gemini-fed479cb-0952-493e-8a0b-1c7cfa7c58cf",
+            "gemini-cb8275cc-c5b4-4bbc-8d94-1998f37b2ebe",
+            "gemini-a0156ebb-a913-4b04-9e5c-5dae2bd22f75",
+            "gemini-42f03881-a9a3-4a54-bde4-bb140b6955d5",
+            "gemini-fceb10b2-2fa3-49a4-afb0-133b295e57a5"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "gemini-8e0dddd0-067a-4b0c-8443-a343416e7284",
+            "gemini-aae62cd8-0b4c-4b38-9319-e2adae311994",
+            "gemini-e17c9a5a-e106-4426-bab5-861890120382",
+            "gemini-eb3a39b3-c7fb-464d-b4f6-19c209b61b7b",
+            "gemini-ab8d7695-295a-4ec1-b5cb-deba94c70079"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "gemini-e34828a2-3e6b-4880-938e-54bfdb3bb028",
+            "gemini-48921edd-3720-4074-94ab-04386e4b8c98",
+            "gemini-2812df75-5faf-4b47-8299-08aa58d87baf",
+            "gemini-6886d224-cb52-4bbf-97d7-14d0a88e648b",
+            "gemini-3b82a13d-69fd-49f9-963c-261aaae2bd0e"
+          ]
+        },
+        {
+          "correct": 4,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 8000,
+          "response_ids": [
+            "gemini-bdcfbbf4-6928-432f-a8b9-f900fb051442",
+            "gemini-9cc3fe00-95de-45e7-b132-e8f9f9b2a85f",
+            "gemini-c00ae1bf-69e5-4f46-9b86-693e80673fff",
+            "gemini-8a5852bb-66a1-4afb-bb09-a9786cac3112",
+            "gemini-99436347-fd80-4ecf-9db7-996a52e024aa"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 1,
+          "score_bps": 6000,
+          "response_ids": [
+            "gemini-7c1b88fe-b493-4dff-ab32-588ce0701dfe",
+            "gemini-d70e9c82-f664-47dc-8c02-367edc513e11",
+            "gemini-20049b4e-9069-43db-82e0-3225e9a675fd",
+            "gemini-2552bb16-01d6-4ffe-a14d-bfa895fa2817"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 1,
+          "score_bps": 4000,
+          "response_ids": [
+            "gemini-4e6722f5-5160-481a-91ad-3df1ac862e25",
+            "gemini-4d1bf335-01d9-4790-a15c-6305ada1da8e",
+            "gemini-39257ceb-67aa-4286-9d54-37dedf91d2d6",
+            "gemini-00b6701b-2154-46e8-835f-dc0654e6f6a0"
+          ]
+        }
+      ]
+    },
+    {
+      "model": "openai/gpt-5.5",
+      "runs": [
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaZQZIdHOICCSF2I6646w0s8pxm1",
+            "chatcmpl-EfaZQAdtionlFyPQcwPZgGcxMas1N",
+            "chatcmpl-EfaZQ8EDcjeHauy6Wkw4fB0zkJkqi",
+            "chatcmpl-EfaZQwZI5fJD3t3qEZhOSoCdc4HVs",
+            "chatcmpl-EfaZQFDR6xFIBmbqkYhzO7tXeU6Bw"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 2,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaaEpAwgLGe8YCHmFkAtfzKiSPJR",
+            "chatcmpl-EfaaCFhvpaVBnDvh1wmiwmJx6pBO8",
+            "chatcmpl-EfaaDb0glpdy7AM7sWVVbpJigA3nD"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-Efab4xDHvn934FPBvHH1wGYwiDwYF",
+            "chatcmpl-Efab3yzMH8kzdk3adO5TNv8IKfgRZ",
+            "chatcmpl-Efab3LgVmVXXtbnlyElRpSMGSHm15",
+            "chatcmpl-Efab40yEEbwKJp1NAcvGYSIMvkvAS",
+            "chatcmpl-Efab5B57vNakA6ciwA1VBne6ayFtq"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 1,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfabxpEWE16tjxg2ka7n3NOdSBxw0",
+            "chatcmpl-EfabwGxZW93qrGH0wbxnsatu97vVr",
+            "chatcmpl-EfabxAO7w1S2YtpXLjKaQ80jIQCZs",
+            "chatcmpl-EfabxryRZB9KPmvBzKRPJveJ0XTAE"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 1,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-EfacnoybPKAKHqTSUEDIBuUCVVtiH",
+            "chatcmpl-EfacnC2EaRDcrpAoxZo3aFk67N7Nt",
+            "chatcmpl-EfacoNz8a09qVrnrLNsQ7tEyg6VkN",
+            "chatcmpl-EfacojZHwpW41uHG0be1cZeFnPIWY"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfadeIwOaDSPVUqkUsMN1f4pHVX9U",
+            "chatcmpl-EfadewizAfqs10cNbnMWW3x7yJC5G",
+            "chatcmpl-EfadbnpCeSnb7tIEN2PvdpYVZoCiV",
+            "chatcmpl-EfadeicB1QZ1mud1C30NLmm3a7Rce",
+            "chatcmpl-Efadetu3Zpl498RNBacOvazpXSlag"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-EfaeIcBg5xvB6dQsAnkuGrTJFjPeq",
+            "chatcmpl-EfaeI6lPCAziszKtqmgquq9AKg7aU",
+            "chatcmpl-EfaeKlWlbJc5FJMml0ZSjjzvGJ5p7",
+            "chatcmpl-EfaeKjSGh93lqpb4r9j248uxxXtM2",
+            "chatcmpl-EfaeKre1NxLxmgEGPMrb0lREv3IIQ"
+          ]
+        },
+        {
+          "correct": 2,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 4000,
+          "response_ids": [
+            "chatcmpl-EfaezeCKJHdwMH2ZMhaNpK73qOFxd",
+            "chatcmpl-EfaeykD4y26QxqZXwz7b2GwpF8hQ7",
+            "chatcmpl-EfaezO5vCQ4SSGy4GR2CZacCCy2YF",
+            "chatcmpl-EfaezElDMnM1uKhEeTB5XVo7lAk3i",
+            "chatcmpl-EfaezIPjZphSheUOWEIAn8KRUN1xp"
+          ]
+        },
+        {
+          "correct": 4,
+          "total": 5,
+          "failed_calls": 1,
+          "score_bps": 8000,
+          "response_ids": [
+            "chatcmpl-Efafea3tTDfUenAV9LTwsTTG8YAf9",
+            "chatcmpl-EfafdnQnUvygN2JhEpbgsbiGu4QQR",
+            "chatcmpl-EfafeKeNnXH6nVUzAlEduvplbGWJ9",
+            "chatcmpl-EfafejYXtcVLp6fQyoMuyp1QsDYLR"
+          ]
+        },
+        {
+          "correct": 3,
+          "total": 5,
+          "failed_calls": 0,
+          "score_bps": 6000,
+          "response_ids": [
+            "chatcmpl-EfagU3Vio4GDPyLhTouyTh28yjqza",
+            "chatcmpl-EfagVO5YznpvhEE2FrGfT9WZfx60E",
+            "chatcmpl-EfagWqg9ht4PUXTsBVvDIeKzxdiHZ",
+            "chatcmpl-EfagV8NvGBfwtbtx4RINnIfVUy7Id",
+            "chatcmpl-EfagV1QfWB5nX9TK2VcN62bMdr7d2"
+          ]
+        }
+      ]
+    }
+  ]
+}

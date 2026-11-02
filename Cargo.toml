@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["proctor-core", "exam-runner"]
+members = ["proctor-core", "exam-runner", "bench"]
 exclude = ["contracts/registry", "contracts/mock-outlayer", "contracts/sandbox-tests"]
 
 [workspace.package]

@@ -1,0 +1,13 @@
+[package]
+name = "proctor-bench"
+description = "Benchmark: sits the PROCTOR exam N times per NEAR AI model and models the two-strike rule"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+proctor-core = { path = "../proctor-core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ureq = "3.5.0"
