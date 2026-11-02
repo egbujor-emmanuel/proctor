@@ -19,10 +19,13 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify": "node dist/verify-cli.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
     "zod": "4.6.7"
   },
   "devDependencies": {

@@ -10,7 +10,7 @@ Everything below runs on **NEAR testnet** today.
 
 ## Test it in 5 minutes
 
-Each step says what to run and what you should see. Steps 1 and 2 need nothing installed except `curl` and Node, or [`near-cli-rs`](https://github.com/near/near-cli-rs) (`npm i -g near-cli-rs`).
+Each step says what to run and what you should see. Step 1 needs nothing installed except `curl` and Node, or [`near-cli-rs`](https://github.com/near/near-cli-rs) (`npm i -g near-cli-rs`).
 
 ### 1. Read a live certificate (no account, no keys)
 
@@ -28,17 +28,30 @@ curl -s https://rpc.testnet.near.org -H 'content-type: application/json' \
   | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(JSON.parse(Buffer.from(JSON.parse(s).result.result).toString()),null,2)))'
 ```
 
-### 2. Ask Claude Code whether to hire an agent
+### 2. Verify a certificate's answers yourself (needs any NEAR AI Cloud key)
 
 ```bash
 git clone https://github.com/egbujor-emmanuel/proctor && cd proctor
 (cd mcp && npm ci && npm run build)
+NEARAI_API_KEY=... npm --prefix mcp run verify -- --tx 4ewFE77FvYXLTzA5dfBWWanntAQeyfFEXAvZFo6LaoR1 --sender attrito.testnet
+```
+
+You should see a `PASS` line for each check, then `verified`:
+- The certificate's `response_ids_hash` matches the completion ids in the sitting's event.
+- OutLayer's own event shows it ran the runner build pinned on the certificate.
+- Each of the 5 answers is *"signed inside deepseek-ai/DeepSeek-V4.1-Flash-1017's TEE"* by the key NEAR AI's attestation report names for that model.
+
+Run it on the demo agent's sitting (`--tx 9Jwx3jXp8We4a77VVBNv7qGLKpL48UC3zF8uf7CX9yT5`) and each answer reads *"signed by NEAR AI's gateway TEE (model at an external provider)"*. Claude runs at Anthropic, so NEAR AI's TEE gateway signs what it relayed. An answer an agent made up has no NEAR AI signature and fails. Signature lookups need a key but are not billed.
+
+### 3. Ask Claude Code whether to hire an agent
+
+```bash
 claude mcp add proctor -e PROCTOR_REGISTRY=registry-v2.attrito.testnet -- node "$PWD/mcp/dist/index.js"
 ```
 
 Then ask Claude Code: *"Use proctor to check whether agent:attrito.testnet/demo-agent can be hired."* You should get `"decision": "do_not_hire"`, with the reason taken from the chain (a failed re-test). Ask the same about `deepseek-ai/DeepSeek-V4.1-Flash-1017` and you should get `"hire"`: it holds certificate 0, which has passed a surprise re-test. The server has four read-only tools and never signs anything; [`mcp/skill/SKILL.md`](mcp/skill/SKILL.md) tells an agent to call it before hiring on the NEAR AI Agent Market.
 
-### 3. Sit the exam yourself
+### 4. Sit the exam yourself
 
 Get a free testnet account (the faucet funds it), then sit the exam as an agent named after your account:
 
@@ -56,7 +69,7 @@ In the output, about 30 seconds later, look for `EVENT_JSON` with `"event":"sitt
 
 `curl https://proctor-demo-agent.attrito.workers.dev/` says which model is answering. You will also see OutLayer's `execution_completed` event: the runner's URL and SHA-256, the time it took, and the refund of unused compute. The candidate id contains your account, so every visitor gets a fresh one and nobody collides with anyone else.
 
-### 4. Run every test
+### 5. Run every test
 
 ```bash
 bash scripts/test-all.sh
@@ -64,7 +77,7 @@ bash scripts/test-all.sh
 
 This runs the grading core, exam runner and benchmark (Rust), the registry contract, the MCP server, the demo agent, the re-test picker and the website, and ends with `== all suites passed`. On Linux and macOS it also runs the registry against a local NEAR node (near-workspaces). CI runs all of it on every push, plus the reproducible release builds described under [Builds you can check](#builds-you-can-check).
 
-### 5. Reproduce the benchmark (needs a NEAR AI Cloud key)
+### 6. Reproduce the benchmark (needs a NEAR AI Cloud key)
 
 ```bash
 NEARAI_API_KEY=... cargo run -p proctor-bench --release -- --exam exams/near-protocol-basics.public.json --runs 10
@@ -150,7 +163,7 @@ How to read it:
 
 - **The exam can't leak.** It exists only as an OutLayer secret, opened inside the enclave for one runner build (pinned by SHA-256) and only on calls that come through the registry.
 - **The score isn't self-reported.** Certificates are written only in the registry's own callback for OutLayer's result, after the re-checks above.
-- **The answers are real.** Each answer is a NEAR AI completion. The certificate stores a hash of the completion ids, the ids are in the `sitting_resolved` event, and NEAR AI signs every completion.
+- **The answers are real.** Each answer is a NEAR AI completion. The certificate stores a hash of the completion ids, and the ids are in the `sitting_resolved` event. [`mcp/src/verify.ts`](mcp/src/verify.ts) checks every one: NEAR AI's signature must be valid and its signer must be the key in NEAR AI's attestation report. That is the model's own TEE for TEE-hosted models, or NEAR AI's gateway TEE for models at external providers. The signed request and response hashes cover the secret exam, so a third party sees them but cannot recompute them.
 - **An agent can't borrow a key.** The runner sends PROCTOR's NEAR AI key only to `https://cloud-api.near.ai/`, never to an agent endpoint. Look-alike hosts and userinfo tricks are tested in `exam-runner`.
 - **The owner can't swap the grader quietly.** A new runner build is announced on chain and can take effect only 24 hours later. Ownership moves in two steps.
 - **Outages don't fail anyone.** A cut-off answer, an empty reply or a dead endpoint is a failed call, not a wrong answer. Incomplete runs never certify, suspend or revoke.
@@ -167,7 +180,7 @@ How to read it:
 |---|---|
 | **NEAR smart contract** (near-sdk 5.30, Rust) | The registry: exams, sittings, certificates, two-strike re-tests, a 24-hour runner timelock, NEP-297 events |
 | **OutLayer** (Intel TDX) | Runs the exam runner on `request_execution` with a pinned `WasmUrl` source. Holds the exam as a secret bound to the runner hash and the calling contract, and calls the registry back |
-| **NEAR AI Cloud** | The candidates: OpenAI-compatible chat completions from TEE-hosted models; signed completion ids back every score |
+| **NEAR AI Cloud** | The candidates, via OpenAI-compatible chat completions: TEE-hosted models (such as DeepSeek V4.1 Flash) and external-provider models relayed by NEAR AI's TEE gateway (such as Claude). The verifier checks NEAR AI's signature and attestation for every answer |
 | **NEAR AI Agent Market** | The MCP server and skill vet market listings before hiring |
 | **near-cli-rs, near-workspaces** | Deploys, scripts, the re-test workflow, and sandbox tests on a local NEAR node |
 
@@ -178,7 +191,7 @@ How to read it:
 | [`proctor-core/`](proctor-core) | Exam format, deterministic graders, commitments; `proctor-seal` prepares an exam byte-exactly |
 | [`exam-runner/`](exam-runner) | The program OutLayer runs (wasm32-wasip2, `wstd`): asks questions concurrently under a deadline, grades, reports |
 | [`contracts/registry/`](contracts/registry) | The NEAR registry contract (84 unit tests); [`contracts/sandbox-tests/`](contracts/sandbox-tests) runs it on a local node against a mock OutLayer |
-| [`mcp/`](mcp) | The PROCTOR MCP server (4 read-only tools) and the buyer skill |
+| [`mcp/`](mcp) | The PROCTOR MCP server (4 read-only tools), the buyer skill, and the certificate verifier (`npm run verify`) |
 | [`web/`](web) | The website: live registry reads, the buyer check, certificates as stamped papers |
 | [`demo-agent/`](demo-agent) | The Cloudflare Worker agent used for the model-swap demo |
 | [`bench/`](bench) | The benchmark and its published results |
@@ -187,7 +200,7 @@ How to read it:
 
 ## Libraries and tools
 
-Rust: near-sdk, serde, serde_json, sha2, hex, wstd, futures, ureq, cargo-near, near-workspaces. TypeScript: @modelcontextprotocol/sdk, zod, Next.js 16, React 19, GSAP (with ScrollTrigger and SplitText), Lenis, components adapted from [React Bits](https://reactbits.dev) (Radar, SplitFlapText, Counter, Noise, Shuffle, LatticeLoader, LogoLoop, SplitText; MIT, attributed in each file), SWR, Tailwind CSS, Vitest, Wrangler. Services: NEAR testnet, OutLayer, NEAR AI Cloud, Cloudflare Workers, GitHub Actions. No project template was used.
+Rust: near-sdk, serde, serde_json, sha2, hex, wstd, futures, ureq, cargo-near, near-workspaces. TypeScript: @modelcontextprotocol/sdk, zod, @noble/curves and @noble/hashes (signature recovery in the verifier), Next.js 16, React 19, GSAP (with ScrollTrigger and SplitText), Lenis, components adapted from [React Bits](https://reactbits.dev) (Radar, SplitFlapText, Counter, Noise, Shuffle, LatticeLoader, LogoLoop, SplitText; MIT, attributed in each file), SWR, Tailwind CSS, Vitest, Wrangler. Services: NEAR testnet, OutLayer, NEAR AI Cloud, Cloudflare Workers, GitHub Actions. No project template was used.
 
 ## Limits
 
