@@ -24,8 +24,8 @@ step "MCP server"
 step "demo agent (Cloudflare Worker)"
 (cd demo-agent && npm ci --silent && npm run -s typecheck && npm test)
 
-step "surprise re-test picker"
-node --test scripts/retest/pick.test.mjs
+step "surprise re-test picker and payout quote"
+node --test scripts/retest/pick.test.mjs scripts/payout-quote.test.mjs
 
 step "website"
 (cd web && npm ci --silent && npm run -s typecheck && npm run -s lint && npm test && npm run -s build)
