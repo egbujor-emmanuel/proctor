@@ -12,7 +12,7 @@ fi
 
 step() { printf '\n== %s\n' "$1"; }
 
-step "grading core and exam runner"
+step "grading core, exam runner and benchmark"
 cargo test --workspace
 
 step "registry contract"
@@ -20,6 +20,12 @@ step "registry contract"
 
 step "MCP server"
 (cd mcp && npm ci --silent && npm run -s typecheck && npm test)
+
+step "demo agent (Cloudflare Worker)"
+(cd demo-agent && npm ci --silent && npm run -s typecheck && npm test)
+
+step "surprise re-test picker"
+node --test scripts/retest/pick.test.mjs
 
 step "website"
 (cd web && npm ci --silent && npm run -s typecheck && npm run -s lint && npm test && npm run -s build)
