@@ -2,7 +2,6 @@
 //! withdrawn by the author; and the in-place upgrade that added them.
 
 use super::*;
-use crate::migrate::RegistryBeforePayouts;
 use crate::payouts::MAX_EXAM_FEE;
 
 const FEE: NearToken = NearToken::from_millinear(20);
@@ -18,7 +17,7 @@ fn with_fee(fee: NearToken) -> Registry {
 fn sit_paying(r: &mut Registry, fee: NearToken) -> u64 {
     set("alice.testnet", NearToken::from_millinear(40).saturating_add(fee), 300);
     let id = r.get_config().next_sitting_id;
-    let _ = r.sit_exam(EXAM.into(), MODEL.into());
+    let _ = r.sit_exam(EXAM.into(), MODEL.into(), None);
     id
 }
 
@@ -72,15 +71,33 @@ fn a_verdict_pays_the_author_whether_the_candidate_passes_or_fails() {
 }
 
 #[test]
-fn re_tests_pay_the_author_too() {
+fn re_tests_carry_no_author_fee() {
     let mut r = with_fee(FEE);
     let id = sit_paying(&mut r, FEE);
     resolve(&mut r, id, Ok(Some(output(id, 5))));
-    set_at("anyone.testnet", NearToken::from_millinear(40).saturating_add(FEE), HOUR_NS);
+    // The minimum deposit alone pays for a re-test, whatever the exam's fee.
+    set_at("anyone.testnet", NearToken::from_millinear(40), HOUR_NS);
     let retest = r.get_config().next_sitting_id;
     let _ = r.retest(0);
     assert_eq!(resolve(&mut r, retest, Ok(Some(output(retest, 1)))), SittingOutcome::Suspended { cert_id: 0, score_bps: 2000 });
-    assert_eq!(r.get_author_balance(acc("author.testnet")), FEE.saturating_mul(2));
+    assert_eq!(r.get_author_balance(acc("author.testnet")), FEE);
+}
+
+#[test]
+#[should_panic(expected = "above your max_fee")]
+fn max_fee_refuses_a_sitting_after_the_author_raises_the_fee() {
+    let mut r = with_fee(FEE);
+    set("alice.testnet", NearToken::from_millinear(100), 300);
+    let _ = r.sit_exam(EXAM.into(), MODEL.into(), Some(NearToken::from_millinear(10)));
+}
+
+#[test]
+fn max_fee_at_or_above_the_fee_is_accepted() {
+    let mut r = with_fee(FEE);
+    set("alice.testnet", NearToken::from_millinear(100), 300);
+    let id = r.get_config().next_sitting_id;
+    let _ = r.sit_exam(EXAM.into(), MODEL.into(), Some(FEE));
+    assert!(r.get_sitting(id).is_some());
 }
 
 #[test]
@@ -182,29 +199,40 @@ fn setting_a_fee_pays_for_its_storage() {
     r.set_exam_fee(EXAM.into(), FEE);
 }
 
+/// The registry's root record exactly as registry-v2.attrito.testnet stored
+/// it on chain (view_state "STATE", block 275,837,469), before this upgrade.
+const ON_CHAIN_STATE: &[u8] = include_bytes!("v2_state.bin");
+
 #[test]
-fn the_upgrade_keeps_every_record_and_adds_the_ledgers() {
-    // A certified registry as the previous version left it in storage.
-    let mut before = certified();
-    flush(&mut before);
-    let Registry { owner, outlayer_account, runner_source_json, runner_hash, max_instructions, max_memory_mb, max_execution_seconds, exams, certificates, sittings, outcomes, latest, next_sitting_id, pending_runner, pending_owner, .. } = before;
-    env::state_write(&RegistryBeforePayouts {
-        owner, outlayer_account, runner_source_json, runner_hash, max_instructions, max_memory_mb, max_execution_seconds,
-        exams, certificates, sittings, outcomes, latest, next_sitting_id, pending_runner, pending_owner,
-    });
-
+fn the_upgrade_reads_the_real_on_chain_state() {
     set("registry.testnet", NearToken::from_yoctonear(0), 300);
-    let mut r = Registry::migrate();
-    assert_eq!(r.get_config().owner, acc("owner.testnet"));
-    assert!(r.get_exam(EXAM.into()).is_some());
-    assert_eq!(r.get_certificate(0).unwrap().status, CertStatus::Active);
-    assert!(r.is_certified(MODEL.into(), EXAM.into()));
-    assert_eq!(r.get_config().next_sitting_id, 1);
+    env::storage_write(b"STATE", ON_CHAIN_STATE);
+    let r = Registry::migrate();
+    let config = r.get_config();
+    assert_eq!(config.owner, acc("attrito.testnet"));
+    assert_eq!(config.outlayer_account, acc("outlayer.testnet"));
+    assert_eq!(config.runner_hash, "9a41b2354d7c508536343dc3585e07cb3a8e579c358126ba3f01a88489b9dde4");
+    assert_eq!(config.next_sitting_id, 7);
+    assert_eq!((config.exams, config.certificates), (1, 2));
+    assert_eq!(config.pending_owner, None);
+}
 
-    // And the new features work on the upgraded state.
-    set("author.testnet", NearToken::from_millinear(10), 300);
-    r.set_exam_fee(EXAM.into(), FEE);
-    assert_eq!(r.get_exam_fee(EXAM.into()), FEE);
+#[test]
+#[should_panic(expected = "no state from the previous version to migrate")]
+fn the_upgrade_needs_state_to_upgrade() {
+    set("registry.testnet", NearToken::from_yoctonear(0), 300);
+    let _ = Registry::migrate();
+}
+
+#[test]
+fn the_upgrade_cannot_run_twice() {
+    set("registry.testnet", NearToken::from_yoctonear(0), 300);
+    env::storage_write(b"STATE", ON_CHAIN_STATE);
+    let upgraded = Registry::migrate();
+    env::state_write(&upgraded);
+    // The upgraded record is longer than the old layout, so reading it as the old one fails.
+    let again = std::panic::catch_unwind(std::panic::AssertUnwindSafe(Registry::migrate));
+    assert!(again.is_err(), "a second migrate must fail");
 }
 
 #[test]

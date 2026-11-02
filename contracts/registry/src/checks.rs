@@ -23,15 +23,42 @@ pub(crate) fn require_token(value: &str, what: &str, max: usize) {
     );
 }
 
-/// An agent's endpoint: https only (the only scheme the TEE can reach),
-/// bounded, and free of whitespace.
+/// NEAR AI's chat endpoint, the one URL on its gateway an agent may name.
+pub(crate) const NEAR_AI_COMPLETIONS: &str = "https://cloud-api.near.ai/v1/chat/completions";
+
+/// An agent's endpoint: https to a public DNS name on the default port,
+/// bounded and plain. Userinfo, ports, IP literals and local names are
+/// refused, and on NEAR AI's own gateway (which the runner sends its key to)
+/// only the chat completions URL is allowed.
 pub(crate) fn require_endpoint(endpoint: &str) {
     require!(endpoint.len() <= MAX_ENDPOINT_LEN, format!("endpoint is longer than {MAX_ENDPOINT_LEN} bytes"));
-    require!(
-        endpoint.starts_with("https://") && endpoint.len() > "https://".len(),
-        "endpoint must be an https:// URL"
-    );
+    let Some(rest) = endpoint.strip_prefix("https://") else { env::panic_str("endpoint must be an https:// URL") };
     require!(!endpoint.bytes().any(|b| b.is_ascii_whitespace() || b.is_ascii_control()), "endpoint must not contain spaces");
+    require!(!endpoint.bytes().any(|b| b"@\\#?".contains(&b)), "endpoint must not contain @, \\, # or ?");
+    let host = rest.split('/').next().unwrap_or_default().to_ascii_lowercase();
+    require!(!host.is_empty(), "endpoint must be an https:// URL");
+    require!(!host.contains(':') && !host.contains('['), "endpoint must use the default https port and a host name");
+    require!(
+        host.contains('.') && !host.ends_with('.') && host != "localhost" && !host.ends_with(".localhost"),
+        "endpoint must name a public host"
+    );
+    require!(!host.bytes().all(|b| b.is_ascii_digit() || b == b'.'), "endpoint must be a host name, not an IP address");
+    if host == "cloud-api.near.ai" {
+        require!(endpoint == NEAR_AI_COMPLETIONS, format!("on cloud-api.near.ai only {NEAR_AI_COMPLETIONS} is allowed"));
+    }
+}
+
+/// Charges the caller for the bytes a call added (refunding any excess
+/// deposit); freed bytes stay with the contract.
+pub(crate) fn charge_storage(storage_before: u64, payer: &AccountId) {
+    let used = env::storage_usage().saturating_sub(storage_before);
+    let cost = env::storage_byte_cost().saturating_mul(u128::from(used));
+    let attached = env::attached_deposit();
+    require!(attached >= cost, format!("attach at least {cost} to cover storage"));
+    let refund = attached.saturating_sub(cost);
+    if !refund.is_zero() {
+        Promise::new(payer.clone()).transfer(refund).detach();
+    }
 }
 
 /// `agent:<owner>/<name>`: the owner is the account that registered the agent.

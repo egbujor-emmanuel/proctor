@@ -119,9 +119,9 @@ sequenceDiagram
 1. **Seal.** The author stores the exam as an OutLayer secret. Its access rule names one runner build, by hash, and allows calls only through the registry contract. Only the exam's SHA-256 goes on chain.
 2. **Sit.** Anyone calls `sit_exam` (a NEAR AI model) or `sit_exam_as_agent` (any OpenAI-compatible endpoint). The registry asks OutLayer to run the runner, pinned by URL and SHA-256. Inside the enclave the runner asks every question and grades each answer with fixed rules from `proctor-core`.
 3. **Certify.** The result comes back only through OutLayer's callback. The registry re-checks the exam id, the commitment, the candidate, the endpoint, the question count and the arithmetic, then applies its own pass mark.
-4. **Re-test.** Anyone may re-test a certificate, at most once an hour. One fail suspends it, a second fail in a row revokes it, and a pass restores it. An outage, a cut-off answer or an unreachable endpoint is *incomplete*: it never certifies, suspends or revokes.
+4. **Re-test.** Anyone may re-test a certificate, at most once an hour, and re-tests carry no author fee. One fail suspends it, a second fail in a row revokes it, and a pass restores it. An outage, a cut-off answer or an unreachable endpoint is *incomplete*: it never certifies, suspends or revokes by itself, and it gives the hourly slot back, so nobody can block re-tests by triggering failed runs. An agent whose own endpoint leaves three re-tests in a row incomplete takes a strike as if it had failed one; NEAR AI model candidates are exempt, because their incomplete runs are outages.
 
-Agents are certified as `agent:<owner-account>/<name>`, so only the account that registers an agent can first certify it. The endpoint is stored on the certificate, and every re-test calls the same endpoint.
+Agents are certified as `agent:<owner-account>/<name>`, so only the account that registers an agent can first certify it, and `sit_exam` refuses `agent:` ids. The endpoint is stored on the certificate, and every re-test calls the same endpoint. An agent's endpoint sees the questions it is asked, so agent sittings are off unless the exam's author allows them (`set_exam_agents`; the demo exam allows them). Endpoints must be public `https` host names: no IP literals, ports, userinfo or local names.
 
 ## What's live on testnet
 
@@ -147,7 +147,7 @@ Agents are certified as `agent:<owner-account>/<name>`, so only the account that
 
 ### Exam-author payouts, on chain
 
-An author can charge a fee per sitting (`set_exam_fee`, at most 1 NEAR). The fee is held with the sitting and credited to the author only when the sitting ends in a verdict (certified, failed, re-test passed, suspended or revoked). An incomplete, failed, rejected or expired sitting refunds it to whoever paid. The author withdraws with `withdraw_earnings`.
+An author can charge a fee per first sitting (`set_exam_fee`, at most 1 NEAR); re-tests are free. The fee is held with the sitting and credited to the author when the sitting ends in a verdict (certified, failed, re-test passed, suspended or revoked), or when an agent's own endpoint left it incomplete (the endpoint has already seen the questions). A runner failure, a rejected output or a lost callback refunds it to whoever paid. A caller can pass `max_fee` so a fee raised in front of their transaction makes it fail rather than cost more. The author withdraws with `withdraw_earnings`; if the transfer fails, the earnings are put back.
 
 | Step | Transaction |
 |---|---|
@@ -176,7 +176,7 @@ How to read it:
 
 ## What you don't have to take on faith
 
-- **The exam can't leak.** It exists only as an OutLayer secret, opened inside the enclave for one runner build (pinned by SHA-256) and only on calls that come through the registry.
+- **The exam can't leak to the public or to PROCTOR's operator.** It exists only as an OutLayer secret, opened inside the enclave for one runner build (pinned by SHA-256) and only on calls that come through the registry. The candidate necessarily sees each question it answers. For a TEE-hosted NEAR AI model that happens inside the model's TEE. An agent endpoint, or an external provider relayed by NEAR AI, sees them in the clear, which is why agent sittings are off unless the author allows them.
 - **The score isn't self-reported.** Certificates are written only in the registry's own callback for OutLayer's result, after the re-checks above.
 - **The answers are real.** Each answer is a NEAR AI completion. The certificate stores a hash of the completion ids, and the ids are in the `sitting_resolved` event. [`mcp/src/verify.ts`](mcp/src/verify.ts) checks every one: NEAR AI's signature must be valid and its signer must be the key listed in NEAR AI's attestation report. The script does not re-verify the report's hardware quotes; [NEAR AI's verifier](https://github.com/nearai/nearai-cloud-verifier) does. Events are accepted only from receipts the registry and OutLayer themselves executed, and are cross-checked against the registry's own record of the sitting. That is the model's own TEE for TEE-hosted models, or NEAR AI's gateway TEE for models at external providers. The signed request and response hashes cover the secret exam, so a third party sees them but cannot recompute them.
 - **An agent can't borrow a key.** The runner sends PROCTOR's NEAR AI key only to `https://cloud-api.near.ai/`, never to an agent endpoint. Look-alike hosts and userinfo tricks are tested in `exam-runner`.
@@ -206,7 +206,7 @@ How to read it:
 |---|---|
 | [`proctor-core/`](proctor-core) | Exam format, deterministic graders, commitments; `proctor-seal` prepares an exam byte-exactly |
 | [`exam-runner/`](exam-runner) | The program OutLayer runs (wasm32-wasip2, `wstd`): asks questions concurrently under a deadline, grades, reports |
-| [`contracts/registry/`](contracts/registry) | The NEAR registry contract (101 unit tests); [`contracts/sandbox-tests/`](contracts/sandbox-tests) runs it on a local node against a mock OutLayer |
+| [`contracts/registry/`](contracts/registry) | The NEAR registry contract (121 unit tests); [`contracts/sandbox-tests/`](contracts/sandbox-tests) runs it on a local node against a mock OutLayer |
 | [`mcp/`](mcp) | The PROCTOR MCP server (4 read-only tools), the buyer skill, and the certificate verifier (`npm run verify`) |
 | [`web/`](web) | The website: live registry reads, the buyer check, certificates as stamped papers |
 | [`demo-agent/`](demo-agent) | The Cloudflare Worker agent used for the model-swap demo |
