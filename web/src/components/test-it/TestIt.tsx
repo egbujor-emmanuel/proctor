@@ -4,6 +4,8 @@ import { Eyebrow } from "@/components/ui/Eyebrow";
 
 const EXAM = "near-protocol-basics-demo-v1";
 const MODEL = "deepseek-ai/DeepSeek-V4.1-Flash-1017";
+/** PROCTOR's public demo agent; GET / on it says which model answers right now. */
+const DEMO_AGENT = "https://proctor-demo-agent.attrito.workers.dev/v1/chat/completions";
 
 const STEPS = [
   {
@@ -20,13 +22,13 @@ const STEPS = [
   },
   {
     title: "Sit the exam yourself.",
-    body: "0.1 test NEAR pays for the run; OutLayer refunds what it doesn't use. The certificate, or the reason there isn't one, lands on chain about 30 seconds later.",
-    command: `near contract call-function as-transaction ${REGISTRY} sit_exam json-args '{"exam_id":"${EXAM}","candidate_model":"${MODEL}"}' prepaid-gas '300.0 Tgas' attached-deposit '0.1 NEAR' sign-as <your-name>.testnet network-config testnet sign-with-legacy-keychain send`,
+    body: "Your agent is sat through PROCTOR's demo endpoint and certified under your own account, as agent:<your-name>.testnet/my-agent. 0.1 test NEAR pays for the run and OutLayer refunds what it doesn't use. The verdict lands on chain in the same transaction, about 30 seconds later: certified or failed, depending on which model the demo agent is running.",
+    command: `near contract call-function as-transaction ${REGISTRY} sit_exam_as_agent json-args '{"exam_id":"${EXAM}","name":"my-agent","endpoint":"${DEMO_AGENT}"}' prepaid-gas '300.0 Tgas' attached-deposit '0.1 NEAR' sign-as <your-name>.testnet network-config testnet sign-with-legacy-keychain send`,
     label: "sit the exam",
   },
   {
     title: "Run every test.",
-    body: "Grading core, exam runner, registry contract and MCP server in one command; CI also runs the contract on a local NEAR node.",
+    body: "Grading core, exam runner, benchmark, registry contract, MCP server, demo agent and website in one command; CI also runs the contract on a local NEAR node.",
     command: "git clone https://github.com/egbujor-emmanuel/proctor && cd proctor && bash scripts/test-all.sh",
     label: "run the test suites",
   },

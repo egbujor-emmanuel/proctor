@@ -13,13 +13,14 @@ env:
 
 jobs:
   unit:
-    name: Unit tests (core, runner, registry)
+    name: Unit tests and clippy (core, runner, bench, registry)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown,wasm32-wasip2
+          components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
@@ -32,6 +33,18 @@ jobs:
         working-directory: contracts/registry
       - name: Exam runner builds for OutLayer (wasm32-wasip2)
         run: cargo build -p exam-runner --target wasm32-wasip2 --release
+      # Each crate is linted for the target it ships to: the runner's HTTP
+      # code exists only on WASI, so a native non-test build would see it as unused.
+      - name: Clippy (warnings are errors)
+        run: |
+          cargo clippy -p proctor-core -p proctor-bench --all-targets -- -D warnings
+          cargo clippy -p exam-runner --tests -- -D warnings
+          cargo clippy -p exam-runner --target wasm32-wasip2 --release -- -D warnings
+      - name: Clippy, registry contract (tests and on-chain build)
+        working-directory: contracts/registry
+        run: |
+          cargo clippy --tests -- -D warnings
+          RUSTFLAGS="--cfg near" cargo clippy --target wasm32-unknown-unknown --release -- -D warnings
 
   runner-build:
     name: Exam runner release build (reproducible, hash-checked)
