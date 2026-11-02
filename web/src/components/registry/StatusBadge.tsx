@@ -2,6 +2,7 @@ import type { CertState } from "../../../../mcp/src/verdict";
 
 const STYLE: Record<CertState, { label: string; className: string }> = {
   active: { label: "Active", className: "bg-active-soft text-active border-active" },
+  stale: { label: "Stale", className: "bg-suspended-soft text-suspended border-suspended" },
   suspended: { label: "Suspended", className: "bg-suspended-soft text-suspended border-suspended" },
   revoked: { label: "Revoked", className: "bg-revoked-soft text-revoked border-revoked" },
   none: { label: "No certificate", className: "bg-paper-sunk text-ink-muted border-rule" },

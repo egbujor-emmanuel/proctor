@@ -33,6 +33,12 @@ function fakes(world: World): { registry: RegistryReader; market: MarketReader }
         down();
         return Object.values(world.certs ?? {}).find((c) => c.cert_id === certId) ?? null;
       },
+      async getOutlayerAccount() {
+        return "outlayer.testnet";
+      },
+      async getOutcome() {
+        return null;
+      },
     },
     market: {
       async findByHandle(handle) {
@@ -124,7 +130,7 @@ describe("PROCTOR MCP server", () => {
     const client = await connect({});
     const { json } = await call(client, "proctor_vet_market_agent", { handle: "ghost" });
     expect(json.decision).toBe("do_not_hire");
-    expect(json.reasons[0]).toContain("no Agent Market agent has the handle 'ghost'");
+    expect(json.reasons[0]).toContain("no Agent Market agent with the handle 'ghost'");
   });
 
   it("checks only active exams when none is named", async () => {

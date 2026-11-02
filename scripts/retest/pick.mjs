@@ -3,6 +3,8 @@
 
 /** The registry's minimum gap between re-tests of one certificate. */
 export const RETEST_COOLDOWN_NS = 3_600n * 1_000_000_000n;
+/** The registry's wait before anyone may expire a sitting whose callback never came. */
+export const SITTING_TIMEOUT_NS = 30n * 60n * 1_000_000_000n;
 /** Slack so a pick made from a slightly stale read is not refused on chain. */
 const COOLDOWN_MARGIN_NS = 120n * 1_000_000_000n;
 
@@ -36,4 +38,16 @@ export function pick(certs, nowNs, random, onlyCertId) {
   }
   const cert = eligible[random(eligible.length)];
   return { cert_id: cert.cert_id, candidate: cert.candidate_model, exam_id: cert.exam_id, eligible: eligible.length };
+}
+
+/**
+ * Re-tests stuck in flight long enough for the registry to accept
+ * expire_sitting. Until expired, their certificate cannot be re-tested.
+ * `requestedAt` maps sitting id -> requested_at_ns (BigInt-able).
+ */
+export function stuckSittings(certs, requestedAt, nowNs) {
+  return certs
+    .map((c) => c.retest_in_flight)
+    .filter((id) => id !== null && id !== undefined && requestedAt.has(id))
+    .filter((id) => nowNs >= BigInt(requestedAt.get(id)) + SITTING_TIMEOUT_NS + COOLDOWN_MARGIN_NS);
 }

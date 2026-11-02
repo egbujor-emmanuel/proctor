@@ -5,10 +5,11 @@
 //
 // Environment: PROCTOR_REGISTRY (default registry-v2.attrito.testnet),
 // NEAR_RPC_URL (default FastNEAR testnet), NEARAI_API_KEY (any NEAR AI Cloud
-// key; signature lookups are not billed). Exits 0 only if every check passes.
+// key; signature lookups are not billed). Exits 0 only if every check ran and
+// passed: 1 if any failed or none could run, 2 on an error.
 
 import { createRegistryReader } from "./near.js";
-import { Attestations, checkAnswer, readTransactionLogs, responseIdsHash, sittingFromLogs } from "./verify.js";
+import { Attestations, checkAnswer, readTransaction, responseIdsHash, sittingFromTransaction, type AnswerCheck } from "./verify.js";
 
 const DEFAULT_RPC = "https://rpc.testnet.fastnear.com";
 
@@ -17,9 +18,26 @@ function arg(name: string): string | undefined {
   return i === -1 ? undefined : process.argv[i + 1];
 }
 
-const line = (ok: boolean, text: string) => console.log(`${ok ? "PASS" : "FAIL"}  ${text}`);
+let passed = 0;
+let failed = 0;
+function check(ok: boolean, text: string) {
+  console.log(`${ok ? "PASS" : "FAIL"}  ${text}`);
+  if (ok) passed += 1;
+  else failed += 1;
+}
 
-async function main(): Promise<boolean> {
+const certIdOf = (outcome: unknown): number | undefined =>
+  typeof outcome === "object" && outcome !== null
+    ? Object.values(outcome).map((v) => (v as { cert_id?: unknown })?.cert_id).find((id): id is number => typeof id === "number")
+    : undefined;
+
+function describe(c: AnswerCheck): string {
+  if (!c.ok) return c.error ?? "failed";
+  const where = c.kind === "provider_tee" ? `signed inside ${c.model}'s TEE` : "signed by NEAR AI's gateway TEE (model at an external provider)";
+  return `${where}; signer ${c.signer} is the key NEAR AI's attestation report lists`;
+}
+
+async function main(): Promise<void> {
   const tx = arg("--tx");
   const sender = arg("--sender");
   if (!tx || !sender) throw new Error("usage: verify-cli --tx <transaction hash> --sender <account that sent it>");
@@ -27,50 +45,54 @@ async function main(): Promise<boolean> {
   const contractId = process.env.PROCTOR_REGISTRY ?? "registry-v2.attrito.testnet";
   const registry = createRegistryReader({ rpcUrl, contractId });
 
-  const sitting = sittingFromLogs(await readTransactionLogs(rpcUrl, tx, sender));
-  console.log(`sitting ${sitting.sittingId}: ${sitting.candidate}, outcome ${JSON.stringify(sitting.outcome)}`);
-  let allOk = true;
+  const transaction = await readTransaction(rpcUrl, tx, sender);
+  check(transaction.receiver === contractId, `the transaction was sent to the registry ${contractId}`);
+  const sitting = sittingFromTransaction(transaction, contractId, await registry.getOutlayerAccount());
+  console.log(`      sitting ${sitting.sittingId}: ${sitting.candidate} on ${sitting.examId}, outcome ${JSON.stringify(sitting.outcome)}`);
 
-  const certId = Object.values(sitting.outcome).map((v) => (v as { cert_id?: number })?.cert_id).find((id) => id !== undefined);
+  const recorded = await registry.getOutcome(sitting.sittingId);
+  check(JSON.stringify(recorded) === JSON.stringify(sitting.outcome), `the registry's own record of sitting ${sitting.sittingId} matches the event`);
+
+  const certId = certIdOf(sitting.outcome);
+  const cert = certId === undefined ? null : await registry.getCertificate(certId);
   if (certId !== undefined) {
-    const cert = await registry.getCertificate(certId);
     if (!cert) throw new Error(`certificate ${certId} not found on ${contractId}`);
+    check(cert.candidate_model === sitting.candidate && cert.exam_id === sitting.examId, `certificate ${certId} is for this candidate and exam`);
     if (cert.sitting_id === sitting.sittingId) {
-      const ok = responseIdsHash(sitting.responseIds) === cert.response_ids_hash;
-      line(ok, `certificate ${certId}: response_ids_hash matches the ${sitting.responseIds.length} completion ids in the event`);
-      allOk &&= ok;
-    } else {
-      console.log(`info  certificate ${certId} was issued by sitting ${cert.sitting_id}; this is a re-test, so its ids are checked by signature only`);
-    }
-    if (sitting.runnerHash) {
-      const ok = sitting.runnerHash === cert.runner_hash;
-      line(ok, `OutLayer ran runner ${sitting.runnerHash.slice(0, 12)}… (${sitting.runnerUrl}), the build on the certificate`);
-      allOk &&= ok;
+      check(responseIdsHash(sitting.responseIds) === cert.response_ids_hash, `certificate ${certId}'s response_ids_hash matches the ${sitting.responseIds.length} completion ids in the event`);
     }
   }
+  if (sitting.runnerHash) {
+    const pinned = cert?.runner_hash;
+    check(pinned === undefined || sitting.runnerHash === pinned, `OutLayer ran runner ${sitting.runnerHash.slice(0, 12)}… (${sitting.runnerUrl})${pinned ? ", the build on the certificate" : ""}`);
+  } else {
+    check(false, "no execution_completed event from OutLayer in this transaction, so the runner is unproven");
+  }
 
+  if (sitting.responseIds.length === 0) {
+    check(false, "the sitting has no completion ids to check (no answer was recorded)");
+    return;
+  }
   const apiKey = process.env.NEARAI_API_KEY;
   if (!apiKey) {
-    console.log("SKIP  signatures not checked: set NEARAI_API_KEY (any NEAR AI Cloud key; lookups are not billed)");
-    return false;
+    check(false, "signatures not checked: set NEARAI_API_KEY (any NEAR AI Cloud key; lookups are not billed)");
+    return;
   }
   const attestations = new Attestations(apiKey);
-  for (const id of sitting.responseIds) {
-    const check = await checkAnswer(id, apiKey, attestations);
-    const where = check.kind === "provider_tee" ? `signed inside ${check.model}'s TEE` : check.kind === "gateway" ? "signed by NEAR AI's gateway TEE (model at an external provider)" : "";
-    line(check.ok, `${id}: ${check.ok ? `${where}, signer ${check.signer} is attested` : check.error}`);
-    allOk &&= check.ok;
-  }
-  return allOk;
+  // A NEAR AI model candidate must have answered from that model's TEE; agents may use any model.
+  const expectModel = sitting.candidate.startsWith("agent:") ? undefined : sitting.candidate;
+  const checks = await Promise.all(sitting.responseIds.map((id) => checkAnswer(id, apiKey, attestations, fetch, { expectModel })));
+  for (const c of checks) check(c.ok, `${c.id}: ${describe(c)}`);
 }
 
 main().then(
-  (ok) => {
-    console.log(ok ? "\nverified" : "\nNOT fully verified");
+  () => {
+    const ok = failed === 0 && passed > 0;
+    console.log(ok ? `\nverified (${passed} checks)` : `\nNOT verified (${failed} failed, ${passed} passed)`);
     process.exit(ok ? 0 : 1);
   },
-  (error) => {
-    console.error(`error: ${(error as Error).message}`);
+  (error: unknown) => {
+    console.error(`error: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(2);
   },
 );

@@ -1,7 +1,8 @@
 # Surprise re-tests: every hour this wakes, fires with probability 0.2 (so
-# the hours are unpredictable), picks a live certificate at random and pays
-# for its re-test from the sentinel testnet account. Anyone may re-test any
-# certificate; this just makes sure someone always does.
+# the hours are unpredictable), expires any re-test whose callback never came,
+# picks a live certificate at random and pays for its re-test from the
+# sentinel testnet account. Anyone may re-test any certificate; this makes
+# sure someone always does. The run fails unless the re-test ends in a verdict.
 name: Surprise re-tests
 
 on:
@@ -19,6 +20,10 @@ permissions:
 concurrency:
   group: surprise-retest
   cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash # bash -eo pipefail: a failure anywhere in a pipeline fails the step
 
 jobs:
   retest:
@@ -44,14 +49,33 @@ jobs:
             choice="$(node scripts/retest/surprise-retest.mjs --chance 0.2)"
           fi
           echo "$choice"
-          cert_id="$(node -e 'const c = JSON.parse(process.argv[1]); process.stdout.write(Number.isInteger(c.cert_id) ? String(c.cert_id) : "")' "$choice")"
+          read_field() { node -e 'const c = JSON.parse(process.argv[1]); const v = c[process.argv[2]]; process.stdout.write(v === undefined ? "" : Array.isArray(v) ? v.join(" ") : String(v))' "$choice" "$1"; }
+          cert_id="$(read_field cert_id)"
+          [[ -z "$cert_id" || "$cert_id" =~ ^[0-9]+$ ]] || { echo "unexpected cert_id" >&2; exit 1; }
           echo "cert_id=$cert_id" >> "$GITHUB_OUTPUT"
+          echo "expire=$(read_field expire)" >> "$GITHUB_OUTPUT"
           echo "### Pick" >> "$GITHUB_STEP_SUMMARY"
           echo "\`$choice\`" >> "$GITHUB_STEP_SUMMARY"
+          # A re-test asked for by hand that cannot run is a failure, not a quiet skip.
+          if [ -n "$CERT_INPUT" ] && [ -z "$cert_id" ]; then echo "certificate $CERT_INPUT cannot be re-tested now" >&2; exit 1; fi
 
       - name: Install near-cli-rs
-        if: steps.pick.outputs.cert_id != ''
+        if: steps.pick.outputs.cert_id != '' || steps.pick.outputs.expire != ''
         run: npm install -g near-cli-rs@0.30.1
+
+      - name: Expire re-tests whose callback never came
+        if: steps.pick.outputs.expire != ''
+        env:
+          EXPIRE: ${{ steps.pick.outputs.expire }}
+          SENTINEL_PRIVATE_KEY: ${{ secrets.SENTINEL_PRIVATE_KEY }}
+        run: |
+          for id in $EXPIRE; do
+            [[ "$id" =~ ^[0-9]+$ ]] || { echo "unexpected sitting id $id" >&2; exit 1; }
+            near contract call-function as-transaction "$REGISTRY" expire_sitting json-args "{\"sitting_id\":$id}" \
+              prepaid-gas '30.0 Tgas' attached-deposit '0 NEAR' sign-as "$SENTINEL" \
+              network-config testnet sign-with-plaintext-private-key "$SENTINEL_PRIVATE_KEY" send
+            echo "Expired stuck sitting $id" >> "$GITHUB_STEP_SUMMARY"
+          done
 
       - name: Pay for the re-test
         if: steps.pick.outputs.cert_id != ''
@@ -64,11 +88,17 @@ jobs:
             prepaid-gas '300.0 Tgas' attached-deposit '0.1 NEAR' sign-as "$SENTINEL" \
             network-config testnet sign-with-plaintext-private-key "$SENTINEL_PRIVATE_KEY" send 2>&1 | tee retest.log
           # near-cli waits for every receipt, so the verdict is in the log.
-          outcome="$(grep -o '"event":"sitting_resolved".*' retest.log | grep -o '"outcome":{[^}]*}[^]]*' | head -1)"
-          tx="$(grep -o 'Transaction ID: [A-Za-z0-9]*' retest.log | head -1 | cut -d' ' -f3)"
-          [ -n "$tx" ] || { echo "no transaction was sent" >&2; exit 1; }
+          tx="$(grep -o 'Transaction ID: [A-Za-z0-9]*' retest.log | head -1 | cut -d' ' -f3 || true)"
+          outcome="$(grep -o '"event":"sitting_resolved".*' retest.log | grep -oE '"outcome":(\{"[A-Za-z]+"|"[A-Za-z]+")' | head -1 | grep -oE '[A-Z][A-Za-z]+' || true)"
           {
             echo "### Re-test of certificate $CERT_ID"
-            echo "Transaction: https://testnet.nearblocks.io/txns/$tx"
-            echo "Outcome: \`${outcome:-not found in the log}\`"
+            echo "Transaction: https://testnet.near.rocks/tx/$tx"
+            echo "Outcome: \`${outcome:-none}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+          [ -n "$tx" ] || { echo "no transaction was sent" >&2; exit 1; }
+          if grep -qiE 'panicked|Failure \{|ExecutionError' retest.log; then echo "the re-test transaction failed" >&2; exit 1; fi
+          # Only a verdict counts: an outage, a rejected output or no outcome fails the run.
+          case "$outcome" in
+            RetestPassed|Suspended|Revoked) echo "re-test ended in $outcome" ;;
+            *) echo "re-test ended without a verdict (${outcome:-no sitting_resolved event})" >&2; exit 1 ;;
+          esac

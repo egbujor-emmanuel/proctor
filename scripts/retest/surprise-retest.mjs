@@ -10,7 +10,7 @@
 
 import { randomInt } from "node:crypto";
 
-import { pick } from "./pick.mjs";
+import { pick, stuckSittings } from "./pick.mjs";
 
 const RPC = process.env.NEAR_RPC ?? "https://rpc.testnet.near.org";
 const PAGE = 100;
@@ -33,10 +33,12 @@ async function view(registry, method, args) {
     signal: AbortSignal.timeout(20_000),
   });
   if (!response.ok) throw new Error(`NEAR RPC returned HTTP ${response.status}`);
-  const body = await response.json();
-  if (body.error || body.result?.error) throw new Error(`view ${method} failed: ${JSON.stringify(body.error ?? body.result.error)}`);
+  const body = await response.json().catch(() => null);
+  if (!body || body.error || body.result?.error || !Array.isArray(body.result?.result)) {
+    throw new Error(`view ${method} failed: ${JSON.stringify(body?.error ?? body?.result?.error ?? "unexpected response")}`);
+  }
   // Keep nanosecond timestamps exact: they are above 2^53.
-  const text = Buffer.from(body.result.result).toString("utf8").replace(/("(?:last_retest_requested_ns)"\s*:\s*)(\d+)/g, '$1"$2"');
+  const text = Buffer.from(body.result.result).toString("utf8").replace(/("(?:last_retest_requested_ns|requested_at_ns)"\s*:\s*)(\d+)/g, '$1"$2"');
   return JSON.parse(text);
 }
 
@@ -47,7 +49,8 @@ async function chainNowNs() {
     body: JSON.stringify({ jsonrpc: "2.0", id: "proctor-retest", method: "block", params: { finality: "final" } }),
     signal: AbortSignal.timeout(20_000),
   });
-  const body = await response.json();
+  if (!response.ok) throw new Error(`NEAR RPC returned HTTP ${response.status}`);
+  const body = await response.json().catch(() => null);
   // Keep the timestamp exact by reading its digits, not a float.
   const raw = JSON.stringify(body.result?.header ?? {}).match(/"timestamp_nanosec":"(\d+)"/)?.[1];
   if (!raw) throw new Error("could not read the chain's time");
@@ -70,8 +73,17 @@ async function main() {
     certs.push(...value);
     if (value.length < PAGE) break;
   }
-  const choice = pick(certs, await chainNowNs(), randomInt, only === undefined ? undefined : Number(only));
-  console.log(JSON.stringify(choice));
+  const nowNs = await chainNowNs();
+  // Re-tests whose callback never came block their certificate until expired.
+  const inFlight = certs.map((c) => c.retest_in_flight).filter((id) => id !== null && id !== undefined);
+  const requestedAt = new Map();
+  for (const id of inFlight) {
+    const sitting = await view(registry, "get_sitting", { sitting_id: id });
+    if (sitting) requestedAt.set(id, sitting.requested_at_ns);
+  }
+  const expire = stuckSittings(certs, requestedAt, nowNs);
+  const choice = pick(certs, nowNs, randomInt, only === undefined ? undefined : Number(only));
+  console.log(JSON.stringify({ ...choice, expire }));
 }
 
 main().catch((error) => {

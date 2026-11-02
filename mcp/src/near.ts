@@ -41,6 +41,10 @@ export const ExamSchema = z.object({
   sittings: z.number(),
 });
 
+/** A sitting's outcome: `{"Certified": {...}}`, or a bare string for unit variants such as "Expired". */
+export const SittingOutcomeSchema = z.union([z.string(), z.record(z.string(), z.unknown())]);
+export type SittingOutcome = z.infer<typeof SittingOutcomeSchema>;
+
 export type Certificate = z.infer<typeof CertificateSchema>;
 export type Exam = z.infer<typeof ExamSchema>;
 
@@ -53,6 +57,10 @@ export interface RegistryReader {
   listExams(): Promise<Exam[]>;
   latestCertificate(candidate: string, examId: string): Promise<Certificate | null>;
   getCertificate(certId: number): Promise<Certificate | null>;
+  /** The OutLayer account the registry calls (from get_config). */
+  getOutlayerAccount(): Promise<string>;
+  /** The registry's recorded outcome of a sitting, or null if it has none. */
+  getOutcome(sittingId: number): Promise<SittingOutcome | null>;
 }
 
 export interface RegistryOptions {
@@ -95,12 +103,13 @@ export function createRegistryReader(options: RegistryOptions): RegistryReader {
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
-      throw new RegistryError(`NEAR RPC unreachable (${options.rpcUrl}): ${(error as Error).message}`);
+      const reason = error instanceof Error && error.name === "TimeoutError" ? `no answer within ${timeoutMs} ms` : error instanceof Error ? error.message : String(error);
+      throw new RegistryError(`NEAR RPC unreachable (${options.rpcUrl}): ${reason}`);
     }
     if (!response.ok) {
       throw new RegistryError(`NEAR RPC returned HTTP ${response.status} for ${method}`);
     }
-    const parsed = RpcResponseSchema.safeParse(await response.json());
+    const parsed = RpcResponseSchema.safeParse(await response.json().catch(() => null));
     if (!parsed.success) {
       throw new RegistryError(`unexpected NEAR RPC response for ${method}`);
     }
@@ -108,7 +117,11 @@ export function createRegistryReader(options: RegistryOptions): RegistryReader {
       throw new RegistryError(`registry ${options.contractId} rejected ${method}: ${JSON.stringify(parsed.data.error)}`);
     }
     const text = Buffer.from(parsed.data.result.result).toString("utf8");
-    return JSON.parse(text);
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new RegistryError(`registry returned non-JSON for ${method}`);
+    }
   }
 
   async function parsedView<T>(schema: z.ZodType<T>, method: string, args: Record<string, unknown>): Promise<T> {
@@ -137,6 +150,12 @@ export function createRegistryReader(options: RegistryOptions): RegistryReader {
     },
     getCertificate(certId) {
       return parsedView(CertificateSchema.nullable(), "get_certificate", { cert_id: certId });
+    },
+    async getOutlayerAccount() {
+      return (await parsedView(z.object({ outlayer_account: z.string() }), "get_config", {})).outlayer_account;
+    },
+    getOutcome(sittingId) {
+      return parsedView(SittingOutcomeSchema.nullable(), "get_outcome", { sitting_id: sittingId });
     },
   };
 }

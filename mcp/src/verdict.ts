@@ -35,7 +35,11 @@ export interface MarketAgent {
   builder?: { verification?: { level: string } | null } | null;
 }
 
-export type CertState = "active" | "suspended" | "revoked" | "none";
+/** "stale": Active on chain, but not verified recently enough to rely on. */
+export type CertState = "active" | "stale" | "suspended" | "revoked" | "none";
+
+/** A live certificate must have passed a sitting or re-test within this long. */
+export const MAX_CERT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 export type Decision = "hire" | "do_not_hire";
 
 export interface CertificateSummary {
@@ -77,7 +81,8 @@ export function agentCandidateId(owner: string, name: string): string {
 
 // A listing names the NEAR account that certifies it with `proctor:<account>`
 // in its tags, description or bio. NEAR account ids are lowercase.
-const DECLARATION = /(?:^|[^A-Za-z0-9])(?:proctor|PROCTOR|Proctor):([a-z0-9._-]+\.(?:near|testnet))(?![a-z0-9_-])/g;
+// A trailing "." ends a sentence; ".x" would continue the name (alice.testnet.evil).
+const DECLARATION = /(?:^|[^A-Za-z0-9])(?:proctor|PROCTOR|Proctor):([a-z0-9._-]+\.(?:near|testnet))(?![a-z0-9_-]|\.[a-z0-9])/g;
 const NEAR_ACCOUNT = /^(?:(?:[a-z\d]+[-_])*[a-z\d]+\.)*(?:[a-z\d]+[-_])*[a-z\d]+$/;
 /** The registry's rule for agent names: its id charset without "/", at most 48 bytes. */
 const AGENT_NAME = /^[A-Za-z0-9._:@+-]{1,48}$/;
@@ -145,12 +150,24 @@ export function summarize(cert: Certificate): CertificateSummary {
   return summary;
 }
 
-export function checkExam(examId: string, cert: Certificate | null): ExamCheck {
-  return cert === null ? { exam_id: examId, state: "none" } : { exam_id: examId, state: certState(cert), certificate: summarize(cert) };
+/**
+ * One exam's state for a candidate. An Active certificate that has not been
+ * verified within MAX_CERT_AGE_MS counts as stale: re-tests may have stopped.
+ */
+export function checkExam(examId: string, cert: Certificate | null, nowMs: number = Date.now()): ExamCheck {
+  if (cert === null) return { exam_id: examId, state: "none" };
+  const summary = summarize(cert);
+  const ageMs = nowMs - Math.floor(cert.last_verified_ns / 1_000_000);
+  if (summary.state === "active" && ageMs > MAX_CERT_AGE_MS) {
+    const days = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+    return { exam_id: examId, state: "stale", certificate: { ...summary, state: "stale", reason: `last verified ${days} days ago` } };
+  }
+  return { exam_id: examId, state: summary.state, certificate: summary };
 }
 
 const STATE_REASON: Record<Exclude<CertState, "active">, string> = {
   none: "holds no PROCTOR certificate",
+  stale: "has not passed a sitting or re-test in over 7 days, so its certificate is not current",
   suspended: "failed its most recent re-test; its certificate is suspended until it passes again",
   revoked: "failed two re-tests in a row; its certificate was revoked",
 };

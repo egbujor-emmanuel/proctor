@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Attestations, checkAnswer, recoverSigner, responseIdsHash, sittingFromLogs } from "../src/verify.js";
+import { Attestations, checkAnswer, recoverSigner, responseIdsHash, sittingFromTransaction, type Transaction } from "../src/verify.js";
 
 // A real NEAR AI signature: certificate 0 on registry-v2.attrito.testnet,
 // answered by DeepSeek V4.1 Flash inside its TEE (2026-11-02).
@@ -36,17 +36,39 @@ describe("responseIdsHash", () => {
   });
 });
 
-describe("sittingFromLogs", () => {
-  const resolved = `EVENT_JSON:${JSON.stringify({ standard: "proctor", event: "sitting_resolved", data: [{ sitting_id: 0, candidate_model: "m", outcome: { Certified: { cert_id: 0, score_bps: 6000 } }, response_ids: CERT0_IDS }] })}`;
+describe("sittingFromTransaction", () => {
+  const REGISTRY = "registry-v2.attrito.testnet";
+  const OUTLAYER = "outlayer.testnet";
+  const resolved = `EVENT_JSON:${JSON.stringify({ standard: "proctor", event: "sitting_resolved", data: [{ sitting_id: 0, exam_id: "e", candidate_model: "m", outcome: { Certified: { cert_id: 0, score_bps: 6000 } }, response_ids: CERT0_IDS }] })}`;
   const executed = `EVENT_JSON:${JSON.stringify({ standard: "near-outlayer", event: "execution_completed", data: [{ code_source: { WasmUrl: { url: "https://x/r.wasm", hash: "ab" } } }] })}`;
+  const tx = (...receipts: Transaction["receipts"]): Transaction => ({ receiver: REGISTRY, receipts });
 
-  it("reads the sitting and the runner OutLayer ran", () => {
-    const s = sittingFromLogs(["plain log", executed, resolved]);
-    expect(s).toMatchObject({ sittingId: 0, candidate: "m", responseIds: CERT0_IDS, runnerHash: "ab", runnerUrl: "https://x/r.wasm" });
+  it("reads the sitting from the registry and the runner from OutLayer", () => {
+    const s = sittingFromTransaction(tx({ executor: OUTLAYER, logs: [executed], succeeded: true }, { executor: REGISTRY, logs: ["plain log", resolved], succeeded: true }), REGISTRY, OUTLAYER);
+    expect(s).toMatchObject({ sittingId: 0, candidate: "m", examId: "e", responseIds: CERT0_IDS, runnerHash: "ab", runnerUrl: "https://x/r.wasm" });
   });
 
-  it("refuses a transaction that resolved no sitting", () => {
-    expect(() => sittingFromLogs([executed])).toThrow("no sitting_resolved event");
+  it("ignores events another contract logs, so a forged sitting cannot pass", () => {
+    const forged = tx({ executor: "evil.testnet", logs: [executed, resolved], succeeded: true });
+    expect(() => sittingFromTransaction(forged, REGISTRY, OUTLAYER)).toThrow("found 0");
+    const s = sittingFromTransaction(tx({ executor: "evil.testnet", logs: [executed], succeeded: true }, { executor: REGISTRY, logs: [resolved], succeeded: true }), REGISTRY, OUTLAYER);
+    expect(s.runnerHash).toBeUndefined();
+  });
+
+  it("ignores logs from failed receipts and skips malformed events", () => {
+    expect(() => sittingFromTransaction(tx({ executor: REGISTRY, logs: [resolved], succeeded: false }), REGISTRY, OUTLAYER)).toThrow("found 0");
+    const s = sittingFromTransaction(tx({ executor: REGISTRY, logs: ["EVENT_JSON:{not json", resolved], succeeded: true }), REGISTRY, OUTLAYER);
+    expect(s.sittingId).toBe(0);
+  });
+
+  it("refuses a transaction that resolved no sitting, or two", () => {
+    expect(() => sittingFromTransaction(tx({ executor: REGISTRY, logs: [executed], succeeded: true }), REGISTRY, OUTLAYER)).toThrow("found 0");
+    expect(() => sittingFromTransaction(tx({ executor: REGISTRY, logs: [resolved, resolved], succeeded: true }), REGISTRY, OUTLAYER)).toThrow("found 2");
+  });
+
+  it("reads unit outcomes such as Expired", () => {
+    const expired = resolved.replace('{"Certified":{"cert_id":0,"score_bps":6000}}', '"Expired"');
+    expect(sittingFromTransaction(tx({ executor: REGISTRY, logs: [expired], succeeded: true }), REGISTRY, OUTLAYER).outcome).toBe("Expired");
   });
 });
 
@@ -86,6 +108,20 @@ describe("checkAnswer", () => {
     const f = nearAi({ a: { ...record, signing_address: GATEWAY_KEY } });
     const check = await checkAnswer("a", "k", new Attestations("k", f), f);
     expect(check).toMatchObject({ ok: false, error: "signature does not recover to the reported signing address" });
+  });
+
+  it("fails a model candidate whose answer came from a different model's TEE", async () => {
+    const f = nearAi({ a: record });
+    const check = await checkAnswer("a", "k", new Attestations("k", f), f, { expectModel: "openai/gpt-5.4-nano" });
+    expect(check).toMatchObject({ ok: false, error: "signed for deepseek-ai/DeepSeek-V4.1-Flash-1017, but the candidate is openai/gpt-5.4-nano" });
+  });
+
+  it("does not cache a failed attestation lookup", async () => {
+    let calls = 0;
+    const f = vi.fn(async () => (++calls === 1 ? Response.json({ error: { message: "busy" } }, { status: 503 }) : Response.json({ model_attestations: [{ signing_address: MODEL_KEY }] }))) as unknown as typeof fetch;
+    const attestations = new Attestations("k", f);
+    await expect(attestations.get("m")).rejects.toThrow("busy");
+    await expect(attestations.get("m")).resolves.toMatchObject({ model: [MODEL_KEY] });
   });
 
   it("labels a gateway signature as such and checks it against the gateway's key", async () => {

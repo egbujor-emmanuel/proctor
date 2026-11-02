@@ -13,7 +13,7 @@ export function certificate(overrides: Partial<Certificate> = {}): Certificate {
     correct: 4,
     total: 5,
     issued_at_ns: 1_761_900_000_000_000_000,
-    last_verified_ns: 1_761_990_000_000_000_000,
+    last_verified_ns: Date.now() * 1_000_000, // recent, so the certificate is current
     retests_passed: 2,
     status: "Active",
     requested_by: "alice.testnet",

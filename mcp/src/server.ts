@@ -37,7 +37,13 @@ async function guarded(work: () => Promise<unknown>): Promise<CallToolResult> {
 /** Checks one exam, or every active exam when none is named. */
 async function checkCandidate(registry: RegistryReader, candidate: string, examId?: string): Promise<ExamCheck[]> {
   const examIds = examId ? [examId] : (await registry.listExams()).filter((e) => e.active).map((e) => e.exam_id);
-  return Promise.all(examIds.map(async (id) => checkExam(id, await registry.latestCertificate(candidate, id))));
+  return Promise.all(
+    examIds.map(async (id) => {
+      const cert = await registry.latestCertificate(candidate, id);
+      // The contract filters by candidate and exam; checked again here, as the website does.
+      return checkExam(id, cert !== null && cert.candidate_model === candidate && cert.exam_id === id ? cert : null);
+    }),
+  );
 }
 
 export function createProctorServer(deps: ProctorDeps): McpServer {
@@ -87,7 +93,7 @@ export function createProctorServer(deps: ProctorDeps): McpServer {
       guarded(async () => {
         const agent = await market.findByHandle(handle);
         if (agent === null) {
-          return { decision: "do_not_hire", candidate: `market:${handle}`, reasons: [`no Agent Market agent has the handle '${handle}'`], exams: [] };
+          return { decision: "do_not_hire", candidate: `market:${handle}`, reasons: [`no Agent Market agent with the handle '${handle}' among the market's first 50 search results for it`], exams: [] };
         }
         const bound = marketCandidate(agent);
         if ("error" in bound) {

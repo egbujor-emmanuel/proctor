@@ -92,3 +92,33 @@ describe("summary times", () => {
     expect(broken.certificate?.last_verified).toBe("unknown");
   });
 });
+
+describe("certificate freshness", () => {
+  const DAY_NS = 24 * 60 * 60 * 1e9;
+  const now = Date.UTC(2026, 10, 2);
+
+  it("counts an Active certificate not verified in over 7 days as stale, and does not hire", () => {
+    const old = certificate({ last_verified_ns: (now / 1000 - 8 * 24 * 3600) * 1e9 });
+    const check = checkExam("e", old, now);
+    expect(check.state).toBe("stale");
+    expect(check.certificate?.reason).toBe("last verified 8 days ago");
+    expect(decide("m", [check]).decision).toBe("do_not_hire");
+  });
+
+  it("keeps a recently verified certificate live", () => {
+    const fresh = certificate({ last_verified_ns: now * 1e6 - DAY_NS });
+    expect(checkExam("e", fresh, now).state).toBe("active");
+  });
+
+  it("does not let staleness hide a suspension or revocation", () => {
+    const status = { Revoked: { reason: "r", at_ns: 1 } };
+    expect(checkExam("e", certificate({ status, last_verified_ns: 1 }), now).state).toBe("revoked");
+  });
+});
+
+describe("declaration parsing edge cases", () => {
+  it("accepts a declaration that ends a sentence but not a longer name", () => {
+    expect(marketCandidate(marketAgent({ description: "Certified by proctor:alice.testnet." }))).toHaveProperty("id", "agent:alice.testnet/dailybriefer");
+    expect(marketCandidate(marketAgent({ description: "proctor:alice.testnet.evil.com" }))).toHaveProperty("error");
+  });
+});

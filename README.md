@@ -36,7 +36,7 @@ git clone https://github.com/egbujor-emmanuel/proctor && cd proctor
 NEARAI_API_KEY=... npm --prefix mcp run verify -- --tx 4ewFE77FvYXLTzA5dfBWWanntAQeyfFEXAvZFo6LaoR1 --sender attrito.testnet
 ```
 
-You should see a `PASS` line for each check, then `verified`:
+You should see a `PASS` line for each check, then `verified (10 checks)`:
 - The certificate's `response_ids_hash` matches the completion ids in the sitting's event.
 - OutLayer's own event shows it ran the runner build pinned on the certificate.
 - Each of the 5 answers is *"signed inside deepseek-ai/DeepSeek-V4.1-Flash-1017's TEE"* by the key NEAR AI's attestation report names for that model.
@@ -178,7 +178,7 @@ How to read it:
 
 - **The exam can't leak.** It exists only as an OutLayer secret, opened inside the enclave for one runner build (pinned by SHA-256) and only on calls that come through the registry.
 - **The score isn't self-reported.** Certificates are written only in the registry's own callback for OutLayer's result, after the re-checks above.
-- **The answers are real.** Each answer is a NEAR AI completion. The certificate stores a hash of the completion ids, and the ids are in the `sitting_resolved` event. [`mcp/src/verify.ts`](mcp/src/verify.ts) checks every one: NEAR AI's signature must be valid and its signer must be the key in NEAR AI's attestation report. That is the model's own TEE for TEE-hosted models, or NEAR AI's gateway TEE for models at external providers. The signed request and response hashes cover the secret exam, so a third party sees them but cannot recompute them.
+- **The answers are real.** Each answer is a NEAR AI completion. The certificate stores a hash of the completion ids, and the ids are in the `sitting_resolved` event. [`mcp/src/verify.ts`](mcp/src/verify.ts) checks every one: NEAR AI's signature must be valid and its signer must be the key listed in NEAR AI's attestation report. The script does not re-verify the report's hardware quotes; [NEAR AI's verifier](https://github.com/nearai/nearai-cloud-verifier) does. Events are accepted only from receipts the registry and OutLayer themselves executed, and are cross-checked against the registry's own record of the sitting. That is the model's own TEE for TEE-hosted models, or NEAR AI's gateway TEE for models at external providers. The signed request and response hashes cover the secret exam, so a third party sees them but cannot recompute them.
 - **An agent can't borrow a key.** The runner sends PROCTOR's NEAR AI key only to `https://cloud-api.near.ai/`, never to an agent endpoint. Look-alike hosts and userinfo tricks are tested in `exam-runner`.
 - **The owner can't swap the grader quietly.** A new runner build is announced on chain and can take effect only 24 hours later. Ownership moves in two steps.
 - **Outages don't fail anyone.** A cut-off answer, an empty reply or a dead endpoint is a failed call, not a wrong answer. Incomplete runs never certify, suspend or revoke.
