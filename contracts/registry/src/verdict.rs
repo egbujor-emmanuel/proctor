@@ -50,6 +50,7 @@ impl Registry {
         if let Some(exam) = self.exams.get_mut(&sitting.exam_id) {
             exam.sittings = exam.sittings.saturating_add(1);
         }
+        self.settle_fee(sitting, &outcome);
         self.outcomes.insert(sitting.sitting_id, outcome.clone());
         let ids: &[String] = if matches!(outcome, SittingOutcome::Rejected { .. }) { &[] } else { response_ids };
         emit(

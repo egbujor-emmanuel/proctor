@@ -3,13 +3,18 @@
 use super::*;
 
 /// Net bytes a worst-case certified sitting leaves in storage: the sitting
-/// record (freed again) plus the certificate, `latest` entry and outcome.
-fn worst_case_bytes(as_agent: bool) -> u64 {
+/// record and held fee (freed again) plus the certificate, `latest` entry,
+/// outcome and, with a fee, a new author balance.
+fn worst_case_bytes(as_agent: bool, with_fee: bool) -> u64 {
     set("owner.testnet", NearToken::from_yoctonear(0), 300);
     let mut r = Registry::new(acc("owner.testnet"), acc("outlayer.testnet"), runner_source(), RUNNER_HASH.to_string());
     let exam_id = "e".repeat(MAX_ID_LEN);
-    set("author.testnet", NearToken::from_near(1), 300);
+    let author = format!("{}.testnet", "w".repeat(56)); // the longest account id, as the balance key
+    set(&author, NearToken::from_near(1), 300);
     r.register_exam(exam_id.clone(), "T".into(), COMMIT.into(), 0, MAX_QUESTIONS, "p".into());
+    if with_fee {
+        r.set_exam_fee(exam_id.clone(), NearToken::from_millinear(20));
+    }
 
     // Each testing_env! resets the storage counter, so measure each step
     // inside its own environment and add the two.
@@ -54,18 +59,27 @@ fn worst_case_bytes(as_agent: bool) -> u64 {
 }
 
 fn assert_covered(used: u64) {
+    println!("worst case: {used} bytes");
     let cost = env::storage_byte_cost().saturating_mul(u128::from(used));
     assert!(cost <= SITTING_STORAGE_FEE, "a certified sitting uses {used} bytes ({cost}), more than the fee");
 }
 
 #[test]
 fn storage_fee_covers_a_worst_case_model_certificate() {
-    assert_covered(worst_case_bytes(false));
+    assert_covered(worst_case_bytes(false, false));
 }
 
-/// The endpoint is stored on the sitting and the certificate, so this is the
-/// largest case: measured at 1,123 bytes against the 1,500 the fee covers.
+/// The endpoint is stored on the sitting and the certificate: measured at
+/// 1,123 bytes against the 1,500 the fee covers.
 #[test]
 fn storage_fee_covers_a_worst_case_agent_certificate() {
-    assert_covered(worst_case_bytes(true));
+    assert_covered(worst_case_bytes(true, false));
+}
+
+/// The largest case: an agent sitting of a paid exam whose author earns for
+/// the first time, so a balance entry is created.
+/// (One measurement per test: the mock chain keeps storage across calls.)
+#[test]
+fn storage_fee_covers_a_paid_sitting_that_opens_an_author_balance() {
+    assert_covered(worst_case_bytes(true, true));
 }

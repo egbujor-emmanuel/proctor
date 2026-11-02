@@ -148,6 +148,9 @@ fn flush(r: &mut Registry) {
     r.sittings.flush();
     r.outcomes.flush();
     r.latest.flush();
+    r.exam_fees.flush();
+    r.held_fees.flush();
+    r.author_balances.flush();
 }
 
 mod exams;
@@ -157,3 +160,4 @@ mod retests;
 mod admin;
 mod storage;
 mod agents;
+mod payouts;
