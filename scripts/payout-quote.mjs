@@ -57,6 +57,7 @@ async function main() {
   const recipient = arg("--recipient");
   if (!recipient) throw new Error("--recipient <address on the destination chain> is required");
   const [symbol, chain] = arg("--to", "USDC:base").split(":");
+  if (!symbol || !chain) throw new Error("--to must be SYMBOL:chain, for example USDC:base");
   const refundTo = arg("--refund-to", "attrito.near");
   const author = arg("--author");
   const amount = arg("--amount");
@@ -94,13 +95,14 @@ async function main() {
       referral: "proctor",
     }),
   });
-  const q = quote.quote ?? {};
+  const q = quote.quote;
+  if (!q || q.amountOut === undefined) throw new Error(`1Click returned no quote: ${JSON.stringify(quote).slice(0, 300)}`);
   console.log(
     JSON.stringify(
       {
         dry_run: true,
         earnings_near: fromUnits(yocto, 24),
-        pays_out: `${q.amountOutFormatted ?? fromUnits(q.amountOut ?? 0, to.decimals)} ${to.symbol} on ${to.blockchain}`,
+        pays_out: `${q.amountOutFormatted ?? fromUnits(q.amountOut, to.decimals)} ${to.symbol} on ${to.blockchain}`,
         at_least: q.minAmountOut ? `${fromUnits(q.minAmountOut, to.decimals)} ${to.symbol}` : undefined,
         usd_value: q.amountOutUsd,
         eta_seconds: q.timeEstimate,
@@ -114,7 +116,7 @@ async function main() {
   );
 }
 
-if (import.meta.url === `file://${process.argv[1].replace(/\\/g, "/")}` || process.argv[1]?.endsWith("payout-quote.mjs")) {
+if (process.argv[1]?.endsWith("payout-quote.mjs")) {
   main().catch((error) => {
     console.error(`error: ${error.message}`);
     process.exit(1);

@@ -13,6 +13,8 @@ import { ANSWER_INSTRUCTION, MAX_BODY_BYTES, parseExamRequest, type ExamRequest 
 export interface Env {
   MODE: string;
   NEARAI_API_KEY: string;
+  /** Workers Rate Limiting binding (wrangler.toml); absent in tests that don't need it. */
+  LIMITER?: RateLimit;
 }
 
 export const MODELS = {
@@ -55,12 +57,30 @@ function about(mode: Mode): Response {
   });
 }
 
-/** Reads the body with a hard size cap, whatever Content-Length claims. */
+/** Reads the body with a hard size cap, stopping as soon as it is exceeded. */
 async function readCapped(request: Request): Promise<string | undefined> {
-  const declared = Number(request.headers.get("content-length") ?? "0");
-  if (declared > MAX_BODY_BYTES) return undefined;
-  const text = await request.text();
-  return new TextEncoder().encode(text).byteLength > MAX_BODY_BYTES ? undefined : text;
+  if (Number(request.headers.get("content-length") ?? "0") > MAX_BODY_BYTES) return undefined;
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BODY_BYTES) {
+      await reader.cancel();
+      return undefined;
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(body);
 }
 
 async function answer(exam: ExamRequest, mode: Mode, apiKey: string): Promise<Response> {
@@ -119,6 +139,10 @@ export default {
     }
     if (pathname === "/v1/chat/completions") {
       if (request.method !== "POST") return fail(405, "use POST", { allow: "POST" });
+      const client = request.headers.get("cf-connecting-ip") ?? "unknown";
+      if (env.LIMITER && !(await env.LIMITER.limit({ key: client })).success) {
+        return fail(429, "too many requests from this client; try again in a minute", { "retry-after": "60" });
+      }
       return completions(request, env, mode);
     }
     return fail(404, "not found");

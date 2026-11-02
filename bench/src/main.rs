@@ -151,6 +151,12 @@ fn run() -> Result<(), String> {
     let page = report::markdown(&results);
     fs::write(format!("{}/RESULTS.md", args.out_dir), &page).map_err(|e| format!("cannot write RESULTS.md: {e}"))?;
     println!("{page}");
+    // A model with no complete run (bad key, outage) means a published row
+    // has no evidence behind it: fail loudly rather than exit 0.
+    let empty: Vec<&str> = results.models.iter().filter(|m| m.complete == 0).map(|m| m.model.as_str()).collect();
+    if !empty.is_empty() {
+        return Err(format!("no complete runs for {}; see the failed calls above", empty.join(", ")));
+    }
     Ok(())
 }
 

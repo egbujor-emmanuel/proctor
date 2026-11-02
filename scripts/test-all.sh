@@ -38,4 +38,8 @@ else
   (cd contracts/sandbox-tests && cargo test -- --test-threads=2)
 fi
 
-step "all suites passed"
+if [[ "${OS:-}" == "Windows_NT" ]]; then
+  step "all suites passed (sandbox tests skipped on Windows; CI runs them)"
+else
+  step "all suites passed"
+fi

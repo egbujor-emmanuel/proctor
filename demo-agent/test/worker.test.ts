@@ -139,6 +139,29 @@ describe("POST /v1/chat/completions", () => {
   });
 });
 
+describe("abuse limits", () => {
+  it("rate-limits a client that sends too many requests, before calling NEAR AI", async () => {
+    const spy = mockUpstream();
+    const limiter = { limit: vi.fn(async () => ({ success: false })) };
+    const res = await worker.fetch(post(examBody()), { ...STRONG, LIMITER: limiter as unknown as RateLimit });
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBe("60");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("stops reading a body without Content-Length once it passes the cap", async () => {
+    const spy = mockUpstream();
+    const big = new ReadableStream({
+      pull(controller) {
+        controller.enqueue(new TextEncoder().encode("x".repeat(16 * 1024)));
+      },
+    });
+    const request = new Request(`${URL_BASE}/v1/chat/completions`, { method: "POST", body: big, duplex: "half" } as RequestInit);
+    expect((await worker.fetch(request, STRONG)).status).toBe(413);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
 describe("other routes and configuration", () => {
   it("says publicly which model is answering", async () => {
     const res = await worker.fetch(new Request(`${URL_BASE}/`), WEAK);

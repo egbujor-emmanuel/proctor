@@ -32,8 +32,12 @@ fi
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
-summary="$(cargo run -q -p proctor-core --bin proctor-seal -- "$exam_file" "$workdir/exam.json" 2>/dev/null)"
-field() { node -e 'console.log(JSON.parse(process.argv[1])[process.argv[2]])' "$summary" "$1"; }
+# proctor-seal's errors (an invalid exam) stay visible on stderr.
+summary="$(cargo run -q -p proctor-core --bin proctor-seal -- "$exam_file" "$workdir/exam.json")"
+# A missing field is an error, never the string "undefined".
+field() {
+  node -e 'const v = JSON.parse(process.argv[1])[process.argv[2]]; if (v === undefined || v === null || v === "") { console.error(`proctor-seal gave no ${process.argv[2]}`); process.exit(1); } console.log(v)' "$summary" "$1"
+}
 exam_id="$(field exam_id)"
 title="${3:-$exam_id}"
 
@@ -41,7 +45,9 @@ runner_hash="$(near contract call-function as-read-only "$registry" get_config j
   network-config "$network" now 2>/dev/null | node -e '
     let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
       const json = s.slice(s.indexOf("{"), s.lastIndexOf("}") + 1);
-      console.log(JSON.parse(json).runner_hash);
+      const hash = JSON.parse(json).runner_hash;
+      if (!/^[0-9a-f]{64}$/.test(hash ?? "")) { console.error("could not read the registry runner_hash"); process.exit(1); }
+      console.log(hash);
     });')"
 
 echo "exam:     $exam_id ($(field question_count) questions, pass mark $(field pass_mark_bps) bps)"
