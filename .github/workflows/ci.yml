@@ -104,6 +104,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Surprise re-test picker
+        run: node --test ../scripts/retest/pick.test.mjs
 
   demo-agent:
     name: Demo agent Worker (typecheck, tests, bundle)

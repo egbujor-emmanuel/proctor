@@ -1,0 +1,74 @@
+# Surprise re-tests: every hour this wakes, fires with probability 0.2 (so
+# the hours are unpredictable), picks a live certificate at random and pays
+# for its re-test from the sentinel testnet account. Anyone may re-test any
+# certificate; this just makes sure someone always does.
+name: Surprise re-tests
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+    inputs:
+      cert_id:
+        description: "Certificate to re-test now (leave blank to pick one at random)"
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: surprise-retest
+  cancel-in-progress: false
+
+jobs:
+  retest:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: registry-v2.attrito.testnet
+      SENTINEL: proctor-sentinel.testnet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Pick a certificate
+        id: pick
+        env:
+          CERT_INPUT: ${{ inputs.cert_id }}
+        run: |
+          if [ -n "$CERT_INPUT" ]; then
+            [[ "$CERT_INPUT" =~ ^[0-9]+$ ]] || { echo "cert_id must be a number" >&2; exit 1; }
+            choice="$(node scripts/retest/surprise-retest.mjs --cert "$CERT_INPUT")"
+          else
+            choice="$(node scripts/retest/surprise-retest.mjs --chance 0.2)"
+          fi
+          echo "$choice"
+          cert_id="$(node -e 'const c = JSON.parse(process.argv[1]); process.stdout.write(Number.isInteger(c.cert_id) ? String(c.cert_id) : "")' "$choice")"
+          echo "cert_id=$cert_id" >> "$GITHUB_OUTPUT"
+          echo "### Pick" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$choice\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install near-cli-rs
+        if: steps.pick.outputs.cert_id != ''
+        run: npm install -g near-cli-rs@0.30.1
+
+      - name: Pay for the re-test
+        if: steps.pick.outputs.cert_id != ''
+        env:
+          CERT_ID: ${{ steps.pick.outputs.cert_id }}
+          SENTINEL_PRIVATE_KEY: ${{ secrets.SENTINEL_PRIVATE_KEY }}
+        run: |
+          [ -n "$SENTINEL_PRIVATE_KEY" ] || { echo "SENTINEL_PRIVATE_KEY is not set" >&2; exit 1; }
+          near contract call-function as-transaction "$REGISTRY" retest json-args "{\"cert_id\":$CERT_ID}" \
+            prepaid-gas '300.0 Tgas' attached-deposit '0.1 NEAR' sign-as "$SENTINEL" \
+            network-config testnet sign-with-plaintext-private-key "$SENTINEL_PRIVATE_KEY" send 2>&1 | tee retest.log
+          # near-cli waits for every receipt, so the verdict is in the log.
+          outcome="$(grep -o '"event":"sitting_resolved".*' retest.log | grep -o '"outcome":{[^}]*}[^]]*' | head -1)"
+          tx="$(grep -o 'Transaction ID: [A-Za-z0-9]*' retest.log | head -1 | cut -d' ' -f3)"
+          [ -n "$tx" ] || { echo "no transaction was sent" >&2; exit 1; }
+          {
+            echo "### Re-test of certificate $CERT_ID"
+            echo "Transaction: https://testnet.nearblocks.io/txns/$tx"
+            echo "Outcome: \`${outcome:-not found in the log}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
