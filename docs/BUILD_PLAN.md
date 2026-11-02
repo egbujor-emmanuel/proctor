@@ -2,17 +2,20 @@
 
 Every skill, agent, MCP server and library installed for this build has an assigned job below. A step is not done until its listed checks pass.
 
-## Status (2026-10-30)
+## Status (2026-11-02)
 
 | Step | State |
 |---|---|
-| 1. Exam runner (`proctor-core` + `exam-runner`, wasm32-wasip2) | 26 tests pass (18 core, 8 runner). Asks questions concurrently (8 at a time) under a 165 s hard deadline. Live run 2026-11-01: DeepSeek V4.1 Flash (TEE) scored 3/5 on the demo exam in 50 s, complete, 5 completion ids. `proctor-seal` prepares exams byte-exactly |
-| 2. Certificate registry contract | 74 tests pass. Reviews done and CRITICAL/HIGH findings fixed; 24 h runner timelock, two-step ownership and two-strike revocation added (2026-10-31). Deployed to `registry.attrito.testnet` (runner pinned by hash) |
-| NEAR AI key | Working with credits (2026-11-01) |
-| 3. OutLayer deploy + live sitting | Done 2026-11-01: runner released at egbujor-emmanuel/proctor-runner v0.1.0 (FastFS testnet was down); exam secrets locked to the runner hash and to calls via the registry; first certificate (cert 0) issued on testnet, tx JAtLV29Xd6DDnomfUURN11R7iqvk6ya8F71baC6ww1Jp |
-| 7. MCP server + buyer skill | Done: 4 read-only tools, 29 tests; verified against the live registry |
-| 8. Website | Built 2026-11-01 (web/): live registry reads, buyer check, GSAP/Lenis/React Bits, Glif share card. Lighthouse 100 x4 categories desktop+mobile; LCP 1.75 s on Slow 4G + 4x CPU, CLS 0; react, typescript, a11y and performance reviews done and fixed. Not yet deployed (needs a host; set NEXT_PUBLIC_SITE_URL) |
-| OutLayer CLI | Installed: `outlayer 0.2.1` (official release binary, SHA-256 checked against GitHub's asset digest) |
+| 1. Exam runner (`proctor-core` + `exam-runner`, wasm32-wasip2) | 29 tests (18 core, 11 runner). Concurrent questions under a 165 s deadline; agent endpoints get no key (NEAR AI only); retry without temperature only on NEAR AI's refusal. v0.2.0 is CI-built and reproducible (`9a41b235…`, pinned in `exam-runner/RELEASE.sha256`) |
+| 2. Certificate registry contract | 84 tests on master (101 with payouts). v2 at `registry-v2.attrito.testnet` runs the CI build `0aaa9cae…`, equal to the on-chain code hash. Agent sittings (`sit_exam_as_agent`) with owner-bound ids and endpoint checks |
+| 3. OutLayer deploy + live sittings | Live on v2: cert 0 (DeepSeek V4.1 Flash, 3/5, surprise re-test passed); cert 1 (demo agent behind its own endpoint, 4/5, then suspended by an automated re-test after its owner swapped models) |
+| 4. Benchmark | `proctor-bench`, 8 tests; published run of 10 sittings x 5 models in `bench/RESULTS.md` with the two-strike Markov analysis |
+| 5. Surprise re-tests | GitHub Actions hourly at p = 0.2 from `proctor-sentinel.testnet`; picker tested (6 tests); re-test 1 of the demo agent run by the workflow and suspended it on chain |
+| 6. Exam-author payouts | On PR #1: fees held per sitting, paid on a verdict, refunded otherwise; withdraw; in-place migration; 1Click dry quote script. CI build `ef506001…` reproduced; deploy to v2 after the demo revocation |
+| 7. MCP server + buyer skill | 4 read-only tools, 39 tests; agent ids and two-sided Agent Market binding (`proctor:<account>`); verified over stdio against v2 |
+| 8. Website | React Bits pass (Radar, SplitFlapText, Counter, Noise, Shuffle, LatticeLoader, LogoLoop) on GSAP + Lenis; Lighthouse mobile a11y / best practices / SEO 100, LCP 1.70 s on Slow 4G + 4x CPU, CLS 0; reads v2. Not deployed yet (goes public with the repo) |
+| Demo agent | Cloudflare Worker at `proctor-demo-agent.attrito.workers.dev`, 19 tests; strong = Claude Sonnet 5.5, weak = GPT-5.4 nano |
+| README + LICENSE | Done: 5-minute test path checked against the live deployment |
 
 ## Step-by-step, with the tools each step uses
 
