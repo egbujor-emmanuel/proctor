@@ -28,9 +28,10 @@ const CALLBACK_GAS: Gas = Gas::from_tgas(50);
 const MIN_SITTING_GAS: Gas = Gas::from_tgas(150);
 /// Kept by the registry from each sitting deposit to pay for the storage the
 /// sitting and its outcome or certificate use: a worst-case certificate
-/// measures 881 bytes for a model and 1,123 for an agent with a 256-byte
-/// endpoint (see the storage tests); this covers 1,500. The
-/// rest goes to OutLayer, which refunds unused compute to the payer.
+/// measures 881 bytes for a model, 1,123 for an agent with a 256-byte
+/// endpoint, and 1,248 when that sitting also pays a fee that opens a new
+/// author balance (see the storage tests); this covers 1,500. The rest,
+/// less any author fee, goes to OutLayer, which refunds unused compute.
 const SITTING_STORAGE_FEE: NearToken = NearToken::from_millinear(15);
 /// Smallest deposit accepted for a sitting: the storage fee plus a compute
 /// floor. OutLayer's `estimate_execution_cost` asks 19.005 mNEAR for the
@@ -66,7 +67,7 @@ const MAX_INSTRUCTIONS: u64 = 500_000_000_000;
 const MAX_MEMORY_MB: u32 = 4096;
 const MAX_EXECUTION_SECONDS: u64 = 180;
 const EVENT_STANDARD: &str = "proctor";
-const EVENT_VERSION: &str = "1.2.0";
+const EVENT_VERSION: &str = "1.3.0";
 
 #[derive(BorshStorageKey)]
 #[near]
@@ -76,6 +77,10 @@ enum StorageKey {
     Sittings,
     Outcomes,
     Latest,
+    // Appended, so the keys above keep their prefixes across upgrades.
+    ExamFees,
+    HeldFees,
+    AuthorBalances,
 }
 
 #[near(serializers = [borsh, json])]
@@ -243,6 +248,12 @@ pub struct Registry {
     next_sitting_id: u64,
     pending_runner: Option<PendingRunner>,
     pending_owner: Option<AccountId>,
+    /// exam_id -> fee each new sitting pays the author (absent = free).
+    exam_fees: LookupMap<String, NearToken>,
+    /// sitting_id -> fee held until the sitting ends.
+    held_fees: LookupMap<u64, NearToken>,
+    /// author -> earnings not yet withdrawn.
+    author_balances: LookupMap<AccountId, NearToken>,
 }
 
 #[near]
@@ -271,6 +282,9 @@ impl Registry {
             next_sitting_id: 0,
             pending_runner: None,
             pending_owner: None,
+            exam_fees: LookupMap::new(StorageKey::ExamFees),
+            held_fees: LookupMap::new(StorageKey::HeldFees),
+            author_balances: LookupMap::new(StorageKey::AuthorBalances),
         }
     }
 
@@ -542,8 +556,11 @@ impl Registry {
 
     fn start_sitting(&mut self, exam: Exam, candidate_model: String, candidate_endpoint: Option<String>, kind: SittingKind) -> Promise {
         let deposit = env::attached_deposit();
-        require!(deposit >= MIN_SITTING_DEPOSIT, format!("attach at least {MIN_SITTING_DEPOSIT}"));
-        let compute = deposit.saturating_sub(SITTING_STORAGE_FEE);
+        // The author's fee (if any) is held on top of the usual deposit.
+        let fee = self.exam_fee(&exam.exam_id);
+        let required = MIN_SITTING_DEPOSIT.saturating_add(fee);
+        require!(deposit >= required, format!("attach at least {required}"));
+        let compute = deposit.saturating_sub(SITTING_STORAGE_FEE).saturating_sub(fee);
         require!(
             env::prepaid_gas() >= MIN_SITTING_GAS,
             "attach at least 150 TGas so OutLayer and the callback can run"
@@ -564,6 +581,9 @@ impl Registry {
             compute_deposit: compute,
         };
         self.sittings.insert(sitting_id, sitting);
+        if !fee.is_zero() {
+            self.held_fees.insert(sitting_id, fee);
+        }
 
         let candidate = match &candidate_endpoint {
             Some(endpoint) => json!({ "model": candidate_model, "endpoint": endpoint }),
@@ -606,6 +626,8 @@ impl Registry {
 
 mod admin;
 mod checks;
+mod migrate;
+mod payouts;
 mod verdict;
 
 #[cfg(test)]
