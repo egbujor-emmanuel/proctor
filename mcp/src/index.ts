@@ -16,7 +16,7 @@ const DEFAULT_RPC = "https://rpc.testnet.fastnear.com";
 async function main(): Promise<void> {
   const contractId = process.env.PROCTOR_REGISTRY;
   if (!contractId) {
-    throw new Error("PROCTOR_REGISTRY is not set: name the registry contract account, e.g. registry.attrito.testnet");
+    throw new Error("PROCTOR_REGISTRY is not set: name the registry contract account, e.g. registry-v2.attrito.testnet");
   }
   const server = createProctorServer({
     registry: createRegistryReader({ rpcUrl: process.env.NEAR_RPC_URL ?? DEFAULT_RPC, contractId }),

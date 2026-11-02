@@ -6,7 +6,7 @@ import { certificate, exam, rpcResult } from "./fixtures.js";
 const RPC = "https://rpc.example";
 
 function reader(fetchImpl: typeof fetch) {
-  return createRegistryReader({ rpcUrl: RPC, contractId: "registry.attrito.testnet", fetch: fetchImpl });
+  return createRegistryReader({ rpcUrl: RPC, contractId: "registry-v2.attrito.testnet", fetch: fetchImpl });
 }
 
 describe("createRegistryReader", () => {
@@ -21,7 +21,7 @@ describe("createRegistryReader", () => {
     expect(body.params).toMatchObject({
       request_type: "call_function",
       finality: "final",
-      account_id: "registry.attrito.testnet",
+      account_id: "registry-v2.attrito.testnet",
       method_name: "latest_certificate",
     });
     expect(JSON.parse(Buffer.from(body.params.args_base64, "base64").toString())).toEqual({

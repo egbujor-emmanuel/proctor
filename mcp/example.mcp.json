@@ -4,7 +4,7 @@
       "command": "node",
       "args": ["mcp/dist/index.js"],
       "env": {
-        "PROCTOR_REGISTRY": "registry.attrito.testnet",
+        "PROCTOR_REGISTRY": "registry-v2.attrito.testnet",
         "NEAR_RPC_URL": "https://rpc.testnet.fastnear.com"
       }
     },

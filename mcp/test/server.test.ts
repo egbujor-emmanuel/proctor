@@ -20,7 +20,7 @@ function fakes(world: World): { registry: RegistryReader; market: MarketReader }
   };
   return {
     registry: {
-      contractId: "registry.attrito.testnet",
+      contractId: "registry-v2.attrito.testnet",
       async listExams() {
         down();
         return world.exams ?? [exam()];

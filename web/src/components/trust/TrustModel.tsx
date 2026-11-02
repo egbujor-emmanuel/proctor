@@ -29,7 +29,7 @@ const MCP_CONFIG = `{
     "proctor": {
       "command": "node",
       "args": ["mcp/dist/index.js"],
-      "env": { "PROCTOR_REGISTRY": "registry.attrito.testnet" }
+      "env": { "PROCTOR_REGISTRY": "registry-v2.attrito.testnet" }
     }
   }
 }`;

@@ -44,7 +44,7 @@ describe("registry view calls", () => {
     const found = await registry.latest("m", "e1", fetchMock as unknown as typeof fetch);
     expect(found?.cert_id).toBe(0);
     const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
-    expect(body.params).toMatchObject({ request_type: "call_function", method_name: "latest_certificate", account_id: "registry.attrito.testnet" });
+    expect(body.params).toMatchObject({ request_type: "call_function", method_name: "latest_certificate", account_id: "registry-v2.attrito.testnet" });
     expect(JSON.parse(atob(body.params.args_base64))).toEqual({ candidate_model: "m", exam_id: "e1" });
   });
 

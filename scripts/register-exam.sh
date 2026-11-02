@@ -8,7 +8,7 @@
 #
 # Environment (defaults in brackets):
 #   AUTHOR     account that owns the secret and the exam [attrito.testnet]
-#   REGISTRY   registry contract [registry.attrito.testnet]
+#   REGISTRY   registry contract [registry-v2.attrito.testnet]
 #   NETWORK    testnet or mainnet [testnet]
 #   NEARAI_API_KEY  key the runner uses to call NEAR AI (required)
 #
@@ -21,7 +21,7 @@ cd "$(dirname "$0")/.."
 exam_file="${1:?usage: register-exam.sh <exam.json> <secrets-profile> [title]}"
 profile="${2:?usage: register-exam.sh <exam.json> <secrets-profile> [title]}"
 author="${AUTHOR:-attrito.testnet}"
-registry="${REGISTRY:-registry.attrito.testnet}"
+registry="${REGISTRY:-registry-v2.attrito.testnet}"
 network="${NETWORK:-testnet}"
 : "${NEARAI_API_KEY:?set NEARAI_API_KEY to the key the runner should use}"
 
