@@ -127,21 +127,21 @@ Agents are certified as `agent:<owner-account>/<name>`, so only the account that
 
 | Thing | Where |
 |---|---|
-| Registry | [`registry-v2.attrito.testnet`](https://testnet.nearblocks.io/address/registry-v2.attrito.testnet). Its code hash `H7BXPDvsyZkhbRTGmJUixcw924eeQTWc8PwXTgFXisX8` is the CI build `ef506001…1da3` (see [Builds you can check](#builds-you-can-check)). It was upgraded in place to add payouts, with `migrate` in [`5sZeWWq1…`](https://testnet.nearblocks.io/txns/5sZeWWq1CJj1x7oqHxXX8PnwvbYLwBGMWQcGEdfGhGUn); every exam, certificate and outcome read back byte-identical |
+| Registry | [`registry-v2.attrito.testnet`](https://testnet.near.rocks/account/registry-v2.attrito.testnet). Its code hash `H7BXPDvsyZkhbRTGmJUixcw924eeQTWc8PwXTgFXisX8` is the CI build `ef506001…1da3` (see [Builds you can check](#builds-you-can-check)). It was upgraded in place to add payouts, with `migrate` in [`5sZeWWq1…`](https://testnet.near.rocks/tx/5sZeWWq1CJj1x7oqHxXX8PnwvbYLwBGMWQcGEdfGhGUn); every exam, certificate and outcome read back byte-identical |
 | Exam runner | [proctor-runner v0.2.0](https://github.com/egbujor-emmanuel/proctor-runner/releases/tag/v0.2.0), SHA-256 `9a41b235…dde4`, built by CI and reproduced on separate runs |
 | Exam | `near-protocol-basics-demo-v1`: 5 questions, pass mark 60%, commitment `aed0590c…ed51c` |
 | Demo agent | `https://proctor-demo-agent.attrito.workers.dev`, a Cloudflare Worker ([`demo-agent/`](demo-agent)) |
 | Surprise re-tests | [`.github/workflows/surprise-retest.yml`](.github/workflows/surprise-retest.yml): hourly, firing with probability 0.2, paid by `proctor-sentinel.testnet` |
-| Certificate 0 | `deepseek-ai/DeepSeek-V4.1-Flash-1017`, 3/5. Issued in [`4ewFE77F…`](https://testnet.nearblocks.io/txns/4ewFE77FvYXLTzA5dfBWWanntAQeyfFEXAvZFo6LaoR1); surprise re-test passed in [`9pZ51MMw…`](https://testnet.nearblocks.io/txns/9pZ51MMwwmMAYoo2BnSvdMLMD4oBqht91TmjjLA3fPi) |
+| Certificate 0 | `deepseek-ai/DeepSeek-V4.1-Flash-1017`, 3/5. Issued in [`4ewFE77F…`](https://testnet.near.rocks/tx/4ewFE77FvYXLTzA5dfBWWanntAQeyfFEXAvZFo6LaoR1); surprise re-test passed in [`9pZ51MMw…`](https://testnet.near.rocks/tx/9pZ51MMwwmMAYoo2BnSvdMLMD4oBqht91TmjjLA3fPi) |
 
 ### The model-swap demo, on chain
 
 | Step | What happened | Transaction |
 |---|---|---|
-| 1 | The demo agent (Claude Sonnet 5.5 through NEAR AI) sits through its own endpoint and is **certified, 4/5** (certificate 1) | [`9Jwx3jXp…`](https://testnet.nearblocks.io/txns/9Jwx3jXp8We4a77VVBNv7qGLKpL48UC3zF8uf7CX9yT5) |
+| 1 | The demo agent (Claude Sonnet 5.5 through NEAR AI) sits through its own endpoint and is **certified, 4/5** (certificate 1) | [`9Jwx3jXp…`](https://testnet.near.rocks/tx/9Jwx3jXp8We4a77VVBNv7qGLKpL48UC3zF8uf7CX9yT5) |
 | 2 | The owner redeploys the same URL with GPT-5.4 nano (`npm run deploy:weak`) | Cloudflare deployment; `GET /` reports `"mode": "weak"` |
-| 3 | The surprise re-test workflow scores it **2/5**, and the certificate is **suspended** | [`BrcXSNwX…`](https://testnet.nearblocks.io/txns/BrcXSNwX1qy7APxoTDNL5heFN22eB5FqoBT4teiQPUYX) |
-| 4 | An hour later the workflow re-tests it again: **2/5**, and the certificate is **revoked** | [`3SGvHzEY…`](https://testnet.nearblocks.io/txns/3SGvHzEY7c2Bo91eehtnapZbXE2eVk5mv4y1DDPWBLm4) |
+| 3 | The surprise re-test workflow scores it **2/5**, and the certificate is **suspended** | [`BrcXSNwX…`](https://testnet.near.rocks/tx/BrcXSNwX1qy7APxoTDNL5heFN22eB5FqoBT4teiQPUYX) |
+| 4 | An hour later the workflow re-tests it again: **2/5**, and the certificate is **revoked** | [`3SGvHzEY…`](https://testnet.near.rocks/tx/3SGvHzEY7c2Bo91eehtnapZbXE2eVk5mv4y1DDPWBLm4) |
 
 `npm --prefix mcp run verify -- --tx 3SGvHzEY7c2Bo91eehtnapZbXE2eVk5mv4y1DDPWBLm4 --sender proctor-sentinel.testnet` shows that the revoking answers are genuine NEAR AI completions, produced by the pinned runner.
 
@@ -151,9 +151,9 @@ An author can charge a fee per sitting (`set_exam_fee`, at most 1 NEAR). The fee
 
 | Step | Transaction |
 |---|---|
-| The author sets a 0.02 NEAR fee on the demo exam (`exam_fee_set`) | [`F7LAcipJ…`](https://testnet.nearblocks.io/txns/F7LAcipJjpsesrfxGrgbRPCff7oax1SSLeSK99TVBw26) |
-| A paid sitting ends in a verdict and the author is credited 0.02 NEAR (`earnings_credited`) | [`F2rq3Gxu…`](https://testnet.nearblocks.io/txns/F2rq3GxuZyg8mi3oFaaqDGBLyLQzeVhxWrW6F2jxn2bQ) |
-| The author withdraws (`earnings_withdrawn`); the balance reads 0 and a second withdrawal is refused | [`z53mcD6N…`](https://testnet.nearblocks.io/txns/z53mcD6N5wrzgW4FtB66UJ5SA8XUcjJn3ufgio7RjFR) |
+| The author sets a 0.02 NEAR fee on the demo exam (`exam_fee_set`) | [`F7LAcipJ…`](https://testnet.near.rocks/tx/F7LAcipJjpsesrfxGrgbRPCff7oax1SSLeSK99TVBw26) |
+| A paid sitting ends in a verdict and the author is credited 0.02 NEAR (`earnings_credited`) | [`F2rq3Gxu…`](https://testnet.near.rocks/tx/F2rq3GxuZyg8mi3oFaaqDGBLyLQzeVhxWrW6F2jxn2bQ) |
+| The author withdraws (`earnings_withdrawn`); the balance reads 0 and a second withdrawal is refused | [`z53mcD6N…`](https://testnet.near.rocks/tx/z53mcD6N5wrzgW4FtB66UJ5SA8XUcjJn3ufgio7RjFR) |
 
 To see what earnings would pay out as on another chain, `node scripts/payout-quote.mjs --author <account> --to USDC:near --recipient <you>.near` asks NEAR Intents' 1Click API for a **dry** quote. Nothing is committed and no deposit address is created. Run on those 0.02 NEAR of earnings, it quoted 0.0805 USDC, arriving in about 20 s.
 

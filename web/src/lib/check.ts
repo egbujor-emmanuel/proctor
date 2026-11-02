@@ -3,7 +3,7 @@
 // mcp/src/verdict.ts, which both the server and this site import.
 
 import { agentCandidateId, checkExam, decide, type ExamCheck, type Verdict } from "../../../mcp/src/verdict";
-import { registry, type Exam } from "./registry";
+import { registry, RegistryError, type Exam } from "./registry";
 
 export type CandidateKind = "model" | "agent";
 
@@ -40,9 +40,12 @@ export async function runCheck(id: string, exams: Exam[], f?: typeof fetch): Pro
   const checks: ExamCheck[] = await Promise.all(
     active.map(async (exam) => {
       const cert = await registry.latest(id, exam.exam_id, f);
-      // The contract already filters by candidate and exam; checked again here.
-      const matches = cert !== null && cert.candidate_model === id && cert.exam_id === exam.exam_id;
-      return checkExam(exam.exam_id, matches ? cert : null);
+      // The contract already filters by candidate and exam; a mismatch means
+      // the read is wrong, so it is an error, never "no certificate".
+      if (cert !== null && (cert.candidate_model !== id || cert.exam_id !== exam.exam_id)) {
+        throw new RegistryError(`the registry returned a certificate for a different candidate or exam (${cert.candidate_model}, ${cert.exam_id})`);
+      }
+      return checkExam(exam.exam_id, cert);
     }),
   );
   return decide(id, checks);

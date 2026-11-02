@@ -38,7 +38,7 @@ function announcement(status: Status): string {
 
 /** The buyer check: hire or don't, from the candidate's live certificates. */
 export function CheckAgent() {
-  const { data, error: registryError } = useRegistry();
+  const { data, error: registryError, isStale } = useRegistry();
   const [kind, setKind] = useState<CandidateKind>("model");
   const [value, setValue] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -224,6 +224,12 @@ export function CheckAgent() {
                   <li key={`${i}-${r}`}>{r}</li>
                 ))}
               </ul>
+              {data && (isStale || data.skipped > 0) && (
+                <p className="mt-5 rounded border border-suspended bg-suspended-soft px-3 py-2 text-sm text-suspended">
+                  {isStale && `The exam list is from ${new Date(data.readAt).toLocaleTimeString()}; refreshing it failed. `}
+                  {data.skipped > 0 && `${data.skipped} registry record${data.skipped === 1 ? "" : "s"} could not be read and ${data.skipped === 1 ? "was" : "were"} left out.`}
+                </p>
+              )}
             </div>
           )}
         </div>

@@ -86,7 +86,7 @@ export function LiveRegistry() {
                 <CertificatePaper key={cert.cert_id} cert={cert} />
               ))}
             </div>
-            <aside aria-labelledby="exams-title" className="h-fit border-t border-rule pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
+            <div className="h-fit border-t border-rule pt-6 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
               <h3 id="exams-title" className="font-mono text-xs uppercase tracking-[0.18em] text-ink-muted">
                 Open exams
               </h3>
@@ -101,7 +101,7 @@ export function LiveRegistry() {
                   </li>
                 ))}
               </ul>
-            </aside>
+            </div>
           </div>
         )}
       </div>

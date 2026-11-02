@@ -14,7 +14,7 @@ const exam = (id: string, active = true): Exam => ({
 
 const cert = (overrides: Partial<Certificate> = {}): Certificate => ({
   cert_id: 0, exam_id: "e1", exam_commitment: "c".repeat(64), candidate_model: "m", runner_hash: "r".repeat(64),
-  score_bps: 6000, correct: 3, total: 5, issued_at_ns: 1, last_verified_ns: 1, retests_passed: 0, status: "Active",
+  score_bps: 6000, correct: 3, total: 5, issued_at_ns: 1, last_verified_ns: Date.now() * 1e6, retests_passed: 0, status: "Active",
   requested_by: "a.testnet", sitting_id: 2, response_ids_hash: "h".repeat(64), response_count: 5, ...overrides,
 });
 
@@ -90,6 +90,18 @@ describe("runCheck", () => {
     expect(verdict.decision).toBe("hire");
     expect(verdict.exams.map((e) => e.exam_id)).toEqual(["e1"]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a certificate for another candidate as a failed read, not as no certificate", async () => {
+    const other = cert({ candidate_model: "someone-else" });
+    await expect(runCheck("m", [exam("e1")], (async () => rpc(other)) as unknown as typeof fetch)).rejects.toThrow("different candidate or exam");
+  });
+
+  it("does not hire a certificate that has not been verified in over a week", async () => {
+    const stale = cert({ last_verified_ns: (Date.now() - 8 * 24 * 3600 * 1000) * 1e6 });
+    const verdict = await runCheck("m", [exam("e1")], (async () => rpc(stale)) as unknown as typeof fetch);
+    expect(verdict.decision).toBe("do_not_hire");
+    expect(verdict.exams[0]?.state).toBe("stale");
   });
 
   it("does not hire a suspended or uncertified candidate", async () => {
