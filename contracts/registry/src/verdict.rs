@@ -41,11 +41,20 @@ impl Registry {
     /// emits the result (with the completion ids, which are not stored).
     pub(crate) fn finish_sitting(&mut self, sitting: &Sitting, outcome: SittingOutcome, response_ids: &[String]) -> SittingOutcome {
         if let SittingKind::Retest { cert_id } = sitting.kind {
+            let previous = self.retest_prev.remove(&sitting.sitting_id);
             if let Some(cert) = self.cert_mut(cert_id) {
                 if cert.retest_in_flight == Some(sitting.sitting_id) {
                     cert.retest_in_flight = None;
+                    // A re-test that judged nothing must not burn the hourly
+                    // slot, or a candidate could block re-tests by failing calls.
+                    if !outcome.is_verdict() {
+                        if let Some(previous) = previous {
+                            cert.last_retest_requested_ns = previous;
+                        }
+                    }
                 }
             }
+            self.track_silence(cert_id, sitting, &outcome);
         }
         if let Some(exam) = self.exams.get_mut(&sitting.exam_id) {
             exam.sittings = exam.sittings.saturating_add(1);
@@ -64,6 +73,36 @@ impl Registry {
             }),
         );
         outcome
+    }
+
+    /// Counts re-tests in a row that an agent's endpoint left incomplete.
+    /// Every SILENT_RETESTS_PER_STRIKE of them count as one failed re-test,
+    /// so an agent cannot dodge its re-tests by failing calls on purpose.
+    /// NEAR AI model candidates are exempt: their incomplete runs are outages.
+    fn track_silence(&mut self, cert_id: u64, sitting: &Sitting, outcome: &SittingOutcome) {
+        if outcome.is_verdict() {
+            self.silent_streaks.remove(&cert_id);
+            return;
+        }
+        if sitting.candidate_endpoint.is_none() || !matches!(outcome, SittingOutcome::Incomplete { .. }) {
+            return;
+        }
+        let streak = self.silent_streaks.get(&cert_id).copied().unwrap_or(0).saturating_add(1);
+        if streak < SILENT_RETESTS_PER_STRIKE {
+            self.silent_streaks.insert(cert_id, streak);
+            return;
+        }
+        self.silent_streaks.remove(&cert_id);
+        let now = env::block_timestamp();
+        let Some(cert) = self.cert_mut(cert_id) else { return };
+        let reason = format!("the agent's endpoint left {SILENT_RETESTS_PER_STRIKE} re-tests in a row incomplete");
+        let status = match &cert.status {
+            CertStatus::Active => CertStatus::Suspended { reason: format!("{reason}; a second strike revokes"), at_ns: now },
+            CertStatus::Suspended { .. } => CertStatus::Revoked { reason: format!("second strike: {reason}"), at_ns: now },
+            CertStatus::Revoked { .. } => return,
+        };
+        cert.status = status;
+        emit("silent_strike", json!({ "cert_id": cert_id, "sitting_id": sitting.sitting_id, "status": cert.status }));
     }
 
     /// Checks a runner output against the sitting and the registered exam.
@@ -103,6 +142,11 @@ impl Registry {
         }
         if output.response_ids.iter().any(|id| id.is_empty() || id.len() > MAX_RESPONSE_ID_LEN) {
             return Err(format!("response ids must be 1-{MAX_RESPONSE_ID_LEN} bytes"));
+        }
+        // Printable, no whitespace: keeps the newline-joined hash unambiguous
+        // and the event log small.
+        if output.response_ids.iter().any(|id| !id.bytes().all(|b| b.is_ascii_graphic())) {
+            return Err("response ids must be printable ASCII without spaces".into());
         }
         Ok(())
     }

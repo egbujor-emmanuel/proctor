@@ -1,17 +1,17 @@
-//! In-place upgrade from the state layout before author payouts. Every
-//! existing collection keeps its storage prefix, so exams, certificates,
-//! sittings and outcomes are not touched; only the root record gains the
-//! payout ledgers.
+//! In-place upgrade from the previous state layout (author payouts, before
+//! re-test hardening). Every existing collection keeps its storage prefix,
+//! so exams, certificates, sittings, outcomes, fees and balances are not
+//! touched; only the root record gains the new ledgers.
 
 use near_sdk::store::{IterableMap, LookupMap, Vector};
-use near_sdk::{env, near, require, AccountId};
+use near_sdk::{env, near, require, AccountId, NearToken};
 
 use crate::admin::PendingRunner;
 use crate::{Certificate, Exam, Registry, RegistryExt, Sitting, SittingOutcome, StorageKey};
 
 /// The root record as the previous version stored it.
 #[near(serializers = [borsh])]
-pub(crate) struct RegistryBeforePayouts {
+pub(crate) struct RegistryBeforeHardening {
     pub(crate) owner: AccountId,
     pub(crate) outlayer_account: AccountId,
     pub(crate) runner_source_json: String,
@@ -27,6 +27,9 @@ pub(crate) struct RegistryBeforePayouts {
     pub(crate) next_sitting_id: u64,
     pub(crate) pending_runner: Option<PendingRunner>,
     pub(crate) pending_owner: Option<AccountId>,
+    pub(crate) exam_fees: LookupMap<String, NearToken>,
+    pub(crate) held_fees: LookupMap<u64, NearToken>,
+    pub(crate) author_balances: LookupMap<AccountId, NearToken>,
 }
 
 #[near]
@@ -37,7 +40,7 @@ impl Registry {
     pub fn migrate() -> Self {
         // `#[private]` is enforced only in the wasm entry point; checked here too.
         require!(env::predecessor_account_id() == env::current_account_id(), "Method migrate is private");
-        let old: RegistryBeforePayouts =
+        let old: RegistryBeforeHardening =
             env::state_read().unwrap_or_else(|| env::panic_str("no state from the previous version to migrate"));
         Self {
             owner: old.owner,
@@ -55,9 +58,12 @@ impl Registry {
             next_sitting_id: old.next_sitting_id,
             pending_runner: old.pending_runner,
             pending_owner: old.pending_owner,
-            exam_fees: LookupMap::new(StorageKey::ExamFees),
-            held_fees: LookupMap::new(StorageKey::HeldFees),
-            author_balances: LookupMap::new(StorageKey::AuthorBalances),
+            exam_fees: old.exam_fees,
+            held_fees: old.held_fees,
+            author_balances: old.author_balances,
+            retest_prev: LookupMap::new(StorageKey::RetestPrev),
+            silent_streaks: LookupMap::new(StorageKey::SilentStreaks),
+            agent_exams: LookupMap::new(StorageKey::AgentExams),
         }
     }
 }

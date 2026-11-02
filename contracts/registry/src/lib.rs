@@ -67,7 +67,10 @@ const MAX_INSTRUCTIONS: u64 = 500_000_000_000;
 const MAX_MEMORY_MB: u32 = 4096;
 const MAX_EXECUTION_SECONDS: u64 = 180;
 const EVENT_STANDARD: &str = "proctor";
-const EVENT_VERSION: &str = "1.3.0";
+const EVENT_VERSION: &str = "1.4.0";
+/// Re-tests in a row an agent's endpoint may leave incomplete before that
+/// counts as one failed re-test: an agent cannot dodge its test by failing calls.
+const SILENT_RETESTS_PER_STRIKE: u32 = 3;
 
 #[derive(BorshStorageKey)]
 #[near]
@@ -81,6 +84,9 @@ enum StorageKey {
     ExamFees,
     HeldFees,
     AuthorBalances,
+    RetestPrev,
+    SilentStreaks,
+    AgentExams,
 }
 
 #[near(serializers = [borsh, json])]
@@ -228,6 +234,17 @@ pub struct ConfigView {
     pub pending_owner: Option<AccountId>,
 }
 
+impl SittingOutcome {
+    /// True when the exam actually judged the candidate. Everything else is
+    /// an outage, a bad output or a lost callback, which never counts.
+    pub fn is_verdict(&self) -> bool {
+        match self {
+            Self::Certified { .. } | Self::Failed { .. } | Self::RetestPassed { .. } | Self::Suspended { .. } | Self::Revoked { .. } => true,
+            Self::Incomplete { .. } | Self::RunnerFailed { .. } | Self::Rejected { .. } | Self::Expired => false,
+        }
+    }
+}
+
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Registry {
@@ -254,6 +271,15 @@ pub struct Registry {
     held_fees: LookupMap<u64, NearToken>,
     /// author -> earnings not yet withdrawn.
     author_balances: LookupMap<AccountId, NearToken>,
+    /// sitting_id -> the certificate's previous re-test time, restored if
+    /// that re-test ends without a verdict (so a failed run cannot burn the
+    /// hourly slot and lock other testers out).
+    retest_prev: LookupMap<u64, Option<u64>>,
+    /// cert_id -> re-tests in a row an agent's endpoint left incomplete.
+    silent_streaks: LookupMap<u64, u32>,
+    /// exam_id -> true if the author lets agents sit it through their own
+    /// endpoints (which then see its questions).
+    agent_exams: LookupMap<String, bool>,
 }
 
 #[near]
@@ -285,6 +311,9 @@ impl Registry {
             exam_fees: LookupMap::new(StorageKey::ExamFees),
             held_fees: LookupMap::new(StorageKey::HeldFees),
             author_balances: LookupMap::new(StorageKey::AuthorBalances),
+            retest_prev: LookupMap::new(StorageKey::RetestPrev),
+            silent_streaks: LookupMap::new(StorageKey::SilentStreaks),
+            agent_exams: LookupMap::new(StorageKey::AgentExams),
         }
     }
 
@@ -331,18 +360,32 @@ impl Registry {
         self.exams.insert(exam_id.clone(), exam);
         self.exams.flush();
 
-        let used = env::storage_usage().saturating_sub(storage_before);
-        let cost = env::storage_byte_cost().saturating_mul(u128::from(used));
-        let attached = env::attached_deposit();
-        require!(attached >= cost, format!("attach at least {cost} to cover storage"));
-        let refund = attached.saturating_sub(cost);
-        if !refund.is_zero() {
-            Promise::new(author.clone()).transfer(refund).detach();
-        }
+        charge_storage(storage_before, &author);
         emit(
             "exam_registered",
             json!({ "exam_id": exam_id, "author": author, "commitment": commitment, "pass_mark_bps": pass_mark_bps, "question_count": question_count }),
         );
+    }
+
+    /// Lets agents sit an exam through their own endpoints, or stops them.
+    /// Off by default: an endpoint receives every question it is asked, so
+    /// the author decides whether that exposure is acceptable. Re-tests of
+    /// certificates already issued are unaffected. Attach enough to store
+    /// the setting (any excess is refunded).
+    #[payable]
+    pub fn set_exam_agents(&mut self, exam_id: String, allowed: bool) {
+        let author = env::predecessor_account_id();
+        let exam = self.exams.get(&exam_id).unwrap_or_else(|| env::panic_str("unknown exam"));
+        require!(author == exam.author, "only the exam author can do this");
+        let storage_before = env::storage_usage();
+        if allowed {
+            self.agent_exams.insert(exam_id.clone(), true);
+        } else {
+            self.agent_exams.remove(&exam_id);
+        }
+        self.agent_exams.flush();
+        charge_storage(storage_before, &author);
+        emit("exam_agents", json!({ "exam_id": exam_id, "allowed": allowed }));
     }
 
     /// Opens or closes an exam to new sittings. Only its author may do this.
@@ -357,18 +400,20 @@ impl Registry {
     // ------------------------------------------------------------- sittings
 
     /// Pays for a sitting of `exam_id` by `candidate_model`. The deposit, less
-    /// a storage fee, is forwarded to OutLayer; OutLayer refunds unused
-    /// compute to the caller.
+    /// a storage fee and the author's fee, is forwarded to OutLayer; OutLayer
+    /// refunds unused compute to the caller. `max_fee` refuses the sitting if
+    /// the author raised the fee above what the caller expected.
     #[payable]
-    pub fn sit_exam(&mut self, exam_id: String, candidate_model: String) -> Promise {
+    pub fn sit_exam(&mut self, exam_id: String, candidate_model: String, max_fee: Option<NearToken>) -> Promise {
         require_token(&candidate_model, "candidate_model", MAX_MODEL_LEN);
+        require!(!candidate_model.starts_with("agent:"), "agent: ids are issued only by sit_exam_as_agent");
         let exam = self.exams.get(&exam_id).cloned().unwrap_or_else(|| env::panic_str("unknown exam"));
         require!(exam.active, "exam is not active");
         require!(
             !self.holds_live_certificate(&candidate_model, &exam_id),
             "candidate already holds a certificate for this exam; re-test it instead"
         );
-        self.start_sitting(exam, candidate_model, None, SittingKind::Initial)
+        self.start_sitting(exam, candidate_model, None, SittingKind::Initial, max_fee)
     }
 
     /// Pays for a sitting by an agent behind its own OpenAI-compatible
@@ -377,7 +422,7 @@ impl Registry {
     /// pay for its re-tests. The endpoint gets no credentials: the runner sends
     /// PROCTOR's NEAR AI key only to NEAR AI's own gateway.
     #[payable]
-    pub fn sit_exam_as_agent(&mut self, exam_id: String, name: String, endpoint: String) -> Promise {
+    pub fn sit_exam_as_agent(&mut self, exam_id: String, name: String, endpoint: String, max_fee: Option<NearToken>) -> Promise {
         require_token(&name, "name", MAX_AGENT_NAME_LEN);
         require!(!name.contains('/'), "name must not contain /");
         require_endpoint(&endpoint);
@@ -385,15 +430,20 @@ impl Registry {
         let exam = self.exams.get(&exam_id).cloned().unwrap_or_else(|| env::panic_str("unknown exam"));
         require!(exam.active, "exam is not active");
         require!(
+            self.agent_exams.get(&exam_id).copied().unwrap_or(false),
+            "this exam does not accept agent endpoints; its author can allow them with set_exam_agents"
+        );
+        require!(
             !self.holds_live_certificate(&candidate_model, &exam_id),
             "candidate already holds a certificate for this exam; re-test it instead"
         );
-        self.start_sitting(exam, candidate_model, Some(endpoint), SittingKind::Initial)
+        self.start_sitting(exam, candidate_model, Some(endpoint), SittingKind::Initial, max_fee)
     }
 
     /// Re-tests the candidate behind an active or suspended certificate with
     /// the same exam. Anyone may pay for a re-test, one at a time per
-    /// certificate and at most once an hour.
+    /// certificate and at most once an hour. Re-tests carry no author fee, so
+    /// an author cannot price surprise re-tests out.
     #[payable]
     pub fn retest(&mut self, cert_id: u64) -> Promise {
         let cert = self.cert(cert_id);
@@ -406,7 +456,9 @@ impl Registry {
         );
         let exam = self.exams.get(&cert.exam_id).cloned().unwrap_or_else(|| env::panic_str("unknown exam"));
         let sitting_id = self.next_sitting_id;
-        let promise = self.start_sitting(exam, cert.candidate_model, cert.candidate_endpoint, SittingKind::Retest { cert_id });
+        let previous = cert.last_retest_requested_ns;
+        let promise = self.start_sitting(exam, cert.candidate_model, cert.candidate_endpoint, SittingKind::Retest { cert_id }, None);
+        self.retest_prev.insert(sitting_id, previous);
         if let Some(cert) = self.cert_mut(cert_id) {
             cert.retest_in_flight = Some(sitting_id);
             cert.last_retest_requested_ns = Some(now);
@@ -530,6 +582,11 @@ impl Registry {
     pub fn get_outcome(&self, sitting_id: u64) -> Option<SittingOutcome> {
         self.outcomes.get(&sitting_id).cloned()
     }
+
+    /// Whether the exam's author lets agents sit it through their own endpoints.
+    pub fn exam_accepts_agents(&self, exam_id: String) -> bool {
+        self.agent_exams.get(&exam_id).copied().unwrap_or(false)
+    }
 }
 
 impl Registry {
@@ -554,10 +611,20 @@ impl Registry {
         u32::try_from(cert_id).ok().and_then(|i| self.certificates.get_mut(i))
     }
 
-    fn start_sitting(&mut self, exam: Exam, candidate_model: String, candidate_endpoint: Option<String>, kind: SittingKind) -> Promise {
+    fn start_sitting(
+        &mut self,
+        exam: Exam,
+        candidate_model: String,
+        candidate_endpoint: Option<String>,
+        kind: SittingKind,
+        max_fee: Option<NearToken>,
+    ) -> Promise {
         let deposit = env::attached_deposit();
-        // The author's fee (if any) is held on top of the usual deposit.
-        let fee = self.exam_fee(&exam.exam_id);
+        // The author's fee (if any) is held on top of the usual deposit; re-tests pay none.
+        let fee = if matches!(kind, SittingKind::Retest { .. }) { NearToken::from_yoctonear(0) } else { self.exam_fee(&exam.exam_id) };
+        if let Some(max_fee) = max_fee {
+            require!(fee <= max_fee, format!("the exam's fee is {fee}, above your max_fee of {max_fee}"));
+        }
         let required = MIN_SITTING_DEPOSIT.saturating_add(fee);
         require!(deposit >= required, format!("attach at least {required}"));
         let compute = deposit.saturating_sub(SITTING_STORAGE_FEE).saturating_sub(fee);

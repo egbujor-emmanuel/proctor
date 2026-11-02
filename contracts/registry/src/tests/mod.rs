@@ -56,7 +56,7 @@ fn setup() -> Registry {
 fn sit(r: &mut Registry) -> u64 {
     set("alice.testnet", NearToken::from_millinear(100), 300);
     let id = r.get_config().next_sitting_id;
-    let _ = r.sit_exam(EXAM.into(), MODEL.into());
+    let _ = r.sit_exam(EXAM.into(), MODEL.into(), None);
     id
 }
 
@@ -161,3 +161,4 @@ mod admin;
 mod storage;
 mod agents;
 mod payouts;
+mod hardening;

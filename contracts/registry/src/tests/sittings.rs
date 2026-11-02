@@ -54,7 +54,7 @@ fn sitting_calls_outlayer_with_public_input_only() {
 fn sitting_requires_minimum_deposit() {
     let mut r = setup();
     set("alice.testnet", NearToken::from_millinear(1), 300);
-    let _ = r.sit_exam(EXAM.into(), MODEL.into());
+    let _ = r.sit_exam(EXAM.into(), MODEL.into(), None);
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn sitting_requires_minimum_deposit() {
 fn sitting_requires_enough_gas() {
     let mut r = setup();
     set("alice.testnet", NearToken::from_millinear(100), 100);
-    let _ = r.sit_exam(EXAM.into(), MODEL.into());
+    let _ = r.sit_exam(EXAM.into(), MODEL.into(), None);
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn sitting_requires_enough_gas() {
 fn rejects_candidate_with_separator() {
     let mut r = setup();
     set("alice.testnet", NearToken::from_millinear(100), 300);
-    let _ = r.sit_exam(EXAM.into(), "Victim|e".into());
+    let _ = r.sit_exam(EXAM.into(), "Victim|e".into(), None);
 }
 
 #[test]

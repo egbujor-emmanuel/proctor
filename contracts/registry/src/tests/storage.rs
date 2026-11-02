@@ -12,6 +12,7 @@ fn worst_case_bytes(as_agent: bool, with_fee: bool) -> u64 {
     let author = format!("{}.testnet", "w".repeat(56)); // the longest account id, as the balance key
     set(&author, NearToken::from_near(1), 300);
     r.register_exam(exam_id.clone(), "T".into(), COMMIT.into(), 0, MAX_QUESTIONS, "p".into());
+    r.set_exam_agents(exam_id.clone(), true);
     if with_fee {
         r.set_exam_fee(exam_id.clone(), NearToken::from_millinear(20));
     }
@@ -20,16 +21,17 @@ fn worst_case_bytes(as_agent: bool, with_fee: bool) -> u64 {
     // inside its own environment and add the two.
     let payer = format!("{}.testnet", "a".repeat(56)); // 64 bytes, the longest account id
     let name = "n".repeat(MAX_AGENT_NAME_LEN);
-    let endpoint = format!("https://{}", "e".repeat(MAX_ENDPOINT_LEN - "https://".len()));
+    let host = "https://agent.example.org/";
+    let endpoint = format!("{host}{}", "e".repeat(MAX_ENDPOINT_LEN - host.len()));
     set(&payer, NearToken::from_millinear(100), 300);
     let before_sit = env::storage_usage();
     let id = r.get_config().next_sitting_id;
     let candidate = if as_agent {
-        let _ = r.sit_exam_as_agent(exam_id.clone(), name.clone(), endpoint.clone());
+        let _ = r.sit_exam_as_agent(exam_id.clone(), name.clone(), endpoint.clone(), None);
         json!({ "model": format!("agent:{payer}/{name}"), "endpoint": endpoint })
     } else {
         let model = "m".repeat(MAX_MODEL_LEN);
-        let _ = r.sit_exam(exam_id.clone(), model.clone());
+        let _ = r.sit_exam(exam_id.clone(), model.clone(), None);
         json!({ "model": model })
     };
     flush(&mut r);
