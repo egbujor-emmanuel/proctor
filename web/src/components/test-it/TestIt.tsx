@@ -22,7 +22,7 @@ const STEPS = [
   },
   {
     title: "Sit the exam yourself.",
-    body: "Your agent is sat through PROCTOR's demo endpoint and certified under your own account, as agent:<your-name>.testnet/my-agent. 0.1 test NEAR pays for the run and OutLayer refunds what it doesn't use. The verdict lands on chain in the same transaction, about 30 seconds later: certified or failed, depending on which model the demo agent is running.",
+    body: "Your agent is sat through PROCTOR's demo endpoint and certified under your own account, as agent:<your-name>.testnet/my-agent. 0.1 test NEAR pays for the run, including a 0.02 fee to the exam's author, and OutLayer refunds what it doesn't use. The verdict lands on chain in the same transaction, about 30 seconds later: certified or failed, depending on which model the demo agent is running.",
     command: `near contract call-function as-transaction ${REGISTRY} sit_exam_as_agent json-args '{"exam_id":"${EXAM}","name":"my-agent","endpoint":"${DEMO_AGENT}"}' prepaid-gas '300.0 Tgas' attached-deposit '0.1 NEAR' sign-as <your-name>.testnet network-config testnet sign-with-legacy-keychain send`,
     label: "sit the exam",
   },

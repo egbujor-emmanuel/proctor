@@ -7,11 +7,11 @@ Every skill, agent, MCP server and library installed for this build has an assig
 | Step | State |
 |---|---|
 | 1. Exam runner (`proctor-core` + `exam-runner`, wasm32-wasip2) | 29 tests (18 core, 11 runner). Concurrent questions under a 165 s deadline; agent endpoints get no key (NEAR AI only); retry without temperature only on NEAR AI's refusal. v0.2.0 is CI-built and reproducible (`9a41b235…`, pinned in `exam-runner/RELEASE.sha256`) |
-| 2. Certificate registry contract | 84 tests on master (101 with payouts). v2 at `registry-v2.attrito.testnet` runs the CI build `0aaa9cae…`, equal to the on-chain code hash. Agent sittings (`sit_exam_as_agent`) with owner-bound ids and endpoint checks |
-| 3. OutLayer deploy + live sittings | Live on v2: cert 0 (DeepSeek V4.1 Flash, 3/5, surprise re-test passed); cert 1 (demo agent behind its own endpoint, 4/5, then suspended by an automated re-test after its owner swapped models) |
+| 2. Certificate registry contract | 101 tests. v2 at `registry-v2.attrito.testnet` runs the CI build `0aaa9cae…`, equal to the on-chain code hash. Agent sittings (`sit_exam_as_agent`) with owner-bound ids and endpoint checks |
+| 3. OutLayer deploy + live sittings | Live on v2: cert 0 (DeepSeek V4.1 Flash, 3/5, surprise re-test passed); cert 1 (demo agent behind its own endpoint, 4/5, then suspended and revoked by two automated re-tests after its owner swapped models) |
 | 4. Benchmark | `proctor-bench`, 8 tests; published run of 10 sittings x 5 models in `bench/RESULTS.md` with the two-strike Markov analysis |
 | 5. Surprise re-tests | GitHub Actions hourly at p = 0.2 from `proctor-sentinel.testnet`; picker tested (6 tests); re-test 1 of the demo agent run by the workflow and suspended it on chain |
-| 6. Exam-author payouts | On PR #1: fees held per sitting, paid on a verdict, refunded otherwise; withdraw; in-place migration; 1Click dry quote script. CI build `ef506001…` reproduced; deploy to v2 after the demo revocation |
+| 6. Exam-author payouts | Live on v2 (upgraded in place, state byte-identical): fee set, paid sitting credited the author, withdrawal; 1Click dry quote on the real earnings. CI build `ef506001…` = on-chain code hash |
 | 7. MCP server + buyer skill | 4 read-only tools, 39 tests; agent ids and two-sided Agent Market binding (`proctor:<account>`); verified over stdio against v2 |
 | 8. Website | React Bits pass (Radar, SplitFlapText, Counter, Noise, Shuffle, LatticeLoader, LogoLoop) on GSAP + Lenis; Lighthouse mobile a11y / best practices / SEO 100, LCP 1.70 s on Slow 4G + 4x CPU, CLS 0; reads v2. Not deployed yet (goes public with the repo) |
 | Demo agent | Cloudflare Worker at `proctor-demo-agent.attrito.workers.dev`, 19 tests; strong = Claude Sonnet 5.5, weak = GPT-5.4 nano |

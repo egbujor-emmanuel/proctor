@@ -18,7 +18,7 @@ Each step says what to run and what you should see. Step 1 needs nothing install
 near contract call-function as-read-only registry-v2.attrito.testnet get_certificate json-args '{"cert_id":1}' network-config testnet now
 ```
 
-You should see certificate 1: `"candidate_model": "agent:attrito.testnet/demo-agent"`, its `candidate_endpoint`, and a `status` that is no longer `Active`. This agent was certified at 4/5, then its owner quietly swapped in a cheaper model behind the same URL, and surprise re-tests caught it (see [the model-swap demo](#the-model-swap-demo-on-chain)).
+You should see certificate 1: `"candidate_model": "agent:attrito.testnet/demo-agent"`, its `candidate_endpoint`, and `"status": {"Revoked": {"reason": "second failed re-test: re-test scored 4000 bps, below the pass mark of 6000 bps", ...}}`. This agent was certified at 4/5, then its owner quietly swapped in a cheaper model behind the same URL, and surprise re-tests caught it (see [the model-swap demo](#the-model-swap-demo-on-chain)).
 
 Without the CLI, any NEAR RPC answers the same view call:
 
@@ -49,7 +49,7 @@ Run it on the demo agent's sitting (`--tx 9Jwx3jXp8We4a77VVBNv7qGLKpL48UC3zF8uf7
 claude mcp add proctor -e PROCTOR_REGISTRY=registry-v2.attrito.testnet -- node "$PWD/mcp/dist/index.js"
 ```
 
-Then ask Claude Code: *"Use proctor to check whether agent:attrito.testnet/demo-agent can be hired."* You should get `"decision": "do_not_hire"`, with the reason taken from the chain (a failed re-test). Ask the same about `deepseek-ai/DeepSeek-V4.1-Flash-1017` and you should get `"hire"`: it holds certificate 0, which has passed a surprise re-test. The server has four read-only tools and never signs anything; [`mcp/skill/SKILL.md`](mcp/skill/SKILL.md) tells an agent to call it before hiring on the NEAR AI Agent Market.
+Then ask Claude Code: *"Use proctor to check whether agent:attrito.testnet/demo-agent can be hired."* You should get `"decision": "do_not_hire"`, with the reason taken from the chain (revoked after two failed re-tests). Ask the same about `deepseek-ai/DeepSeek-V4.1-Flash-1017` and you should get `"hire"`: it holds certificate 0, which has passed a surprise re-test. The server has four read-only tools and never signs anything; [`mcp/skill/SKILL.md`](mcp/skill/SKILL.md) tells an agent to call it before hiring on the NEAR AI Agent Market.
 
 ### 4. Sit the exam yourself
 
@@ -67,7 +67,7 @@ In the output, about 30 seconds later, look for `EVENT_JSON` with `"event":"sitt
 - `Certified` (with a `cert_id`) if the demo agent is running its strong model;
 - `Failed` (with the score) if it is running its weak one.
 
-`curl https://proctor-demo-agent.attrito.workers.dev/` says which model is answering. You will also see OutLayer's `execution_completed` event: the runner's URL and SHA-256, the time it took, and the refund of unused compute. The candidate id contains your account, so every visitor gets a fresh one and nobody collides with anyone else.
+`curl https://proctor-demo-agent.attrito.workers.dev/` says which model is answering. The exam charges a 0.02 NEAR author fee, held from your 0.1 NEAR and paid to its author on the verdict (`earnings_credited`). You will also see OutLayer's `execution_completed` event: the runner's URL and SHA-256, the time it took, and the refund of unused compute. The candidate id contains your account, so every visitor gets a fresh one and nobody collides with anyone else.
 
 ### 5. Run every test
 
@@ -127,7 +127,7 @@ Agents are certified as `agent:<owner-account>/<name>`, so only the account that
 
 | Thing | Where |
 |---|---|
-| Registry | [`registry-v2.attrito.testnet`](https://testnet.nearblocks.io/address/registry-v2.attrito.testnet). Its code hash `idy6RgR4H4hD8TYzujL5NWdCLpdyPDQ8zipGCdhVug9` is the CI build `0aaa9cae…6cce` (see [Builds you can check](#builds-you-can-check)) |
+| Registry | [`registry-v2.attrito.testnet`](https://testnet.nearblocks.io/address/registry-v2.attrito.testnet). Its code hash `H7BXPDvsyZkhbRTGmJUixcw924eeQTWc8PwXTgFXisX8` is the CI build `ef506001…1da3` (see [Builds you can check](#builds-you-can-check)). It was upgraded in place to add payouts, with `migrate` in [`5sZeWWq1…`](https://testnet.nearblocks.io/txns/5sZeWWq1CJj1x7oqHxXX8PnwvbYLwBGMWQcGEdfGhGUn); every exam, certificate and outcome read back byte-identical |
 | Exam runner | [proctor-runner v0.2.0](https://github.com/egbujor-emmanuel/proctor-runner/releases/tag/v0.2.0), SHA-256 `9a41b235…dde4`, built by CI and reproduced on separate runs |
 | Exam | `near-protocol-basics-demo-v1`: 5 questions, pass mark 60%, commitment `aed0590c…ed51c` |
 | Demo agent | `https://proctor-demo-agent.attrito.workers.dev`, a Cloudflare Worker ([`demo-agent/`](demo-agent)) |
@@ -141,6 +141,21 @@ Agents are certified as `agent:<owner-account>/<name>`, so only the account that
 | 1 | The demo agent (Claude Sonnet 5.5 through NEAR AI) sits through its own endpoint and is **certified, 4/5** (certificate 1) | [`9Jwx3jXp…`](https://testnet.nearblocks.io/txns/9Jwx3jXp8We4a77VVBNv7qGLKpL48UC3zF8uf7CX9yT5) |
 | 2 | The owner redeploys the same URL with GPT-5.4 nano (`npm run deploy:weak`) | Cloudflare deployment; `GET /` reports `"mode": "weak"` |
 | 3 | The surprise re-test workflow scores it **2/5**, and the certificate is **suspended** | [`BrcXSNwX…`](https://testnet.nearblocks.io/txns/BrcXSNwX1qy7APxoTDNL5heFN22eB5FqoBT4teiQPUYX) |
+| 4 | An hour later the workflow re-tests it again: **2/5**, and the certificate is **revoked** | [`3SGvHzEY…`](https://testnet.nearblocks.io/txns/3SGvHzEY7c2Bo91eehtnapZbXE2eVk5mv4y1DDPWBLm4) |
+
+`npm --prefix mcp run verify -- --tx 3SGvHzEY7c2Bo91eehtnapZbXE2eVk5mv4y1DDPWBLm4 --sender proctor-sentinel.testnet` shows that the revoking answers are genuine NEAR AI completions, produced by the pinned runner.
+
+### Exam-author payouts, on chain
+
+An author can charge a fee per sitting (`set_exam_fee`, at most 1 NEAR). The fee is held with the sitting and credited to the author only when the sitting ends in a verdict (certified, failed, re-test passed, suspended or revoked). An incomplete, failed, rejected or expired sitting refunds it to whoever paid. The author withdraws with `withdraw_earnings`.
+
+| Step | Transaction |
+|---|---|
+| The author sets a 0.02 NEAR fee on the demo exam (`exam_fee_set`) | [`F7LAcipJ…`](https://testnet.nearblocks.io/txns/F7LAcipJjpsesrfxGrgbRPCff7oax1SSLeSK99TVBw26) |
+| A paid sitting ends in a verdict and the author is credited 0.02 NEAR (`earnings_credited`) | [`F2rq3Gxu…`](https://testnet.nearblocks.io/txns/F2rq3GxuZyg8mi3oFaaqDGBLyLQzeVhxWrW6F2jxn2bQ) |
+| The author withdraws (`earnings_withdrawn`); the balance reads 0 and a second withdrawal is refused | [`z53mcD6N…`](https://testnet.nearblocks.io/txns/z53mcD6N5wrzgW4FtB66UJ5SA8XUcjJn3ufgio7RjFR) |
+
+To see what earnings would pay out as on another chain, `node scripts/payout-quote.mjs --author <account> --to USDC:near --recipient <you>.near` asks NEAR Intents' 1Click API for a **dry** quote. Nothing is committed and no deposit address is created. Run on those 0.02 NEAR of earnings, it quoted 0.0805 USDC, arriving in about 20 s.
 
 ## Benchmark
 
@@ -178,9 +193,10 @@ How to read it:
 
 | Piece | How PROCTOR uses it |
 |---|---|
-| **NEAR smart contract** (near-sdk 5.30, Rust) | The registry: exams, sittings, certificates, two-strike re-tests, a 24-hour runner timelock, NEP-297 events |
+| **NEAR smart contract** (near-sdk 5.30, Rust) | The registry: exams, sittings, certificates, two-strike re-tests, author fees and withdrawals, a 24-hour runner timelock, an in-place state migration, NEP-297 events |
 | **OutLayer** (Intel TDX) | Runs the exam runner on `request_execution` with a pinned `WasmUrl` source. Holds the exam as a secret bound to the runner hash and the calling contract, and calls the registry back |
 | **NEAR AI Cloud** | The candidates, via OpenAI-compatible chat completions: TEE-hosted models (such as DeepSeek V4.1 Flash) and external-provider models relayed by NEAR AI's TEE gateway (such as Claude). The verifier checks NEAR AI's signature and attestation for every answer |
+| **NEAR Intents (1Click API)** | Dry quotes for paying an author's earnings out as another chain's token (`scripts/payout-quote.mjs`) |
 | **NEAR AI Agent Market** | The MCP server and skill vet market listings before hiring |
 | **near-cli-rs, near-workspaces** | Deploys, scripts, the re-test workflow, and sandbox tests on a local NEAR node |
 
@@ -190,12 +206,12 @@ How to read it:
 |---|---|
 | [`proctor-core/`](proctor-core) | Exam format, deterministic graders, commitments; `proctor-seal` prepares an exam byte-exactly |
 | [`exam-runner/`](exam-runner) | The program OutLayer runs (wasm32-wasip2, `wstd`): asks questions concurrently under a deadline, grades, reports |
-| [`contracts/registry/`](contracts/registry) | The NEAR registry contract (84 unit tests); [`contracts/sandbox-tests/`](contracts/sandbox-tests) runs it on a local node against a mock OutLayer |
+| [`contracts/registry/`](contracts/registry) | The NEAR registry contract (101 unit tests); [`contracts/sandbox-tests/`](contracts/sandbox-tests) runs it on a local node against a mock OutLayer |
 | [`mcp/`](mcp) | The PROCTOR MCP server (4 read-only tools), the buyer skill, and the certificate verifier (`npm run verify`) |
 | [`web/`](web) | The website: live registry reads, the buyer check, certificates as stamped papers |
 | [`demo-agent/`](demo-agent) | The Cloudflare Worker agent used for the model-swap demo |
 | [`bench/`](bench) | The benchmark and its published results |
-| [`scripts/`](scripts) | Build, test, exam registration and the surprise re-test picker |
+| [`scripts/`](scripts) | Build, test, exam registration, the surprise re-test picker and the payout quote |
 | [`exams/`](exams) | The public demo exam (real exams stay secret; this one is public so anyone can check the grading) |
 
 ## Libraries and tools
