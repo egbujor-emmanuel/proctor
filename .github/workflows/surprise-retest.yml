@@ -1,13 +1,12 @@
-# Surprise re-tests: every hour this wakes, fires with probability 0.2 (so
-# the hours are unpredictable), expires any re-test whose callback never came,
-# picks a live certificate at random and pays for its re-test from the
-# sentinel testnet account. Anyone may re-test any certificate; this makes
-# sure someone always does. The run fails unless the re-test ends in a verdict.
+# Manual surprise re-test (and fallback scheduler). The hourly schedule runs
+# on the proctor-sentinel Cloudflare Worker (sentinel/): GitHub's own cron
+# never fired for this repository. This workflow does the same job on
+# demand: expires any re-test whose callback never came, picks a live
+# certificate (or the one given) and pays for its re-test from the sentinel
+# testnet account. The run fails unless the re-test ends in a verdict.
 name: Surprise re-tests
 
 on:
-  schedule:
-    - cron: "23 * * * *"
   workflow_dispatch:
     inputs:
       cert_id:

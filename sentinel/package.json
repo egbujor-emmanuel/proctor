@@ -1,0 +1,22 @@
+{
+  "name": "proctor-sentinel",
+  "version": "0.1.0",
+  "description": "Cloudflare Worker that runs PROCTOR's surprise re-tests on a cron schedule, signing them from the sentinel testnet account",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json && tsc -p test/tsconfig.json",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "near-api-js": "7.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261101.1",
+    "@types/node": "24.19.2",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5",
+    "wrangler": "4.156.0"
+  }
+}

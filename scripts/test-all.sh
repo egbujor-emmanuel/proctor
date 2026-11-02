@@ -24,6 +24,9 @@ step "MCP server"
 step "demo agent (Cloudflare Worker)"
 (cd demo-agent && npm ci --silent && npm run -s typecheck && npm test)
 
+step "sentinel (Cloudflare Worker that runs the hourly re-tests)"
+(cd sentinel && npm ci --silent && npm run -s typecheck && npm test)
+
 step "surprise re-test picker and payout quote"
 node --test scripts/retest/pick.test.mjs scripts/payout-quote.test.mjs
 

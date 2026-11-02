@@ -12,3 +12,4 @@ web/qa/lighthouse-*/
 .dev.vars
 .wrangler/
 demo-agent/dist/
+sentinel/dist/

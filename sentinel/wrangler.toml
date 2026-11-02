@@ -1,0 +1,21 @@
+name = "proctor-sentinel"
+main = "src/index.ts"
+compatibility_date = "2026-10-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Every hour at :17. Each tick fires a re-test with probability CHANCE, so
+# the hours re-tests actually happen cannot be predicted.
+[triggers]
+crons = ["17 * * * *"]
+
+[vars]
+REGISTRY = "registry-v2.attrito.testnet"
+SENTINEL_ACCOUNT = "proctor-sentinel.testnet"
+RPC_URL = "https://rpc.testnet.fastnear.com"
+CHANCE = "0.2"
+
+# Keep each tick's log line in Workers Logs.
+[observability]
+enabled = true
+
+# SENTINEL_PRIVATE_KEY is a Wrangler secret (wrangler secret put).

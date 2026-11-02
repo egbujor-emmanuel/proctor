@@ -131,7 +131,7 @@ Agents are certified as `agent:<owner-account>/<name>`, so only the account that
 | Exam runner | [proctor-runner v0.2.0](https://github.com/egbujor-emmanuel/proctor-runner/releases/tag/v0.2.0), SHA-256 `9a41b235…dde4`, built by CI and reproduced on separate runs |
 | Exam | `near-protocol-basics-demo-v1`: 5 questions, pass mark 60%, commitment `aed0590c…ed51c` |
 | Demo agent | `https://proctor-demo-agent.attrito.workers.dev`, a Cloudflare Worker ([`demo-agent/`](demo-agent)) |
-| Surprise re-tests | [`.github/workflows/surprise-retest.yml`](.github/workflows/surprise-retest.yml): hourly, firing with probability 0.2, paid by `proctor-sentinel.testnet` |
+| Surprise re-tests | [`proctor-sentinel`](https://proctor-sentinel.attrito.workers.dev), a Cloudflare Worker ([`sentinel/`](sentinel)). A Cron Trigger wakes it at :17 every hour; with probability 0.2 it re-tests a live certificate chosen at random, signing from `proctor-sentinel.testnet`, and every tick it expires re-tests whose callback never came. Every re-test is a public transaction from that account ([history](https://testnet.near.rocks/account/proctor-sentinel.testnet)). [`.github/workflows/surprise-retest.yml`](.github/workflows/surprise-retest.yml) runs the same job on demand (GitHub's own cron never fired for this repository) |
 | Certificate 0 | `deepseek-ai/DeepSeek-V4.1-Flash-1017`, 3/5. Issued in [`4ewFE77F…`](https://testnet.near.rocks/tx/4ewFE77FvYXLTzA5dfBWWanntAQeyfFEXAvZFo6LaoR1); surprise re-test passed in [`9pZ51MMw…`](https://testnet.near.rocks/tx/9pZ51MMwwmMAYoo2BnSvdMLMD4oBqht91TmjjLA3fPi) |
 
 ### The model-swap demo, on chain
@@ -210,18 +210,20 @@ How to read it:
 | [`mcp/`](mcp) | The PROCTOR MCP server (4 read-only tools), the buyer skill, and the certificate verifier (`npm run verify`) |
 | [`web/`](web) | The website: live registry reads, the buyer check, certificates as stamped papers |
 | [`demo-agent/`](demo-agent) | The Cloudflare Worker agent used for the model-swap demo |
+| [`sentinel/`](sentinel) | The Cloudflare Worker that runs the hourly surprise re-tests (near-api-js, sharing the picker in [`scripts/retest/`](scripts/retest)) |
 | [`bench/`](bench) | The benchmark and its published results |
 | [`scripts/`](scripts) | Build, test, exam registration, the surprise re-test picker and the payout quote |
 | [`exams/`](exams) | The public demo exam (real exams stay secret; this one is public so anyone can check the grading) |
 
 ## Libraries and tools
 
-Rust: near-sdk, serde, serde_json, sha2, hex, wstd, futures, ureq, cargo-near, near-workspaces. TypeScript: @modelcontextprotocol/sdk, zod, @noble/curves and @noble/hashes (signature recovery in the verifier), Next.js 16, React 19, GSAP (with ScrollTrigger and SplitText), Lenis, components adapted from [React Bits](https://reactbits.dev) (Radar, SplitFlapText, Counter, Noise, Shuffle, LatticeLoader, LogoLoop, SplitText; MIT, attributed in each file), SWR, Tailwind CSS, Vitest, Wrangler. Services: NEAR testnet, OutLayer, NEAR AI Cloud, Cloudflare Workers, GitHub Actions. No project template was used.
+Rust: near-sdk, serde, serde_json, sha2, hex, wstd, futures, ureq, cargo-near, near-workspaces. TypeScript: @modelcontextprotocol/sdk, zod, @noble/curves and @noble/hashes (signature recovery in the verifier), Next.js 16, React 19, GSAP (with ScrollTrigger and SplitText), Lenis, components adapted from [React Bits](https://reactbits.dev) (Radar, SplitFlapText, Counter, Noise, Shuffle, LatticeLoader, LogoLoop, SplitText; MIT, attributed in each file), SWR, Tailwind CSS, Vitest, Wrangler, near-api-js (the sentinel signs re-tests with it). Services: NEAR testnet, OutLayer, NEAR AI Cloud, Cloudflare Workers, GitHub Actions. No project template was used.
 
 ## Limits
 
 - **Testnet only.** Nothing here holds real funds.
 - **The demo exam is public.** It is in [`exams/`](exams) so anyone can verify the grading end to end. It has 5 questions, so a single sitting is a coarse measure; real exams stay secret and can hold up to 64 questions.
+- **OutLayer caps each HTTP request at 30 seconds.** If a model takes longer to answer, OutLayer ends the whole run, and the registry records `RunnerFailed`. That is never a strike against the candidate, and it gives the re-test slot back. A reasoning model that thinks for a long time can hit this: it happened to a DeepSeek re-test on 2026-11-02 ([`BGriTXff…`](https://testnet.near.rocks/tx/BGriTXffJyrSnXP3ekHoXmofetG2pMxwXUiMca1sCbp5)).
 - **The demo agent's endpoint is open.** Anyone who sends PROCTOR's instruction can spend its NEAR AI credit, one bounded question at a time.
 - **The first registry** (`registry.attrito.testnet`, runner v0.1.0) predates agent endpoints and reproducible builds. It is kept only for the first certificate it issued.
 
