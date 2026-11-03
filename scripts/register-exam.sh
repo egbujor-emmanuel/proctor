@@ -11,6 +11,9 @@
 #   REGISTRY   registry contract [registry-v2.attrito.testnet]
 #   NETWORK    testnet or mainnet [testnet]
 #   NEARAI_API_KEY  key the runner uses to call NEAR AI (required)
+#   RESEAL     set to 1 to only re-store the secret for the registry's current
+#              runner (after apply_runner); the exam must already be on chain
+#              with the same commitment, or nothing is stored
 #
 # The secret is locked to the registry's current runner build (--wasm-hash)
 # and to calls that come through the registry (--via): any account may pay
@@ -41,14 +44,24 @@ field() {
 exam_id="$(field exam_id)"
 title="${3:-$exam_id}"
 
-runner_hash="$(near contract call-function as-read-only "$registry" get_config json-args '{}' \
-  network-config "$network" now 2>/dev/null | node -e '
-    let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
-      const json = s.slice(s.indexOf("{"), s.lastIndexOf("}") + 1);
-      const hash = JSON.parse(json).runner_hash;
-      if (!/^[0-9a-f]{64}$/.test(hash ?? "")) { console.error("could not read the registry runner_hash"); process.exit(1); }
-      console.log(hash);
-    });')"
+# view <method> <json-args> <field>: one field of a registry view call. A
+# missing field (or an exam that does not exist) prints nothing.
+view() {
+  near contract call-function as-read-only "$registry" "$1" json-args "$2" \
+    network-config "$network" now 2>/dev/null | node -e '
+      let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
+        const start = s.indexOf("{");
+        if (start < 0) return;
+        const v = JSON.parse(s.slice(start, s.lastIndexOf("}") + 1))[process.argv[1]];
+        if (v !== undefined && v !== null) console.log(v);
+      });' "$3"
+}
+
+runner_hash="$(view get_config '{}' runner_hash)"
+if [[ ! "$runner_hash" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "could not read the registry runner_hash" >&2
+  exit 1
+fi
 
 echo "exam:     $exam_id ($(field question_count) questions, pass mark $(field pass_mark_bps) bps)"
 echo "commit:   $(field commitment)"
@@ -62,9 +75,24 @@ node -e '
   fs.writeFileSync(process.argv[2], JSON.stringify(payload));
 ' "$workdir/exam.json" "$workdir/secrets.json"
 
+if [[ "${RESEAL:-}" == "1" ]]; then
+  # A secret whose bytes differ from the commitment fails every sitting with
+  # "exam commitment mismatch" (CRLF line endings are the usual cause).
+  on_chain="$(view get_exam "{\"exam_id\":\"$exam_id\"}" commitment)"
+  if [[ "$on_chain" != "$(field commitment)" ]]; then
+    echo "refusing to reseal: the on-chain commitment is '${on_chain:-<no such exam>}', this file seals to $(field commitment)" >&2
+    exit 1
+  fi
+fi
+
 echo "== storing the exam as an OutLayer secret (locked to the runner and the registry)"
 outlayer secrets set --profile "$profile" --wasm-hash "$runner_hash" \
   --access allow-all --via "$registry" "$(cat "$workdir/secrets.json")"
+
+if [[ "${RESEAL:-}" == "1" ]]; then
+  echo "== resealed for runner $runner_hash; the exam is already registered"
+  exit 0
+fi
 
 echo "== registering the exam on chain"
 args="$(node -e '
