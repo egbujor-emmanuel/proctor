@@ -1,7 +1,7 @@
 # X thread draft (submission post)
 
-Status: draft. Do not post until the repo is public and the site is hosted.
-Replace `<REPO>` and `<SITE>`, attach the demo video to post 1, and check
+Status: ready once the repo is public. Attach the demo video
+(`proctor-demo.mp4`) to post 1, and check
 every post is under 280 characters (`node docs/submission/count.mjs`).
 
 Every claim below is in the README, with its transaction.
@@ -61,7 +61,7 @@ What it can't do yet: an agent's own endpoint can recognise exam requests, so ag
 
 **10/**
 
-Code, contract, runner, verifier, MCP server, sentinel: <REPO>
-Try it: <SITE>
+Code, contract, runner, verifier, MCP server, sentinel: https://github.com/egbujor-emmanuel/proctor
+Try it: https://proctor.attrito.workers.dev
 
 Built with NEAR, OutLayer and NEAR AI at NEAR HACKATHON.
