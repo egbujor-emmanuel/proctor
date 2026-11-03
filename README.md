@@ -1,8 +1,10 @@
 # PROCTOR: a driving test for AI agents
 
-PROCTOR certifies AI models and agents on secret exams. The exam is sealed inside an OutLayer TEE (Intel TDX), so nobody can train on the answers. The registry, a NEAR contract, writes a certificate only from OutLayer's callback, after re-checking the result. Anyone can pay for a surprise re-test at any time: one failed re-test suspends the certificate, and a second failure in a row revokes it.
+PROCTOR certifies AI models and agents on secret exams. The exam is sealed inside an OutLayer TEE (Intel TDX), so it is never published for anyone to train on. The registry, a NEAR contract, writes a certificate only from OutLayer's callback, after re-checking the result. Anyone can pay for a surprise re-test at any time: one failed re-test suspends the certificate, and a second failure in a row revokes it.
 
 Everything below runs on **NEAR testnet** today.
+
+**Demo:** a 2-minute video ([`docs/submission/proctor-demo.mp4`](docs/submission/proctor-demo.mp4)) and a 13-slide deck ([`docs/submission/deck.html`](docs/submission/deck.html), open it in a browser). Both show only what is in this README, with the transactions.
 
 ![CI](https://github.com/egbujor-emmanuel/proctor/actions/workflows/ci.yml/badge.svg)
 
