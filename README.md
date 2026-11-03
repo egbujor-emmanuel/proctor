@@ -49,7 +49,7 @@ Run it on the demo agent's sitting (`--tx 9Jwx3jXp8We4a77VVBNv7qGLKpL48UC3zF8uf7
 claude mcp add proctor -e PROCTOR_REGISTRY=registry-v2.attrito.testnet -- node "$PWD/mcp/dist/index.js"
 ```
 
-Then ask Claude Code: *"Use proctor to check whether agent:attrito.testnet/demo-agent can be hired."* You should get `"decision": "do_not_hire"`, with the reason taken from the chain (revoked after two failed re-tests). Ask the same about `deepseek-ai/DeepSeek-V4.1-Flash-1017` and you should get `"hire"`: it holds certificate 0, which has passed a surprise re-test. The server has four read-only tools and never signs anything; [`mcp/skill/SKILL.md`](mcp/skill/SKILL.md) tells an agent to call it before hiring on the NEAR AI Agent Market.
+Then ask Claude Code: *"Use proctor to check whether agent:attrito.testnet/demo-agent can be hired."* You should get `"decision": "do_not_hire"`, with the reason taken from the chain (revoked after two failed re-tests). Ask the same about `deepseek-ai/DeepSeek-V4.1-Flash-1017` and you should get `"hire"`: it holds certificate 0, which has passed a surprise re-test. Anyone can register an exam, so unless you name one (`exam_id`), only exams by trusted authors with at least 5 questions and a 50% pass mark count. The default trusted author is `attrito.testnet`; set `PROCTOR_TRUSTED_AUTHORS` to change it. A certificate issued after an earlier one under the same id was revoked comes with a caution. The server has four read-only tools and never signs anything; [`mcp/skill/SKILL.md`](mcp/skill/SKILL.md) tells an agent to call it before hiring on the NEAR AI Agent Market.
 
 ### 4. Sit the exam yourself
 
@@ -94,7 +94,7 @@ Public benchmarks leak into training data, so a high score can mean the model me
 PROCTOR's answer:
 - The test is never published; only its SHA-256 is, on chain.
 - Scoring runs where neither the candidate nor PROCTOR's operator can change it.
-- A certificate stays live only as long as the candidate keeps passing tests it cannot see coming.
+- A certificate stays live only as long as the candidate keeps passing surprise re-tests. A NEAR AI model cannot tell a re-test from any other request; an agent's own endpoint can (see [Limits](#limits)).
 
 ## How it works
 
@@ -180,7 +180,7 @@ How to read it:
 - **The score isn't self-reported.** Certificates are written only in the registry's own callback for OutLayer's result, after the re-checks above.
 - **The answers are real.** Each answer is a NEAR AI completion. The certificate stores a hash of the completion ids, and the ids are in the `sitting_resolved` event. [`mcp/src/verify.ts`](mcp/src/verify.ts) checks every one: NEAR AI's signature must be valid and its signer must be the key listed in NEAR AI's attestation report. The script does not re-verify the report's hardware quotes; [NEAR AI's verifier](https://github.com/nearai/nearai-cloud-verifier) does. Events are accepted only from receipts the registry and OutLayer themselves executed, and are cross-checked against the registry's own record of the sitting. That is the model's own TEE for TEE-hosted models, or NEAR AI's gateway TEE for models at external providers. The signed request and response hashes cover the secret exam, so a third party sees them but cannot recompute them.
 - **An agent can't borrow a key.** The runner sends PROCTOR's NEAR AI key only to `https://cloud-api.near.ai/`, never to an agent endpoint. Look-alike hosts and userinfo tricks are tested in `exam-runner`.
-- **The owner can't swap the grader quietly.** A new runner build is announced on chain and can take effect only 24 hours later. Ownership moves in two steps.
+- **The grader can't change without notice.** A new runner build is announced on chain and can take effect only 24 hours later. Ownership moves in two steps. One caveat: the registry account still holds a full-access key, so its code can be upgraded while the project is young, and a code upgrade takes effect at once. Every upgrade is a public transaction (three so far, linked under [What's live](#whats-live-on-testnet)), but it is not delayed. Removing that key, or moving upgrades behind the same 24-hour timelock, is the step that makes the timelock binding.
 - **Outages don't fail anyone.** A cut-off answer, an empty reply or a dead endpoint is a failed call, not a wrong answer. Incomplete runs never certify, suspend or revoke.
 - **Agent Market listings can't borrow a certificate.** A listing names its NEAR account with `proctor:<account>`, and that account must have certified an agent named after the listing's handle. The MCP tool `proctor_vet_market_agent` checks both halves.
 
@@ -226,6 +226,7 @@ Rust: near-sdk, serde, serde_json, sha2, hex, wstd, futures, ureq, cargo-near, n
 - **OutLayer caps each HTTP request at 30 seconds.** If a model takes longer to answer, OutLayer ends the whole run, and the registry records `RunnerFailed`. That is never a strike against the candidate, and it gives the re-test slot back. A reasoning model that thinks for a long time can hit this: it happened to a DeepSeek re-test on 2026-11-02 ([`BGriTXff…`](https://testnet.near.rocks/tx/BGriTXffJyrSnXP3ekHoXmofetG2pMxwXUiMca1sCbp5)).
 - **An agent can tell an exam request from real traffic.** Every sitting sends the same instruction and the same questions, which the endpoint saw when it was certified. An owner who routes exam requests to a strong model and everything else to a weak one passes every re-test, so agent re-tests catch only a swap the owner does not hide. NEAR AI model candidates do not have this gap: the runner calls NEAR AI directly with PROCTOR's key, and the signatures name the model. Larger exams sampled per sitting would make it harder, not impossible.
 - **Until runner v0.3.0 is applied, an agent endpoint can stall a re-test.** Under v0.2.0, an answer held past 30 seconds makes OutLayer end the run (`RunnerFailed`), which is not a strike and gives the slot back. v0.3.0 cuts each attempt at 25 seconds, so a stalled answer becomes a failed call and counts toward an agent's silence strike.
+- **A certificate near the pass mark can be re-tested until it falls.** Two failed re-tests in a row revoke, and anyone may pay for a re-test every hour. Certificate 0 passed at exactly 3/5, and DeepSeek passes 88% of sittings in the benchmark, so two failures in a row are expected after about 78 re-tests: about 3 days if someone pays for one every hour, or about 16 days from the sentinel alone. Larger exams, which can hold up to 64 questions, make a borderline score much less likely.
 - **The demo agent's endpoint is open.** Anyone who sends PROCTOR's instruction can spend its NEAR AI credit, one bounded question at a time, up to 120 requests a minute per client. It refuses to serve at all if its rate limiter is missing.
 - **The first registry** (`registry.attrito.testnet`, runner v0.1.0) predates agent endpoints and reproducible builds. It is kept only for the first certificate it issued.
 

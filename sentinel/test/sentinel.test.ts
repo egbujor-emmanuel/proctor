@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import worker, { tick, type Env, type Send } from "../src/index";
+import worker, { patrolledExams, tick, type Env, type Send } from "../src/index";
 import { outcomeFromLogs, plan } from "../src/plan";
 import type { Certificate } from "../src/registry";
 
@@ -35,6 +35,17 @@ describe("plan", () => {
     const revoked = cert(0, { status: { Revoked: { reason: "r", at_ns: 1 } } });
     const recent = cert(1, { last_retest_requested_ns: String(NOW - HOUR / 2n) });
     expect(plan([revoked, recent], new Map(), NOW, 1, 0, () => 0).skip).toContain("nothing eligible");
+  });
+});
+
+describe("patrolled exams", () => {
+  it("draws only from the exams the sentinel patrols", () => {
+    const other = { ...cert(1), exam_id: "throwaway" };
+    const p = plan([other, cert(0)], new Map(), NOW, 1, 0, () => 0, new Set([cert(0).exam_id]));
+    expect(p.retest?.cert_id).toBe(0);
+    expect(plan([other], new Map(), NOW, 1, 0, () => 0, new Set([cert(0).exam_id])).skip).toBe("no certificates yet");
+    expect(patrolledExams({ EXAMS: " a, b ,," })).toEqual(new Set(["a", "b"]));
+    expect(patrolledExams({})).toBeUndefined();
   });
 });
 

@@ -59,6 +59,44 @@ export interface ExamCheck {
   certificate?: CertificateSummary;
   /** Earlier certificates for the same candidate and exam that were revoked. */
   prior_revocations?: number;
+  /** Set when a buyer named an exam that would not count by default: why. */
+  not_trusted?: string;
+}
+
+/**
+ * Anyone can register an exam, including a one-question exam with a zero
+ * pass mark. So when no exam is named, a certificate counts towards "hire"
+ * only on an exam by a trusted author that is a real test.
+ */
+export const DEFAULT_TRUSTED_AUTHORS: readonly string[] = ["attrito.testnet"];
+export const MIN_COUNTED_QUESTIONS = 5;
+export const MIN_COUNTED_PASS_MARK_BPS = 5000;
+
+export interface ExamInfo {
+  exam_id: string;
+  author: string;
+  pass_mark_bps: number;
+  question_count: number;
+  active: boolean;
+}
+
+/** Why an exam does not count towards "hire" by default, or null if it does. */
+export function untrustedReason(exam: ExamInfo, trustedAuthors: readonly string[] = DEFAULT_TRUSTED_AUTHORS): string | null {
+  if (!exam.active) return "the exam is closed";
+  if (!trustedAuthors.includes(exam.author)) return `its author ${exam.author} is not on the trusted list`;
+  if (exam.question_count < MIN_COUNTED_QUESTIONS) return `it has ${exam.question_count} question(s), fewer than ${MIN_COUNTED_QUESTIONS}`;
+  if (exam.pass_mark_bps < MIN_COUNTED_PASS_MARK_BPS) return `its pass mark is below ${MIN_COUNTED_PASS_MARK_BPS / 100}%`;
+  return null;
+}
+
+/** The exams a check uses when none is named. */
+export function countedExams<T extends ExamInfo>(exams: readonly T[], trustedAuthors: readonly string[] = DEFAULT_TRUSTED_AUTHORS): T[] {
+  return exams.filter((e) => untrustedReason(e, trustedAuthors) === null);
+}
+
+/** The check, marked when the buyer named an exam that would not count by default. */
+export function withTrust(check: ExamCheck, reason: string | null): ExamCheck {
+  return reason ? { ...check, not_trusted: reason } : check;
 }
 
 export interface Verdict {
@@ -190,6 +228,9 @@ export function decide(candidate: string, exams: ExamCheck[], market?: MarketAge
     if (exam.state === "active" && exam.certificate) {
       const c = exam.certificate;
       reasons.push(`certified on ${exam.exam_id}: scored ${c.score}, last verified ${c.last_verified}, ${c.retests_passed} surprise re-test(s) passed`);
+      if (exam.not_trusted) {
+        reasons.push(`caution: ${exam.exam_id} would not count by default: ${exam.not_trusted}`);
+      }
       if (exam.prior_revocations) {
         // A revoked agent can re-certify under the same id, for example after
         // switching back to a stronger model for one sitting.
@@ -201,7 +242,7 @@ export function decide(candidate: string, exams: ExamCheck[], market?: MarketAge
       reasons.push(`${exam.exam_id}: ${STATE_REASON[exam.state]}`);
     }
   }
-  if (exams.length === 0) reasons.push("no PROCTOR exams were checked");
+  if (exams.length === 0) reasons.push("no trusted PROCTOR exam was found to check");
 
   const verdict: Verdict = { decision: live.length > 0 ? "hire" : "do_not_hire", candidate, reasons, exams };
   if (market) {

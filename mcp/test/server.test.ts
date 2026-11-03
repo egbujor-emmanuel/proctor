@@ -105,6 +105,23 @@ describe("PROCTOR MCP server", () => {
     expect(json.reasons[1]).toContain("1 earlier certificate(s) under this id were revoked");
   });
 
+  it("ignores a certificate on an exam nobody trusts unless the buyer names it", async () => {
+    const id = "agent:alice.testnet/dailybriefer";
+    const junk = exam({ exam_id: "easy-v1", author: "mallory.testnet", question_count: 1, pass_mark_bps: 0 });
+    const world = {
+      agents: [marketAgent()],
+      exams: [exam(), junk],
+      certs: { [`${id}|easy-v1`]: certificate({ exam_id: "easy-v1", candidate_model: id }) },
+    };
+    const byDefault = await call(await connect(world), "proctor_vet_market_agent", { handle: "dailybriefer" });
+    expect(byDefault.json.decision).toBe("do_not_hire");
+    expect(byDefault.json.exams.map((e: { exam_id: string }) => e.exam_id)).toEqual(["near-basics-v1"]);
+
+    const named = await call(await connect(world), "proctor_check_candidate", { candidate: id, exam_id: "easy-v1" });
+    expect(named.json.decision).toBe("hire");
+    expect(named.json.reasons.join(" ")).toContain("caution: easy-v1 would not count by default: its author mallory.testnet");
+  });
+
   it("refuses an uncertified market agent", async () => {
     const client = await connect({ agents: [marketAgent()] });
     const { json } = await call(client, "proctor_vet_market_agent", { handle: "dailybriefer" });

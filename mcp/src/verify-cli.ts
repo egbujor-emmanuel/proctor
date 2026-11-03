@@ -4,14 +4,16 @@
 //   NEARAI_API_KEY=... node mcp/dist/verify-cli.js --tx <hash> --sender <account that sent it>
 //
 // Environment: PROCTOR_REGISTRY (default registry-v2.attrito.testnet),
-// NEAR_RPC_URL (default FastNEAR testnet), NEARAI_API_KEY (any NEAR AI Cloud
-// key; signature lookups are not billed). Exits 0 only if every check ran and
-// passed: 1 if any failed or none could run, 2 on an error.
+// NEAR_RPC_URL (default FastNEAR's archival testnet node), NEARAI_API_KEY (any
+// NEAR AI Cloud key; signature lookups are not billed). Exits 0 only if every
+// check ran and passed: 1 if any failed or none could run, 2 on an error.
 
 import { createRegistryReader } from "./near.js";
 import { Attestations, checkAnswer, readTransaction, responseIdsHash, sittingFromTransaction, type AnswerCheck } from "./verify.js";
 
-const DEFAULT_RPC = "https://rpc.testnet.fastnear.com";
+// Archival: regular nodes keep about two days of blocks, so any older sitting
+// would come back NOT_OBSERVED.
+const DEFAULT_RPC = "https://archival-rpc.testnet.fastnear.com";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);

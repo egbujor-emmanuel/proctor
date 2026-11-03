@@ -9,7 +9,7 @@ function rpc(value: unknown): Response {
 }
 
 const exam = (id: string, active = true): Exam => ({
-  exam_id: id, author: "a.testnet", title: id, commitment: "c".repeat(64), pass_mark_bps: 6000, question_count: 5, active, sittings: 1,
+  exam_id: id, author: "attrito.testnet", title: id, commitment: "c".repeat(64), pass_mark_bps: 6000, question_count: 5, active, sittings: 1,
 });
 
 const cert = (overrides: Partial<Certificate> = {}): Certificate => ({
@@ -86,7 +86,7 @@ describe("real registry data", () => {
 describe("runCheck", () => {
   it("checks only active exams and hires on a live certificate", async () => {
     const fetchMock = vi.fn(async () => rpc(cert()));
-    const verdict = await runCheck("m", [exam("e1"), exam("old", false)], fetchMock as unknown as typeof fetch);
+    const verdict = await runCheck("m", [exam("e1"), exam("old", false)], [], fetchMock as unknown as typeof fetch);
     expect(verdict.decision).toBe("hire");
     expect(verdict.exams.map((e) => e.exam_id)).toEqual(["e1"]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -94,19 +94,34 @@ describe("runCheck", () => {
 
   it("treats a certificate for another candidate as a failed read, not as no certificate", async () => {
     const other = cert({ candidate_model: "someone-else" });
-    await expect(runCheck("m", [exam("e1")], (async () => rpc(other)) as unknown as typeof fetch)).rejects.toThrow("different candidate or exam");
+    await expect(runCheck("m", [exam("e1")], [], (async () => rpc(other)) as unknown as typeof fetch)).rejects.toThrow("different candidate or exam");
   });
 
   it("does not hire a certificate that has not been verified in over a week", async () => {
     const stale = cert({ last_verified_ns: (Date.now() - 8 * 24 * 3600 * 1000) * 1e6 });
-    const verdict = await runCheck("m", [exam("e1")], (async () => rpc(stale)) as unknown as typeof fetch);
+    const verdict = await runCheck("m", [exam("e1")], [], (async () => rpc(stale)) as unknown as typeof fetch);
     expect(verdict.decision).toBe("do_not_hire");
     expect(verdict.exams[0]?.state).toBe("stale");
   });
 
   it("does not hire a suspended or uncertified candidate", async () => {
     const suspended = cert({ status: { Suspended: { reason: "re-test failed", at_ns: 2 } } });
-    expect((await runCheck("m", [exam("e1")], (async () => rpc(suspended)) as unknown as typeof fetch)).decision).toBe("do_not_hire");
-    expect((await runCheck("m", [exam("e1")], (async () => rpc(null)) as unknown as typeof fetch)).decision).toBe("do_not_hire");
+    expect((await runCheck("m", [exam("e1")], [], (async () => rpc(suspended)) as unknown as typeof fetch)).decision).toBe("do_not_hire");
+  });
+
+  it("ignores exams anyone could have written to pass", async () => {
+    const junk = { ...exam("easy"), author: "mallory.testnet", question_count: 1, pass_mark_bps: 0 };
+    const fetchMock = vi.fn(async () => rpc(cert({ exam_id: "easy" })));
+    const verdict = await runCheck("m", [junk], [], fetchMock as unknown as typeof fetch);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(verdict.decision).toBe("do_not_hire");
+  });
+
+  it("flags a candidate revoked before under the same id", async () => {
+    const revoked = cert({ cert_id: 0, status: { Revoked: { reason: "second failed re-test", at_ns: 1 } } });
+    const verdict = await runCheck("m", [exam("e1")], [revoked], (async () => rpc(cert({ cert_id: 4 }))) as unknown as typeof fetch);
+    expect(verdict.decision).toBe("hire");
+    expect(verdict.reasons.join(" ")).toContain("1 earlier certificate(s) under this id were revoked");
+    expect((await runCheck("m", [exam("e1")], [], (async () => rpc(null)) as unknown as typeof fetch)).decision).toBe("do_not_hire");
   });
 });

@@ -4,6 +4,7 @@ import { useRef, useState, type FormEvent } from "react";
 
 import { useRegistry } from "@/hooks/useRegistry";
 import { candidateId, runCheck, type CandidateKind, type Verdict } from "@/lib/check";
+import { registry } from "@/lib/registry";
 import LatticeLoader from "@/components/bits/LatticeLoader";
 import { StatusBadge } from "../registry/StatusBadge";
 import { Eyebrow } from "@/components/ui/Eyebrow";
@@ -38,7 +39,7 @@ function announcement(status: Status): string {
 
 /** The buyer check: hire or don't, from the candidate's live certificates. */
 export function CheckAgent() {
-  const { data, error: registryError, isStale } = useRegistry();
+  const { data, isStale } = useRegistry();
   const [kind, setKind] = useState<CandidateKind>("model");
   const [value, setValue] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -52,19 +53,21 @@ export function CheckAgent() {
   async function check(nextKind: CandidateKind, nextValue: string) {
     const id = candidateId({ kind: nextKind, value: nextValue });
     if ("error" in id) {
+      // The previous verdict answered a different id; don't leave it beside the error.
+      latest.current += 1;
+      setStatus({ kind: "idle" });
       setFieldError(id.error);
       input.current?.focus();
       return;
     }
     setFieldError(null);
-    if (!data) {
-      setStatus({ kind: "error", message: registryError ? registryError.message : "The registry is still loading. Try again in a moment." });
-      return;
-    }
     const mine = ++latest.current;
     setStatus({ kind: "checking" });
     try {
-      const verdict = await runCheck(id.id, data.exams);
+      // Before the page's first registry read lands, read the exam list here
+      // rather than asking the user to come back.
+      const exams = data?.exams ?? (await registry.exams()).rows;
+      const verdict = await runCheck(id.id, exams, data?.certificates ?? []);
       if (mine !== latest.current) return;
       setStatus({ kind: "done", verdict });
     } catch (e) {
