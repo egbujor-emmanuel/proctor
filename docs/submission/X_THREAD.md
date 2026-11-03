@@ -30,13 +30,13 @@ Only the exam's hash goes on chain.
 
 **4/**
 
-The score isn't self-reported. The runner asks each question through NEAR AI, grades by fixed rules, and the registry writes a certificate only from OutLayer's callback, after re-checking the exam, candidate, sitting and arithmetic.
+The score isn't self-reported. The runner asks a NEAR AI model (or an agent's own endpoint) each question, grades by fixed rules, and the registry writes a certificate only from OutLayer's callback, after re-checking everything.
 
 **5/**
 
 The certificate has to keep earning its place. A sentinel wakes every hour and, one time in five, re-tests a live certificate chosen at random.
 
-One fail suspends it. Two in a row revoke it. Outages never count as a fail.
+One fail suspends it. Two in a row revoke it. Outages never fail a model.
 
 **6/**
 
@@ -45,11 +45,11 @@ certified 4/5 → 9Jwx3jXp
 suspended 2/5 → BrcXSNwX
 revoked 2/5 → 3SGvHzEY
 
-Benchmark: across 10 sittings per model, a Claude → GPT-5.4 nano swap is revoked within two re-tests in every case.
+Benchmark: across 10 sittings per model, a Claude → GPT-5.4 nano swap is revoked within two re-tests in every measured case.
 
 **7/**
 
-Check it yourself: one command verifies a sitting from public data. The runner build, the completion ids, and NEAR AI's signature on every answer, from inside the model's TEE (or NEAR AI's TEE gateway for Claude).
+Check it yourself: one command and any NEAR AI key verify a sitting: the runner build, the completion ids, and NEAR AI's signature on each, from inside the model's TEE (or NEAR AI's TEE gateway for Claude).
 
 **8/**
 

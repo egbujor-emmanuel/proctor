@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { candidateId, runCheck } from "../check";
+import { candidateId, runCheck, snapshotVerdict } from "../check";
 import { RPC_URLS } from "../config";
 import { registry, RegistryError, type Certificate, type Exam } from "../registry";
 
@@ -99,6 +99,17 @@ describe("real registry data", () => {
   it("reports a contract error with its reason", async () => {
     const failing = (async () => Response.json({ jsonrpc: "2.0", id: "x", result: { error: "wasm execution failed" } })) as unknown as typeof fetch;
     await expect(registry.config(failing)).rejects.toThrow("wasm execution failed");
+  });
+});
+
+describe("snapshotVerdict", () => {
+  it("answers from the latest known certificate, and only for candidates it has seen", () => {
+    const old = cert({ cert_id: 0, status: { Revoked: { reason: "second failed re-test", at_ns: 1 } } });
+    const current = cert({ cert_id: 3 });
+    const verdict = snapshotVerdict("m", [exam("e1")], [old, current]);
+    expect(verdict?.decision).toBe("hire");
+    expect(verdict?.exams[0]?.prior_revocations).toBe(1);
+    expect(snapshotVerdict("someone-else", [exam("e1")], [old, current])).toBeNull();
   });
 });
 

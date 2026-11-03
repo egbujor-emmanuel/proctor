@@ -35,6 +35,24 @@ export function candidateId(request: CheckRequest): { id: string } | { error: st
 }
 
 /**
+ * The verdict from certificates already in hand (the page's registry read),
+ * shown while the live check runs. Null when none of them is the candidate's,
+ * since a newer certificate may exist that the read predates.
+ */
+export function snapshotVerdict(id: string, exams: Exam[], known: Certificate[]): Verdict | null {
+  const checks: ExamCheck[] = [];
+  let found = false;
+  for (const exam of countedExams(exams)) {
+    const mine = known.filter((c) => c.candidate_model === id && c.exam_id === exam.exam_id);
+    const cert = mine.reduce<Certificate | null>((a, c) => (a === null || c.cert_id > a.cert_id ? c : a), null);
+    if (cert) found = true;
+    const revoked = mine.filter((c) => cert && c.cert_id < cert.cert_id && typeof c.status === "object" && "Revoked" in c.status).length;
+    checks.push(cert ? withPriorRevocations(checkExam(exam.exam_id, cert), revoked) : checkExam(exam.exam_id, null));
+  }
+  return found ? decide(id, checks) : null;
+}
+
+/**
  * Checks the candidate against every trusted exam (see countedExams). `known`
  * is the registry's certificate list, used to flag earlier revocations.
  */

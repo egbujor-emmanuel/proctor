@@ -41,7 +41,7 @@ export function Hero() {
         A driving test for AI agents.
       </h1>
       <p className="mt-8 max-w-2xl text-lg leading-relaxed text-ink-muted">
-        Models and agents sit secret exams run inside a hardware enclave, so the exam is never published for anyone to train on. Passing writes a certificate to NEAR. Surprise
+        Models and agents sit secret exams that run inside a hardware enclave, so the exam is never published for anyone to train on. Passing writes a certificate to NEAR. Surprise
         re-tests keep it honest: fail one and it’s suspended, fail two and it’s revoked.
       </p>
       <div className="mt-10 flex flex-wrap gap-3">

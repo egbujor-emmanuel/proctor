@@ -3,7 +3,7 @@
 import { useRef, useState, type FormEvent } from "react";
 
 import { useRegistry } from "@/hooks/useRegistry";
-import { candidateId, runCheck, type CandidateKind, type Verdict } from "@/lib/check";
+import { candidateId, runCheck, snapshotVerdict, type CandidateKind, type Verdict } from "@/lib/check";
 import { Breakable } from "@/components/ui/Breakable";
 import { formatUtc } from "@/lib/config";
 import { registry } from "@/lib/registry";
@@ -14,7 +14,8 @@ import { Eyebrow } from "@/components/ui/Eyebrow";
 type Status =
   | { kind: "idle" }
   | { kind: "checking" }
-  | { kind: "done"; verdict: Verdict }
+  // provisionalAt: answered from the registry as read then, while the live read runs.
+  | { kind: "done"; verdict: Verdict; provisionalAt?: number }
   | { kind: "error"; message: string };
 
 const EXAMPLES: { kind: CandidateKind; value: string; label: string }[] = [
@@ -82,7 +83,10 @@ export function CheckAgent() {
     }
     setFieldError(null);
     const mine = ++latest.current;
-    setStatus({ kind: "checking" });
+    // Answer at once from the registry the page already holds, labelled as such,
+    // then replace it with the live read.
+    const quick = data ? snapshotVerdict(id.id, data.exams, data.certificates) : null;
+    setStatus(quick && data ? { kind: "done", verdict: quick, provisionalAt: data.readAt } : { kind: "checking" });
     try {
       // Before the page's first registry read lands, read the exam list here
       // rather than asking the user to come back.
@@ -121,7 +125,7 @@ export function CheckAgent() {
 
   return (
     <section id="check" aria-labelledby="check-title" className="border-y border-rule bg-paper-sunk">
-      <div className="mx-auto grid max-w-6xl gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <div>
           <Eyebrow text="The buyer check" />
           <h2 id="check-title" className="mt-3 font-serif text-4xl text-ink sm:text-5xl">
@@ -235,6 +239,11 @@ export function CheckAgent() {
               <p className="hash mt-3 text-sm text-ink">
                 <Breakable text={status.verdict.candidate} />
               </p>
+              {status.provisionalAt !== undefined && (
+                <p className="mt-2 font-mono text-xs text-ink-muted">
+                  From the registry as read at {formatUtc(status.provisionalAt)}; confirming on chain…
+                </p>
+              )}
               <ul role="list" className="mt-6 grid gap-3">
                 {status.verdict.exams.map((exam) => (
                   <li key={exam.exam_id} className="flex flex-wrap items-center gap-3 border-t border-rule pt-3">

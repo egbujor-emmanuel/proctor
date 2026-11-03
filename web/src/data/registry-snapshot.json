@@ -1,6 +1,6 @@
 {
   "registry": "registry-v2.attrito.testnet",
-  "readAt": 1793711840848,
+  "readAt": 1793724487252,
   "config": {
     "owner": "attrito.testnet",
     "outlayer_account": "outlayer.testnet",
@@ -17,7 +17,7 @@
     "max_execution_seconds": 180,
     "exams": 1,
     "certificates": 2,
-    "next_sitting_id": 16,
+    "next_sitting_id": 17,
     "pending_runner": {
       "runner_source": "{\"WasmUrl\":{\"build_target\":\"wasm32-wasip2\",\"hash\":\"96abb4a702c2ec060604ef4040a54dce95b57bffc872b3a091016ab57cd5ddae\",\"url\":\"https://github.com/egbujor-emmanuel/proctor-runner/releases/download/v0.3.0/exam-runner.wasm\"}}",
       "runner_hash": "96abb4a702c2ec060604ef4040a54dce95b57bffc872b3a091016ab57cd5ddae",
@@ -36,7 +36,7 @@
       "question_count": 5,
       "secrets_profile": "exam-near-basics-v2",
       "active": true,
-      "sittings": 16,
+      "sittings": 17,
       "registered_at_ns": 1793579127951910700
     }
   ],

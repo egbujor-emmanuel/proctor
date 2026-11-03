@@ -58,7 +58,7 @@ export function OnChainProof() {
       <div className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
         <Eyebrow text="Already on chain" />
         <h2 id="proof-title" className="mt-3 max-w-3xl font-serif text-4xl text-ink sm:text-5xl">
-          A quiet model swap, caught in two re-tests
+          A quiet model swap, caught in two re‑tests
         </h2>
         <div className="mt-12 grid gap-12 lg:grid-cols-2">
           <Steps title="The model-swap demo" steps={SWAP} />

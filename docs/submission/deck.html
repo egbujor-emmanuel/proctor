@@ -19,6 +19,7 @@ html { scroll-snap-type: y mandatory; }
   scroll-snap-align: start; display: flex; flex-direction: column; position: relative;
 }
 .slide-content {
+  box-sizing: border-box;
   flex: 1; display: flex; flex-direction: column; justify-content: center;
   max-height: 100%; overflow: hidden; padding: var(--pad);
   width: min(100%, 1180px); margin: 0 auto;
@@ -46,7 +47,7 @@ img, svg { max-width: 100%; max-height: min(50vh, 400px); object-fit: contain; }
   --title: clamp(2.2rem, 6.2vw, 5.4rem);
   --h2: clamp(1.6rem, 4vw, 3.3rem);
   --body: clamp(.95rem, 1.45vw, 1.3rem);
-  --small: clamp(.72rem, 1vw, .9rem);
+  --small: clamp(.75rem, 1vw, .9rem);
 }
 body {
   margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: var(--body); line-height: 1.5;
@@ -71,7 +72,7 @@ p { margin: 0; }
 @media (max-width: 760px) and (max-height: 500px) { .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 520px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } }
 /* short screens (phones in landscape): tighter cards and leading */
-@media (max-height: 500px) { :root { --h2: clamp(1.3rem, 6vh, 2.4rem); } .card { padding: .5rem .7rem; } .card p { line-height: 1.35; } .lead { margin-top: .5rem; } .grid { margin-top: .7rem; } }
+@media (max-height: 500px) { :root { --h2: clamp(1.3rem, 6vh, 2.4rem); --term-lh: 1.45; } .card { padding: .5rem .7rem; } .card p { line-height: 1.35; } .lead { margin-top: .5rem; } .grid { margin-top: .7rem; } }
 .card { background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 3px; padding: clamp(.7rem, 1.6vw, 1.3rem); box-shadow: 0 18px 40px -30px rgb(0 0 0 / .45); }
 .card .tag { font-family: var(--mono); font-size: var(--small); color: var(--ink-muted); letter-spacing: .1em; text-transform: uppercase; }
 .card p { margin-top: .4rem; font-size: clamp(.85rem, 1.25vw, 1.08rem); }
@@ -87,7 +88,7 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--seal); outline-
   position: absolute; right: clamp(1rem, 7vw, 7rem); bottom: clamp(1rem, 9vh, 6rem);
   width: clamp(7rem, 16vw, 13rem); aspect-ratio: 1; border-radius: 50%;
   border: 3px double var(--seal); color: var(--seal); display: grid; place-items: center; text-align: center;
-  font-family: var(--mono); font-size: clamp(.6rem, 1vw, .85rem); letter-spacing: .2em; text-transform: uppercase;
+  font-family: var(--mono); font-size: clamp(.75rem, 1vw, .85rem); letter-spacing: .2em; text-transform: uppercase;
   transform: rotate(-14deg); opacity: .85;
 }
 .seal strong { display: block; font-family: var(--serif); font-size: 2.4em; letter-spacing: 0; text-transform: none; font-weight: 500; }
@@ -157,9 +158,9 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
     <h2 class="reveal">Seal, sit, certify, re-test.</h2>
     <div class="grid g4">
       <div class="card reveal"><p class="tag">01 · Seal</p><p>The exam is an OutLayer secret, readable only by one runner build (by SHA-256) and only via the registry. Only its hash is on chain.</p></div>
-      <div class="card reveal"><p class="tag">02 · Sit</p><p>Anyone pays for a sitting. OutLayer runs the runner in Intel TDX; it asks each question through NEAR AI and grades by fixed rules.</p></div>
+      <div class="card reveal"><p class="tag">02 · Sit</p><p>Anyone pays for a sitting. OutLayer runs the runner in Intel TDX; it asks a NEAR AI model, or an agent's own endpoint, each question and grades by fixed rules.</p></div>
       <div class="card reveal"><p class="tag">03 · Certify</p><p>The registry writes a certificate only from OutLayer's callback, after re-checking exam, candidate, sitting and arithmetic.</p></div>
-      <div class="card reveal"><p class="tag">04 · Re-test</p><p>Anyone may re-test hourly. One fail suspends, two in a row revoke, a pass restores. Outages never count.</p></div>
+      <div class="card reveal"><p class="tag">04 · Re-test</p><p>Anyone may re-test hourly. One fail suspends, two in a row revoke, a pass restores. Outages never fail a model.</p></div>
     </div>
   </div>
 </section>
@@ -183,14 +184,14 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
   <div class="slide-content">
     <p class="eyebrow reveal">Don't take our word for it</p>
     <h2 class="reveal">One command checks any sitting.</h2>
-    <div class="card reveal mono" style="margin-top:clamp(1rem,3vh,2rem);font-size:clamp(.72rem,1.1vw,.95rem);line-height:1.7">
+    <div class="card reveal mono" style="margin-top:clamp(1rem,3vh,2rem);font-size:clamp(.75rem,1.1vw,.95rem);line-height:var(--term-lh, 1.7)">
       PASS&nbsp; certificate 0's response_ids_hash matches the 5 completion ids<br>
       PASS&nbsp; OutLayer ran runner 9a41b2354d7c…, the build on the certificate<br>
-      PASS&nbsp; chatcmpl-a59ca0e4…: signed inside DeepSeek-V4.1-Flash's TEE<br>
-      <span class="muted">… 4 more answers …</span><br>
+      PASS&nbsp; chatcmpl-a59ca0e4…: signed inside deepseek-ai/DeepSeek-V4.1-Flash-1017's TEE<br>
+      <span class="muted hide-short">… 4 more answers …<br></span>
       verified (10 checks)
     </div>
-    <p class="lead reveal">From public data only: the sitting's event, the registry's record, OutLayer's run, and NEAR AI's signature on each answer, checked against the key in NEAR AI's attestation report.</p>
+    <p class="lead reveal">From public data plus any NEAR AI Cloud key (lookups are not billed): the sitting's event, the registry's record, OutLayer's run, and NEAR AI's signature on each completion, checked against the key in NEAR AI's attestation report.</p>
   </div>
 </section>
 
@@ -220,9 +221,9 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
     <ul class="plain reveal">
       <li><strong>The exam is never published.</strong> Only its commitment is on chain.</li>
       <li><strong>The score isn't self-reported.</strong> Certificates come only from OutLayer's callback.</li>
-      <li><strong>The answers came from NEAR AI,</strong> signed in the model's TEE or NEAR AI's TEE gateway.</li>
-      <li><strong>The grader can't change without notice.</strong> New runner builds wait out a 24-hour timelock.</li>
-      <li><strong>Outages don't fail anyone.</strong> Incomplete runs never certify, suspend or revoke.</li>
+      <li><strong>A model's answers came from NEAR AI,</strong> signed in its TEE or NEAR AI's TEE gateway. For an agent, the ids prove real completions only.</li>
+      <li><strong>The grader can't change without notice.</strong> New runner builds wait out a 24-hour timelock (code upgrades don't yet).</li>
+      <li><strong>Outages don't fail a model.</strong> Only an agent silent for three re-tests in a row takes a strike.</li>
     </ul>
   </div>
 </section>
@@ -285,7 +286,7 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
     <p class="eyebrow reveal">What's next</p>
     <h2 class="reveal">From one demo exam to a market of them.</h2>
     <ul class="plain reveal">
-      <li>Runner v0.3.0, already proposed under the timelock: no slow answer can end a run.</li>
+      <li>Runner v0.3.0, already proposed under the timelock, built so a slow answer can no longer end a run.</li>
       <li>Larger exams sampled per sitting, so a re-test is harder to recognise.</li>
       <li>Upgrades behind the same 24-hour timelock, then the full-access key removed.</li>
       <li>Exams written by domain experts, vetted for every Agent Market category.</li>
@@ -302,7 +303,7 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
       <li>Registry: <span class="mono">registry-v2.attrito.testnet</span></li>
       <li>Code: <span class="mono">&lt;REPO&gt;</span></li>
       <li>Site: <span class="mono">&lt;SITE&gt;</span></li>
-      <li>Test it in 5 minutes: the README's first section, no keys needed.</li>
+      <li>Test it in 5 minutes: the README's first section (step 1 needs no keys).</li>
     </ul>
   </div>
   <p class="footer-mark">Built at NEAR HACKATHON</p>
