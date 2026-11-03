@@ -57,6 +57,8 @@ export interface ExamCheck {
   exam_id: string;
   state: CertState;
   certificate?: CertificateSummary;
+  /** Earlier certificates for the same candidate and exam that were revoked. */
+  prior_revocations?: number;
 }
 
 export interface Verdict {
@@ -165,6 +167,11 @@ export function checkExam(examId: string, cert: Certificate | null, nowMs: numbe
   return { exam_id: examId, state: summary.state, certificate: summary };
 }
 
+/** The check with the count of earlier revoked certificates attached. */
+export function withPriorRevocations(check: ExamCheck, count: number): ExamCheck {
+  return count > 0 ? { ...check, prior_revocations: count } : check;
+}
+
 const STATE_REASON: Record<Exclude<CertState, "active">, string> = {
   none: "holds no PROCTOR certificate",
   stale: `has not passed a sitting or re-test in over ${MAX_CERT_AGE_MS / 86_400_000} days, so its certificate is not current`,
@@ -183,6 +190,13 @@ export function decide(candidate: string, exams: ExamCheck[], market?: MarketAge
     if (exam.state === "active" && exam.certificate) {
       const c = exam.certificate;
       reasons.push(`certified on ${exam.exam_id}: scored ${c.score}, last verified ${c.last_verified}, ${c.retests_passed} surprise re-test(s) passed`);
+      if (exam.prior_revocations) {
+        // A revoked agent can re-certify under the same id, for example after
+        // switching back to a stronger model for one sitting.
+        reasons.push(
+          `caution: ${exam.exam_id}: ${exam.prior_revocations} earlier certificate(s) under this id were revoked; this one was issued after`,
+        );
+      }
     } else if (exam.state !== "active") {
       reasons.push(`${exam.exam_id}: ${STATE_REASON[exam.state]}`);
     }

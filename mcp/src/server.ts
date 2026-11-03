@@ -6,8 +6,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import type { MarketReader } from "./market.js";
-import type { RegistryReader } from "./near.js";
-import { checkExam, decide, marketCandidate, summarize, type ExamCheck } from "./verdict.js";
+import type { Certificate, RegistryReader } from "./near.js";
+import { checkExam, decide, marketCandidate, summarize, withPriorRevocations, type ExamCheck } from "./verdict.js";
 
 export interface ProctorDeps {
   registry: RegistryReader;
@@ -16,6 +16,8 @@ export interface ProctorDeps {
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
 const MAX_ID = 128;
+/** How many earlier certificates a check scans for revocations under the same id. */
+const HISTORY_LIMIT = 100;
 
 function ok(data: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
@@ -41,9 +43,21 @@ async function checkCandidate(registry: RegistryReader, candidate: string, examI
     examIds.map(async (id) => {
       const cert = await registry.latestCertificate(candidate, id);
       // The contract filters by candidate and exam; checked again here, as the website does.
-      return checkExam(id, cert !== null && cert.candidate_model === candidate && cert.exam_id === id ? cert : null);
+      const own = cert !== null && cert.candidate_model === candidate && cert.exam_id === id ? cert : null;
+      const check = checkExam(id, own);
+      return own ? withPriorRevocations(check, await countPriorRevocations(registry, own)) : check;
     }),
   );
+}
+
+/** Revoked certificates for the same candidate and exam among the HISTORY_LIMIT before `cert`. */
+async function countPriorRevocations(registry: RegistryReader, cert: Certificate): Promise<number> {
+  const first = Math.max(0, cert.cert_id - HISTORY_LIMIT);
+  const ids = Array.from({ length: cert.cert_id - first }, (_, i) => first + i);
+  const earlier = await Promise.all(ids.map((certId) => registry.getCertificate(certId)));
+  return earlier.filter(
+    (c) => c !== null && c.candidate_model === cert.candidate_model && c.exam_id === cert.exam_id && "Revoked" in (c.status as object),
+  ).length;
 }
 
 export function createProctorServer(deps: ProctorDeps): McpServer {

@@ -41,7 +41,7 @@ You should see a `PASS` line for each check, then `verified (10 checks)`:
 - OutLayer's own event shows it ran the runner build pinned on the certificate.
 - Each of the 5 answers is *"signed inside deepseek-ai/DeepSeek-V4.1-Flash-1017's TEE"* by the key NEAR AI's attestation report names for that model.
 
-Run it on the demo agent's sitting (`--tx 9Jwx3jXp8We4a77VVBNv7qGLKpL48UC3zF8uf7CX9yT5`) and each answer reads *"signed by NEAR AI's gateway TEE (model at an external provider)"*. Claude runs at Anthropic, so NEAR AI's TEE gateway signs what it relayed. An answer an agent made up has no NEAR AI signature and fails. Signature lookups need a key but are not billed.
+Run it on the demo agent's sitting (`--tx 9Jwx3jXp8We4a77VVBNv7qGLKpL48UC3zF8uf7CX9yT5`) and each answer reads *"signed by NEAR AI's gateway TEE (model at an external provider)"*. Claude runs at Anthropic, so NEAR AI's TEE gateway signs what it relayed. An id that is not a real NEAR AI completion has no signature and fails. For an agent the endpoint picks the ids, so a pass proves they are real NEAR AI completions, not that they produced this sitting's answers; the verifier prints that caveat. Signature lookups need a key but are not billed.
 
 ### 3. Ask Claude Code whether to hire an agent
 
@@ -143,7 +143,7 @@ Agents are certified as `agent:<owner-account>/<name>`, so only the account that
 | 3 | The surprise re-test workflow scores it **2/5**, and the certificate is **suspended** | [`BrcXSNwX…`](https://testnet.near.rocks/tx/BrcXSNwX1qy7APxoTDNL5heFN22eB5FqoBT4teiQPUYX) |
 | 4 | An hour later the workflow re-tests it again: **2/5**, and the certificate is **revoked** | [`3SGvHzEY…`](https://testnet.near.rocks/tx/3SGvHzEY7c2Bo91eehtnapZbXE2eVk5mv4y1DDPWBLm4) |
 
-`npm --prefix mcp run verify -- --tx 3SGvHzEY7c2Bo91eehtnapZbXE2eVk5mv4y1DDPWBLm4 --sender proctor-sentinel.testnet` shows that the revoking answers are genuine NEAR AI completions, produced by the pinned runner.
+`npm --prefix mcp run verify -- --tx 3SGvHzEY7c2Bo91eehtnapZbXE2eVk5mv4y1DDPWBLm4 --sender proctor-sentinel.testnet` shows that the revoking sitting ran on the pinned runner and that every id it returned is a genuine NEAR AI completion. For an agent, the ids are whatever its endpoint returned, so they cannot be tied to the answers it gave.
 
 ### Exam-author payouts, on chain
 
@@ -206,7 +206,7 @@ How to read it:
 |---|---|
 | [`proctor-core/`](proctor-core) | Exam format, deterministic graders, commitments; `proctor-seal` prepares an exam byte-exactly |
 | [`exam-runner/`](exam-runner) | The program OutLayer runs (wasm32-wasip2, `wstd`): asks questions concurrently under a deadline, grades, reports |
-| [`contracts/registry/`](contracts/registry) | The NEAR registry contract (121 unit tests); [`contracts/sandbox-tests/`](contracts/sandbox-tests) runs it on a local node against a mock OutLayer |
+| [`contracts/registry/`](contracts/registry) | The NEAR registry contract (122 unit tests); [`contracts/sandbox-tests/`](contracts/sandbox-tests) runs it on a local node against a mock OutLayer |
 | [`mcp/`](mcp) | The PROCTOR MCP server (4 read-only tools), the buyer skill, and the certificate verifier (`npm run verify`) |
 | [`web/`](web) | The website: live registry reads, the buyer check, certificates as stamped papers |
 | [`demo-agent/`](demo-agent) | The Cloudflare Worker agent used for the model-swap demo |
@@ -224,6 +224,8 @@ Rust: near-sdk, serde, serde_json, sha2, hex, wstd, futures, ureq, cargo-near, n
 - **Testnet only.** Nothing here holds real funds.
 - **The demo exam is public.** It is in [`exams/`](exams) so anyone can verify the grading end to end. It has 5 questions, so a single sitting is a coarse measure; real exams stay secret and can hold up to 64 questions.
 - **OutLayer caps each HTTP request at 30 seconds.** If a model takes longer to answer, OutLayer ends the whole run, and the registry records `RunnerFailed`. That is never a strike against the candidate, and it gives the re-test slot back. A reasoning model that thinks for a long time can hit this: it happened to a DeepSeek re-test on 2026-11-02 ([`BGriTXff…`](https://testnet.near.rocks/tx/BGriTXffJyrSnXP3ekHoXmofetG2pMxwXUiMca1sCbp5)).
+- **An agent can tell an exam request from real traffic.** Every sitting sends the same instruction and the same questions, which the endpoint saw when it was certified. An owner who routes exam requests to a strong model and everything else to a weak one passes every re-test, so agent re-tests catch only a swap the owner does not hide. NEAR AI model candidates do not have this gap: the runner calls NEAR AI directly with PROCTOR's key, and the signatures name the model. Larger exams sampled per sitting would make it harder, not impossible.
+- **Until runner v0.3.0 is applied, an agent endpoint can stall a re-test.** Under v0.2.0, an answer held past 30 seconds makes OutLayer end the run (`RunnerFailed`), which is not a strike and gives the slot back. v0.3.0 cuts each attempt at 25 seconds, so a stalled answer becomes a failed call and counts toward an agent's silence strike.
 - **The demo agent's endpoint is open.** Anyone who sends PROCTOR's instruction can spend its NEAR AI credit, one bounded question at a time, up to 120 requests a minute per client. It refuses to serve at all if its rate limiter is missing.
 - **The first registry** (`registry.attrito.testnet`, runner v0.1.0) predates agent endpoints and reproducible builds. It is kept only for the first certificate it issued.
 
