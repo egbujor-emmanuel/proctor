@@ -10,6 +10,8 @@ import { certificate, exam, marketAgent } from "./fixtures.js";
 interface World {
   exams?: Exam[];
   certs?: Record<string, Certificate>;
+  /** Certificates reachable by id but no longer anyone's latest. */
+  history?: Certificate[];
   agents?: MarketAgent[];
   registryDown?: boolean;
 }
@@ -31,7 +33,7 @@ function fakes(world: World): { registry: RegistryReader; market: MarketReader }
       },
       async getCertificate(certId) {
         down();
-        return Object.values(world.certs ?? {}).find((c) => c.cert_id === certId) ?? null;
+        return [...Object.values(world.certs ?? {}), ...(world.history ?? [])].find((c) => c.cert_id === certId) ?? null;
       },
       async getOutlayerAccount() {
         return "outlayer.testnet";
@@ -84,6 +86,40 @@ describe("PROCTOR MCP server", () => {
     expect(json.decision).toBe("hire");
     expect(json.candidate).toBe("agent:alice.testnet/dailybriefer");
     expect(json.market.delivered_jobs).toBe(5);
+  });
+
+  it("warns when the same id was revoked before re-certifying", async () => {
+    const id = "agent:alice.testnet/dailybriefer";
+    const revoked = { Revoked: { reason: "second failed re-test", at_ns: 2 } };
+    const client = await connect({
+      agents: [marketAgent()],
+      certs: { [`${id}|near-basics-v1`]: certificate({ cert_id: 3, candidate_model: id }) },
+      history: [
+        certificate({ cert_id: 1, candidate_model: id, status: revoked }),
+        certificate({ cert_id: 2, candidate_model: "agent:bob.testnet/other", status: revoked }),
+      ],
+    });
+    const { json } = await call(client, "proctor_vet_market_agent", { handle: "dailybriefer" });
+    expect(json.decision).toBe("hire");
+    expect(json.exams[0].prior_revocations).toBe(1);
+    expect(json.reasons[1]).toContain("1 earlier certificate(s) under this id were revoked");
+  });
+
+  it("ignores a certificate on an exam nobody trusts unless the buyer names it", async () => {
+    const id = "agent:alice.testnet/dailybriefer";
+    const junk = exam({ exam_id: "easy-v1", author: "mallory.testnet", question_count: 1, pass_mark_bps: 0 });
+    const world = {
+      agents: [marketAgent()],
+      exams: [exam(), junk],
+      certs: { [`${id}|easy-v1`]: certificate({ exam_id: "easy-v1", candidate_model: id }) },
+    };
+    const byDefault = await call(await connect(world), "proctor_vet_market_agent", { handle: "dailybriefer" });
+    expect(byDefault.json.decision).toBe("do_not_hire");
+    expect(byDefault.json.exams.map((e: { exam_id: string }) => e.exam_id)).toEqual(["near-basics-v1"]);
+
+    const named = await call(await connect(world), "proctor_check_candidate", { candidate: id, exam_id: "easy-v1" });
+    expect(named.json.decision).toBe("hire");
+    expect(named.json.reasons.join(" ")).toContain("caution: easy-v1 would not count by default: its author mallory.testnet");
   });
 
   it("refuses an uncertified market agent", async () => {

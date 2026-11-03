@@ -18,7 +18,15 @@ export interface Env {
   RPC_URL: string;
   /** Probability that a tick runs a re-test, e.g. "0.2". */
   CHANCE: string;
+  /** Comma-separated exam ids to patrol; empty means every exam. */
+  EXAMS?: string;
   SENTINEL_PRIVATE_KEY?: string;
+}
+
+/** The EXAMS setting as a set, or undefined to patrol every exam. */
+export function patrolledExams(env: Pick<Env, "EXAMS">): ReadonlySet<string> | undefined {
+  const ids = (env.EXAMS ?? "").split(",").map((id) => id.trim()).filter(Boolean);
+  return ids.length > 0 ? new Set(ids) : undefined;
 }
 
 /** Re-tests pay no author fee; this covers storage plus OutLayer, which refunds what it doesn't use. */
@@ -66,7 +74,7 @@ export async function tick(env: Env, send: Send, roll = uniform(), random = rand
     const sitting = await view<{ requested_at_ns: string } | null>(env.RPC_URL, env.REGISTRY, "get_sitting", { sitting_id: id });
     if (sitting) requestedAt.set(id, sitting.requested_at_ns);
   }
-  const step = plan(certs, requestedAt, await chainNowNs(env.RPC_URL), chance, roll, random);
+  const step = plan(certs, requestedAt, await chainNowNs(env.RPC_URL), chance, roll, random, patrolledExams(env));
 
   const expired: string[] = [];
   for (const id of step.expire) {
@@ -110,6 +118,7 @@ export default {
       registry: env.REGISTRY,
       signs_as: env.SENTINEL_ACCOUNT,
       chance_per_hour: Number(env.CHANCE),
+      exams: [...(patrolledExams(env) ?? ["every exam"])],
       armed: Boolean(env.SENTINEL_PRIVATE_KEY),
       history: `https://testnet.near.rocks/account/${env.SENTINEL_ACCOUNT}`,
       source: "https://github.com/egbujor-emmanuel/proctor/tree/master/sentinel",

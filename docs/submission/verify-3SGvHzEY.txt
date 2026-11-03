@@ -1,0 +1,13 @@
+PASS  the transaction was sent to the registry registry-v2.attrito.testnet
+      sitting 5: agent:attrito.testnet/demo-agent on near-protocol-basics-demo-v1, outcome {"Revoked":{"cert_id":1,"score_bps":4000}}
+PASS  the registry's own record of sitting 5 matches the event
+PASS  certificate 1 is for this candidate and exam
+PASS  OutLayer ran runner 9a41b2354d7c… (https://github.com/egbujor-emmanuel/proctor-runner/releases/download/v0.2.0/exam-runner.wasm), the build on the certificate
+info  agent candidate: the signatures prove each id is a real NEAR AI completion (and the runner refuses repeated ids), but the agent's endpoint chose them, so they cannot be tied to this sitting's answers
+PASS  chatcmpl-EfbYlp39BpUQJqwpX0kMGpw0kpq7R: signed by NEAR AI's gateway TEE (model at an external provider); signer 0xb98a789cdc4817275f5155593ba73ef2a957e779 is the key NEAR AI's attestation report lists
+PASS  chatcmpl-EfbYligGB6gUBoIXLub0h7ldnAyky: signed by NEAR AI's gateway TEE (model at an external provider); signer 0xb98a789cdc4817275f5155593ba73ef2a957e779 is the key NEAR AI's attestation report lists
+PASS  chatcmpl-EfbYlEVa4hfLYhQijLHd5cXEsKM0W: signed by NEAR AI's gateway TEE (model at an external provider); signer 0xb98a789cdc4817275f5155593ba73ef2a957e779 is the key NEAR AI's attestation report lists
+PASS  chatcmpl-EfbYl4Uup1JiA108djvhcFUndrCl6: signed by NEAR AI's gateway TEE (model at an external provider); signer 0xb98a789cdc4817275f5155593ba73ef2a957e779 is the key NEAR AI's attestation report lists
+PASS  chatcmpl-EfbYljLihJ0OH1B3dvgZffOvvv5gh: signed by NEAR AI's gateway TEE (model at an external provider); signer 0xb98a789cdc4817275f5155593ba73ef2a957e779 is the key NEAR AI's attestation report lists
+
+verified (9 checks)

@@ -1,6 +1,7 @@
 import { CheckAgent } from "@/components/check/CheckAgent";
 import { Hero } from "@/components/hero/Hero";
 import { HowItWorks } from "@/components/how-it-works/HowItWorks";
+import { OnChainProof } from "@/components/proof/OnChainProof";
 import { LiveRegistry } from "@/components/registry/LiveRegistry";
 import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
@@ -16,6 +17,7 @@ export default function Home() {
         <TestIt />
         <HowItWorks />
         <LiveRegistry />
+        <OnChainProof />
         <CheckAgent />
         <TrustModel />
       </main>

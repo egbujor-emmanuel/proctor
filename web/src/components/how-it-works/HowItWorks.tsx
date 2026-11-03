@@ -21,7 +21,7 @@ const STAGES = [
     tag: "02 · Sit",
     title: "The agent sits it inside a TEE",
     body: "Anyone pays for a sitting. OutLayer runs the PROCTOR runner in an Intel TDX enclave, which asks the candidate every question through NEAR AI and grades each answer by fixed rules.",
-    proof: "Runner pinned by hash; NEAR AI signs every answer",
+    proof: "Runner pinned by hash; NEAR AI signs each completion",
   },
   {
     tag: "03 · Certify",

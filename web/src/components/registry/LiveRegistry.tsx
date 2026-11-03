@@ -1,7 +1,7 @@
 "use client";
 
 import { useRegistry } from "@/hooks/useRegistry";
-import { explorerAccount, REGISTRY } from "@/lib/config";
+import { explorerAccount, formatUtc, REGISTRY, runnerRelease, runnerVersion } from "@/lib/config";
 import { CertificatePaper } from "./CertificatePaper";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 
@@ -13,7 +13,9 @@ function Skeleton() {
 
 /** Certificates and exams, read live from the registry contract. */
 export function LiveRegistry() {
-  const { data, error, isLoading, isStale, mutate } = useRegistry();
+  const { data, error, isLoading, isStale, isSnapshot, mutate } = useRegistry();
+  const runner = data?.config.runner_hash;
+  const pending = data?.config.pending_runner;
   const certificates = data ? [...data.certificates].reverse() : [];
   const exams = data?.exams.filter((e) => e.active) ?? [];
 
@@ -30,7 +32,7 @@ export function LiveRegistry() {
           href={explorerAccount(REGISTRY)}
           target="_blank"
           rel="noopener noreferrer"
-          className="hash text-sm text-ink-muted underline decoration-ink-muted underline-offset-4 hover:text-seal"
+          className="hash inline-flex min-h-6 items-center text-sm text-ink-muted underline decoration-ink-muted underline-offset-4 hover:text-seal"
         >
           {REGISTRY}
           <span className="sr-only"> on NEAR Explorer (opens in a new tab)</span>
@@ -42,6 +44,28 @@ export function LiveRegistry() {
       </p>
       <div className="mt-10">
         {isLoading && <Skeleton />}
+
+        {runner && (
+          <p className="mb-6 text-sm text-ink-muted">
+            Grading with runner{" "}
+            <a href={runnerRelease(runner)} target="_blank" rel="noopener noreferrer" className="hash text-ink underline underline-offset-4 hover:text-seal">
+              {runnerVersion(runner) ?? runner.slice(0, 12)}
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+            {pending && (
+              <>
+                . {runnerVersion(pending.runner_hash) ?? "A new build"} is proposed and can take effect from{" "}
+                {formatUtc(pending.effective_at_ns / 1_000_000)}, after the 24-hour timelock.
+              </>
+            )}
+          </p>
+        )}
+
+        {isSnapshot && data && !error && (
+          <p role="status" className="mb-6 font-mono text-xs text-ink-muted">
+            Showing the registry as read at {formatUtc(data.readAt)}; reading the live chain…
+          </p>
+        )}
 
         {error && !data && (
           <div role="alert" className="rounded-sm border border-revoked bg-revoked-soft p-6">
@@ -59,7 +83,7 @@ export function LiveRegistry() {
 
         {isStale && data && (
           <p role="status" className="mb-6 rounded-sm border border-suspended bg-suspended-soft px-4 py-3 text-sm text-suspended">
-            The last refresh failed, so this shows the registry as read at {new Date(data.readAt).toLocaleTimeString()}.{" "}
+            The last refresh failed, so this shows the registry as read at {formatUtc(data.readAt)}.{" "}
             <button type="button" onClick={() => mutate()} className="underline underline-offset-4">
               Refresh now
             </button>

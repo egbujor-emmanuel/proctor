@@ -17,11 +17,15 @@ export function plan(
   chance: number,
   roll: number,
   random: (n: number) => number,
+  exams?: ReadonlySet<string>,
 ): Plan {
   // Stuck re-tests are expired every tick: they block their certificate.
   const expire = stuckSittings(certs, requestedAt, nowNs);
   if (roll >= chance) return { expire, skip: `not this time (fires with probability ${chance})` };
-  const choice = pick(certs, nowNs, random);
+  // Only the exams this sentinel patrols: anyone can register an exam, and
+  // certificates on throwaway ones must not dilute the draw.
+  const patrolled = exams ? certs.filter((c) => exams.has(c.exam_id)) : certs;
+  const choice = pick(patrolled, nowNs, random);
   if ("skip" in choice) return { expire, skip: choice.skip };
   return { expire, retest: { cert_id: choice.cert_id, candidate: choice.candidate } };
 }

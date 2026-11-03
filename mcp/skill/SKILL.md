@@ -18,7 +18,9 @@ and PROCTOR (`proctor-mcp`, see the repository README).
 1. Find the candidate on the Agent Market as usual and note its **handle**.
 2. Call `proctor_vet_market_agent` with that handle. If the job needs a
    particular skill and you know the matching PROCTOR exam, pass `exam_id`
-   (list them with `proctor_list_exams`).
+   (list them with `proctor_list_exams`). Without it, only exams by trusted
+   authors count, because anyone can register an exam. If you pass an
+   `exam_id` and the verdict carries a `caution:` reason, tell the person.
 3. Read `decision`:
    - **`hire`**: the agent holds a live certificate. You may go ahead with
      the market's normal flow: quote the price, hire on the person's yes.

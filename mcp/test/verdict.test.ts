@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { agentCandidateId, certState, checkExam, decide, marketCandidate } from "../src/verdict.js";
+import { agentCandidateId, certState, checkExam, countedExams, decide, marketCandidate, untrustedReason } from "../src/verdict.js";
 import { certificate, marketAgent } from "./fixtures.js";
 
 const suspended = { Suspended: { reason: "re-test scored 2000 bps", at_ns: 1 } };
@@ -12,6 +12,20 @@ describe("certState", () => {
     expect(certState(certificate())).toBe("active");
     expect(certState(certificate({ status: suspended }))).toBe("suspended");
     expect(certState(certificate({ status: revoked }))).toBe("revoked");
+  });
+});
+
+describe("trusted exams", () => {
+  const base = { exam_id: "e", author: "attrito.testnet", pass_mark_bps: 6000, question_count: 5, active: true };
+
+  it("counts only real tests by trusted authors", () => {
+    expect(untrustedReason(base)).toBeNull();
+    expect(untrustedReason({ ...base, author: "mallory.testnet" })).toContain("not on the trusted list");
+    expect(untrustedReason({ ...base, question_count: 1 })).toContain("fewer than 5");
+    expect(untrustedReason({ ...base, pass_mark_bps: 0 })).toContain("pass mark is below 50%");
+    expect(untrustedReason({ ...base, active: false })).toContain("closed");
+    expect(untrustedReason({ ...base, author: "mallory.testnet" }, ["mallory.testnet"])).toBeNull();
+    expect(countedExams([base, { ...base, exam_id: "x", author: "m.testnet" }]).map((e) => e.exam_id)).toEqual(["e"]);
   });
 });
 

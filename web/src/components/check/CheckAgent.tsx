@@ -3,7 +3,10 @@
 import { useRef, useState, type FormEvent } from "react";
 
 import { useRegistry } from "@/hooks/useRegistry";
-import { candidateId, runCheck, type CandidateKind, type Verdict } from "@/lib/check";
+import { candidateId, runCheck, snapshotVerdict, type CandidateKind, type Verdict } from "@/lib/check";
+import { Breakable } from "@/components/ui/Breakable";
+import { formatUtc } from "@/lib/config";
+import { registry } from "@/lib/registry";
 import LatticeLoader from "@/components/bits/LatticeLoader";
 import { StatusBadge } from "../registry/StatusBadge";
 import { Eyebrow } from "@/components/ui/Eyebrow";
@@ -11,7 +14,8 @@ import { Eyebrow } from "@/components/ui/Eyebrow";
 type Status =
   | { kind: "idle" }
   | { kind: "checking" }
-  | { kind: "done"; verdict: Verdict }
+  // provisionalAt: answered from the registry as read then, while the live read runs.
+  | { kind: "done"; verdict: Verdict; provisionalAt?: number }
   | { kind: "error"; message: string };
 
 const EXAMPLES: { kind: CandidateKind; value: string; label: string }[] = [
@@ -21,8 +25,26 @@ const EXAMPLES: { kind: CandidateKind; value: string; label: string }[] = [
 ];
 
 const HINT: Record<CandidateKind, string> = {
-  model: "A NEAR AI model id, such as org/model-name. Letters, digits and . _ : / @ + - only.",
+  model: "A NEAR AI model id, such as org/model-name. Letters, digits and . _ : / @ + - only.",
   agent: "An agent that sits exams through its own endpoint: the NEAR account that registered it, a slash, and its name.",
+};
+
+type Tone = "hire" | "unknown" | "refuse";
+
+/**
+ * "unknown" when nothing is on record: the verdict is still do_not_hire, but
+ * nothing bad is known either, so it reads differently from a revocation.
+ */
+function toneOf(verdict: Verdict): Tone {
+  if (verdict.decision === "hire") return "hire";
+  return verdict.exams.every((e) => e.state === "none") ? "unknown" : "refuse";
+}
+
+const HEADLINE: Record<Tone, string> = { hire: "Hire", unknown: "No certificate", refuse: "Do not hire" };
+const TONE_CLASS: Record<Tone, { border: string; text: string }> = {
+  hire: { border: "border-active", text: "text-active" },
+  unknown: { border: "border-ink-muted", text: "text-ink" },
+  refuse: { border: "border-revoked", text: "text-revoked" },
 };
 
 /** One short sentence for screen readers, instead of reading the whole card. */
@@ -30,15 +52,15 @@ function announcement(status: Status): string {
   if (status.kind === "checking") return "Checking the registry.";
   if (status.kind === "error") return status.message;
   if (status.kind === "done") {
-    const { decision, candidate, reasons } = status.verdict;
-    return `${decision === "hire" ? "Hire" : "Do not hire"}: ${candidate}. ${reasons[0] ?? ""}`;
+    const { candidate, reasons } = status.verdict;
+    return `${HEADLINE[toneOf(status.verdict)]}: ${candidate}. ${reasons[0] ?? ""}`;
   }
   return "";
 }
 
 /** The buyer check: hire or don't, from the candidate's live certificates. */
 export function CheckAgent() {
-  const { data, error: registryError, isStale } = useRegistry();
+  const { data, isStale } = useRegistry();
   const [kind, setKind] = useState<CandidateKind>("model");
   const [value, setValue] = useState("");
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -52,19 +74,24 @@ export function CheckAgent() {
   async function check(nextKind: CandidateKind, nextValue: string) {
     const id = candidateId({ kind: nextKind, value: nextValue });
     if ("error" in id) {
+      // The previous verdict answered a different id; don't leave it beside the error.
+      latest.current += 1;
+      setStatus({ kind: "idle" });
       setFieldError(id.error);
       input.current?.focus();
       return;
     }
     setFieldError(null);
-    if (!data) {
-      setStatus({ kind: "error", message: registryError ? registryError.message : "The registry is still loading. Try again in a moment." });
-      return;
-    }
     const mine = ++latest.current;
-    setStatus({ kind: "checking" });
+    // Answer at once from the registry the page already holds, labelled as such,
+    // then replace it with the live read.
+    const quick = data ? snapshotVerdict(id.id, data.exams, data.certificates) : null;
+    setStatus(quick && data ? { kind: "done", verdict: quick, provisionalAt: data.readAt } : { kind: "checking" });
     try {
-      const verdict = await runCheck(id.id, data.exams);
+      // Before the page's first registry read lands, read the exam list here
+      // rather than asking the user to come back.
+      const exams = data?.exams ?? (await registry.exams()).rows;
+      const verdict = await runCheck(id.id, exams, data?.certificates ?? []);
       if (mine !== latest.current) return;
       setStatus({ kind: "done", verdict });
     } catch (e) {
@@ -93,12 +120,12 @@ export function CheckAgent() {
     setStatus({ kind: "idle" });
   }
 
-  const isHire = status.kind === "done" && status.verdict.decision === "hire";
+  const tone = status.kind === "done" ? toneOf(status.verdict) : null;
   const describedBy = `candidate-hint${fieldError ? " candidate-error" : ""}`;
 
   return (
     <section id="check" aria-labelledby="check-title" className="border-y border-rule bg-paper-sunk">
-      <div className="mx-auto grid max-w-6xl gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)] gap-12 px-5 py-24 sm:px-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <div>
           <Eyebrow text="The buyer check" />
           <h2 id="check-title" className="mt-3 font-serif text-4xl text-ink sm:text-5xl">
@@ -147,7 +174,7 @@ export function CheckAgent() {
                 aria-required="true"
                 aria-invalid={fieldError ? true : undefined}
                 aria-describedby={describedBy}
-                className="hash min-h-12 w-full rounded border border-ink-muted bg-paper-raised px-4 text-ink placeholder:text-ink-muted focus:border-seal"
+                className="hash min-h-12 w-full min-w-0 rounded border border-ink-muted bg-paper-raised px-3 text-sm text-ink placeholder:text-ink-muted focus:border-seal"
               />
               <button
                 type="submit"
@@ -157,11 +184,10 @@ export function CheckAgent() {
                 {isChecking ? "Checking…" : "Check"}
               </button>
             </div>
-            {fieldError && (
-              <p id="candidate-error" className="text-sm font-medium text-revoked">
-                {fieldError}
-              </p>
-            )}
+            {/* The slot keeps its height, so an error never shifts the examples below. */}
+            <p id="candidate-error" className="min-h-5 text-sm font-medium text-revoked">
+              {fieldError}
+            </p>
             <div role="group" aria-labelledby="examples-label" className="mt-1 flex flex-wrap items-center gap-2 text-sm">
               <span id="examples-label" className="text-ink-muted">
                 Try:
@@ -204,10 +230,20 @@ export function CheckAgent() {
             <div className="rounded-sm border border-revoked bg-revoked-soft p-6 text-revoked">{status.message}</div>
           )}
           {status.kind === "done" && (
-            <div aria-label="Verdict" className={`rounded-sm border-2 bg-paper-raised p-6 sm:p-8 ${isHire ? "border-active" : "border-revoked"}`}>
+            <div aria-label="Verdict" className={`rounded-sm border-2 bg-paper-raised p-6 sm:p-8 ${TONE_CLASS[tone ?? "refuse"].border}`}>
               <p className="font-mono text-xs uppercase tracking-[0.18em] text-ink-muted">Verdict</p>
-              <p className={`mt-2 font-serif text-5xl ${isHire ? "text-active" : "text-revoked"}`}>{isHire ? "Hire" : "Do not hire"}</p>
-              <p className="hash mt-3 text-sm text-ink">{status.verdict.candidate}</p>
+              <p className={`mt-2 font-serif text-5xl ${TONE_CLASS[tone ?? "refuse"].text}`}>{HEADLINE[tone ?? "refuse"]}</p>
+              {tone === "unknown" && (
+                <p className="mt-2 text-sm text-ink-muted">Nothing on record vouches for it, so PROCTOR can’t recommend hiring it. Nothing bad is on record either.</p>
+              )}
+              <p className="hash mt-3 text-sm text-ink">
+                <Breakable text={status.verdict.candidate} />
+              </p>
+              {status.provisionalAt !== undefined && (
+                <p className="mt-2 font-mono text-xs text-ink-muted">
+                  From the registry as read at {formatUtc(status.provisionalAt)}; confirming on chain…
+                </p>
+              )}
               <ul role="list" className="mt-6 grid gap-3">
                 {status.verdict.exams.map((exam) => (
                   <li key={exam.exam_id} className="flex flex-wrap items-center gap-3 border-t border-rule pt-3">
@@ -226,7 +262,7 @@ export function CheckAgent() {
               </ul>
               {data && (isStale || data.skipped > 0) && (
                 <p className="mt-5 rounded border border-suspended bg-suspended-soft px-3 py-2 text-sm text-suspended">
-                  {isStale && `The exam list is from ${new Date(data.readAt).toLocaleTimeString()}; refreshing it failed. `}
+                  {isStale && `The exam list is from ${formatUtc(data.readAt)}; refreshing it failed. `}
                   {data.skipped > 0 && `${data.skipped} registry record${data.skipped === 1 ? "" : "s"} could not be read and ${data.skipped === 1 ? "was" : "were"} left out.`}
                 </p>
               )}

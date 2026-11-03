@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ANSWER_INSTRUCTION, MAX_BODY_BYTES, MAX_TOKENS, parseExamRequest } from "../src/exam";
-import worker, { MODELS, type Env } from "../src/index";
+import worker, { MAX_STALL_MS, MODELS, stallOf, type Env } from "../src/index";
 
 /** A limiter that lets everything through, as Cloudflare's does under the limit. */
 const OPEN = { limit: async () => ({ success: true }) } as unknown as RateLimit;
@@ -80,6 +80,40 @@ describe("parseExamRequest", () => {
     ["an out-of-range temperature", examBody("Q?", { temperature: 9 })],
   ])("refuses %s", (_label, body) => {
     expect(parseExamRequest(body).ok).toBe(false);
+  });
+});
+
+describe("stall test mode", () => {
+  it("is off unless configured, and refuses values it cannot honour", () => {
+    expect(stallOf({})).toBe(0);
+    expect(stallOf({ STALL_MS: "40000" })).toBe(40_000);
+    expect(stallOf({ STALL_MS: String(MAX_STALL_MS + 1) })).toBeUndefined();
+    expect(stallOf({ STALL_MS: "soon" })).toBeUndefined();
+  });
+
+  it("holds each request for the configured time, then fails it without calling NEAR AI or needing a key", async () => {
+    vi.useFakeTimers();
+    try {
+      const spy = mockUpstream();
+      let settled = false;
+      const pending = worker.fetch(post(examBody()), { ...STRONG, NEARAI_API_KEY: "", STALL_MS: "40000" }).then((r) => {
+        settled = true;
+        return r;
+      });
+      await vi.advanceTimersByTimeAsync(39_000);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect((await pending).status).toBe(504);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says so on its status page", async () => {
+    const res = await worker.fetch(new Request(`${URL_BASE}/`), { ...STRONG, STALL_MS: "40000" });
+    expect(((await res.json()) as { stall_ms?: number }).stall_ms).toBe(40_000);
+    expect(((await (await worker.fetch(new Request(`${URL_BASE}/`), STRONG)).json()) as { stall_ms?: number }).stall_ms).toBeUndefined();
   });
 });
 

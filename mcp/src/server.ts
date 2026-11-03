@@ -6,16 +6,31 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import type { MarketReader } from "./market.js";
-import type { RegistryReader } from "./near.js";
-import { checkExam, decide, marketCandidate, summarize, type ExamCheck } from "./verdict.js";
+import type { Certificate, RegistryReader } from "./near.js";
+import {
+  checkExam,
+  countedExams,
+  decide,
+  DEFAULT_TRUSTED_AUTHORS,
+  marketCandidate,
+  summarize,
+  untrustedReason,
+  withPriorRevocations,
+  withTrust,
+  type ExamCheck,
+} from "./verdict.js";
 
 export interface ProctorDeps {
   registry: RegistryReader;
   market: MarketReader;
+  /** Exam authors whose exams count when no exam is named (default DEFAULT_TRUSTED_AUTHORS). */
+  trustedAuthors?: readonly string[];
 }
 
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true } as const;
 const MAX_ID = 128;
+/** How many earlier certificates a check scans for revocations under the same id. */
+const HISTORY_LIMIT = 100;
 
 function ok(data: unknown): CallToolResult {
   return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
@@ -34,21 +49,41 @@ async function guarded(work: () => Promise<unknown>): Promise<CallToolResult> {
   }
 }
 
-/** Checks one exam, or every active exam when none is named. */
-async function checkCandidate(registry: RegistryReader, candidate: string, examId?: string): Promise<ExamCheck[]> {
-  const examIds = examId ? [examId] : (await registry.listExams()).filter((e) => e.active).map((e) => e.exam_id);
+/**
+ * Checks the named exam, or every trusted exam when none is named. A named
+ * exam that would not count by default is still checked, with a caution.
+ */
+async function checkCandidate(registry: RegistryReader, trustedAuthors: readonly string[], candidate: string, examId?: string): Promise<ExamCheck[]> {
+  const exams = await registry.listExams();
+  const named = examId === undefined ? undefined : exams.find((e) => e.exam_id === examId);
+  const checked = examId === undefined ? countedExams(exams, trustedAuthors) : [named ?? { exam_id: examId }];
   return Promise.all(
-    examIds.map(async (id) => {
+    checked.map(async (exam) => {
+      const id = exam.exam_id;
       const cert = await registry.latestCertificate(candidate, id);
       // The contract filters by candidate and exam; checked again here, as the website does.
-      return checkExam(id, cert !== null && cert.candidate_model === candidate && cert.exam_id === id ? cert : null);
+      const own = cert !== null && cert.candidate_model === candidate && cert.exam_id === id ? cert : null;
+      let check = checkExam(id, own);
+      if (examId !== undefined) check = withTrust(check, named ? untrustedReason(named, trustedAuthors) : "the registry has no such exam");
+      return own ? withPriorRevocations(check, await countPriorRevocations(registry, own)) : check;
     }),
   );
+}
+
+/** Revoked certificates for the same candidate and exam among the HISTORY_LIMIT before `cert`. */
+async function countPriorRevocations(registry: RegistryReader, cert: Certificate): Promise<number> {
+  const first = Math.max(0, cert.cert_id - HISTORY_LIMIT);
+  const ids = Array.from({ length: cert.cert_id - first }, (_, i) => first + i);
+  const earlier = await Promise.all(ids.map((certId) => registry.getCertificate(certId)));
+  return earlier.filter(
+    (c) => c !== null && c.candidate_model === cert.candidate_model && c.exam_id === cert.exam_id && "Revoked" in (c.status as object),
+  ).length;
 }
 
 export function createProctorServer(deps: ProctorDeps): McpServer {
   const server = new McpServer({ name: "proctor", version: "0.1.0" });
   const { registry, market } = deps;
+  const trustedAuthors = deps.trustedAuthors ?? DEFAULT_TRUSTED_AUTHORS;
 
   server.registerTool(
     "proctor_list_exams",
@@ -74,7 +109,7 @@ export function createProctorServer(deps: ProctorDeps): McpServer {
       },
       annotations: READ_ONLY,
     },
-    ({ candidate, exam_id }) => guarded(async () => decide(candidate, await checkCandidate(registry, candidate, exam_id))),
+    ({ candidate, exam_id }) => guarded(async () => decide(candidate, await checkCandidate(registry, trustedAuthors, candidate, exam_id))),
   );
 
   server.registerTool(
@@ -99,7 +134,7 @@ export function createProctorServer(deps: ProctorDeps): McpServer {
         if ("error" in bound) {
           return { ...decide(`market:${handle}`, [], agent), reasons: [bound.error] };
         }
-        return decide(bound.id, await checkCandidate(registry, bound.id, exam_id), agent);
+        return decide(bound.id, await checkCandidate(registry, trustedAuthors, bound.id, exam_id), agent);
       }),
   );
 

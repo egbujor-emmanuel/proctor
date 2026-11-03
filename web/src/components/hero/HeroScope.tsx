@@ -53,13 +53,13 @@ export function HeroScope() {
     <figure ref={root} aria-labelledby="scope-caption" className="relative mx-auto w-full max-w-[440px]">
       <div className="relative aspect-square w-full overflow-hidden rounded-full border border-rule bg-paper-sunk shadow-[inset_0_0_0_10px_var(--paper),inset_0_0_0_11px_var(--rule)]">
         <PhaseRadar token={current.token} isDark={isDark} isPaused={isReduced} />
-        <p aria-hidden="true" className="absolute left-1/2 top-[18%] -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-muted">
+        <p aria-hidden="true" className="absolute left-1/2 top-[18%] -translate-x-1/2 font-mono text-xs uppercase tracking-[0.16em] text-ink-muted">
           Surprise re-test
         </p>
       </div>
 
       <div aria-hidden="true" className="relative -mt-14 mx-auto w-fit rounded-md border border-rule bg-paper-raised px-4 pb-3 pt-2.5 shadow-[0_18px_40px_-24px_rgba(22,20,15,0.5)]">
-        <div className="flex items-baseline justify-between gap-6 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+        <div className="flex items-baseline justify-between gap-6 font-mono text-xs uppercase tracking-[0.12em] text-ink-muted">
           <span>agent:you.testnet/bot</span>
           <span>
             {current.step} · <span className="text-ink">{current.score}</span>
@@ -84,10 +84,13 @@ export function HeroScope() {
 
       <figcaption id="scope-caption" className="mt-5 text-center text-sm leading-relaxed text-ink-muted">
         <span className="sr-only">
-          How a certificate dies when an agent swaps in a weaker model: it passes its sitting 5 of 5 and is certified; a surprise re-test
+          An illustration, not live data. How a certificate dies when an agent swaps in a weaker model: it passes its sitting 5 of 5 and is certified; a surprise re-test
           scores 1 of 5 and suspends it; a second scores 1 of 5 and revokes it.
         </span>
-        <span aria-hidden="true">{current.note}</span>
+        <span aria-hidden="true">
+          <span className="font-mono text-xs uppercase tracking-[0.14em]">Illustration · </span>
+          {current.note}
+        </span>
       </figcaption>
 
       <div role="group" aria-label="Show a stage of the certificate lifecycle" className="mt-4 flex justify-center gap-2">
@@ -97,7 +100,7 @@ export function HeroScope() {
             type="button"
             aria-pressed={index === phase}
             onClick={() => choose(index)}
-            className="min-h-10 rounded-full border border-rule px-3.5 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:border-ink hover:text-ink aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-paper"
+            className="min-h-10 rounded-full border border-rule px-3.5 font-mono text-xs uppercase tracking-[0.12em] text-ink-muted transition-colors hover:border-ink hover:text-ink aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-paper"
           >
             {p.step}
           </button>

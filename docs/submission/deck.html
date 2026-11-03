@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROCTOR: a driving test for AI agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<style>
+/* ===========================================
+   VIEWPORT FITTING: MANDATORY BASE STYLES
+   =========================================== */
+/* Only the page scrolls: overflow on body would make body the scroller, away from the snap on html. */
+html { overflow-x: hidden; }
+html { scroll-snap-type: y mandatory; }
+.slide {
+  width: 100vw; height: 100vh; height: 100dvh; overflow: hidden;
+  scroll-snap-align: start; display: flex; flex-direction: column; position: relative;
+}
+.slide-content {
+  box-sizing: border-box;
+  flex: 1; display: flex; flex-direction: column; justify-content: center;
+  max-height: 100%; overflow: hidden; padding: var(--pad);
+  width: min(100%, 1180px); margin: 0 auto;
+}
+img, svg { max-width: 100%; max-height: min(50vh, 400px); object-fit: contain; }
+@media (max-height: 600px) { :root { --pad: clamp(.75rem, 3vw, 2rem); } }
+@media (max-height: 500px) { .hide-short { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .2s !important; }
+  html { scroll-behavior: auto; }
+}
+
+/* ===========================================
+   THEME: PROCTOR's paper, ink and seal (same tokens as the website)
+   =========================================== */
+:root {
+  --paper: #f4f1ea; --paper-raised: #fbf9f4; --paper-sunk: #ebe6da;
+  --ink: #16140f; --ink-muted: #57524a; --rule: #d4ccbb;
+  --seal: #1f3a5f; --active: #1d6b45; --suspended: #8a5a0c; --revoked: #a3221b;
+  --active-soft: #dcefe4; --suspended-soft: #f6ead2; --revoked-soft: #f6dcda;
+  --serif: "Newsreader", Georgia, serif;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --pad: clamp(1.25rem, 5vw, 4.5rem);
+  --title: clamp(2.2rem, 6.2vw, 5.4rem);
+  --h2: clamp(1.6rem, 4vw, 3.3rem);
+  --body: clamp(.95rem, 1.45vw, 1.3rem);
+  --small: clamp(.75rem, 1vw, .9rem);
+}
+body {
+  margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: var(--body); line-height: 1.5;
+  /* faint ruled paper, like the website's certificates */
+  background-image: repeating-linear-gradient(0deg, transparent 0 31px, rgb(212 204 187 / .35) 31px 32px);
+}
+.slide:nth-child(even) { background-color: var(--paper-sunk); }
+h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; letter-spacing: -.01em; }
+h1 { font-size: var(--title); line-height: 1.02; }
+h2 { font-size: var(--h2); line-height: 1.08; max-width: 22ch; }
+h3 { font-size: clamp(1.1rem, 2vw, 1.6rem); }
+p { margin: 0; }
+.eyebrow { font-family: var(--mono); font-size: var(--small); letter-spacing: .18em; text-transform: uppercase; color: var(--seal); margin-bottom: clamp(.6rem, 1.6vh, 1.2rem); }
+.muted { color: var(--ink-muted); }
+.mono { font-family: var(--mono); }
+.lead { margin-top: clamp(.8rem, 2.4vh, 1.6rem); max-width: 60ch; color: var(--ink-muted); }
+.grid { display: grid; gap: clamp(.6rem, 1.6vw, 1.2rem); margin-top: clamp(1rem, 3vh, 2.2rem); }
+.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 760px) { .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .g3 { grid-template-columns: 1fr; } }
+@media (max-width: 760px) and (max-height: 500px) { .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } }
+/* short screens (phones in landscape): tighter cards and leading */
+@media (max-height: 500px) { :root { --h2: clamp(1.3rem, 6vh, 2.4rem); --term-lh: 1.45; } .card { padding: .5rem .7rem; } .card p { line-height: 1.35; } .lead { margin-top: .5rem; } .grid { margin-top: .7rem; } }
+.card { background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 3px; padding: clamp(.7rem, 1.6vw, 1.3rem); box-shadow: 0 18px 40px -30px rgb(0 0 0 / .45); }
+.card .tag { font-family: var(--mono); font-size: var(--small); color: var(--ink-muted); letter-spacing: .1em; text-transform: uppercase; }
+.card p { margin-top: .4rem; font-size: clamp(.85rem, 1.25vw, 1.08rem); }
+.pill { display: inline-block; white-space: nowrap; justify-self: start; font-family: var(--mono); font-size: var(--small); letter-spacing: .1em; text-transform: uppercase; padding: .15em .6em; border-radius: 999px; border: 1px solid currentColor; }
+.ok { color: var(--active); background: var(--active-soft); }
+.warn { color: var(--suspended); background: var(--suspended-soft); }
+.bad { color: var(--revoked); background: var(--revoked-soft); }
+a { color: var(--seal); text-underline-offset: 3px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--seal); outline-offset: 3px; }
+
+/* the stamp on the title slide */
+.seal {
+  position: absolute; right: clamp(1rem, 7vw, 7rem); bottom: clamp(1rem, 9vh, 6rem);
+  width: clamp(7rem, 16vw, 13rem); aspect-ratio: 1; border-radius: 50%;
+  border: 3px double var(--seal); color: var(--seal); display: grid; place-items: center; text-align: center;
+  font-family: var(--mono); font-size: clamp(.75rem, 1vw, .85rem); letter-spacing: .2em; text-transform: uppercase;
+  transform: rotate(-14deg); opacity: .85;
+}
+.seal strong { display: block; font-family: var(--serif); font-size: 2.4em; letter-spacing: 0; text-transform: none; font-weight: 500; }
+
+/* the swap timeline */
+.timeline { display: grid; gap: clamp(.5rem, 1.4vh, .9rem); margin-top: clamp(1rem, 3vh, 2rem); }
+.step { display: grid; grid-template-columns: minmax(9rem, 12rem) 1fr auto; gap: clamp(.6rem, 1.6vw, 1.4rem); align-items: center; background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 3px; padding: clamp(.6rem, 1.4vw, 1rem) clamp(.8rem, 1.6vw, 1.3rem); }
+@media (max-width: 520px) { .step { grid-template-columns: 1fr; gap: .3rem; } }
+.tx { font-family: var(--mono); font-size: var(--small); color: var(--ink-muted); }
+
+table { width: 100%; border-collapse: collapse; margin-top: clamp(.8rem, 2.4vh, 1.6rem); font-size: clamp(.8rem, 1.25vw, 1.05rem); }
+th, td { text-align: left; padding: clamp(.3rem, .9vh, .6rem) .6rem; border-bottom: 1px solid var(--rule); }
+th { font-family: var(--mono); font-weight: 400; font-size: var(--small); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-muted); }
+td.num { font-family: var(--mono); }
+tr.hl td { background: var(--revoked-soft); }
+
+ul.plain { list-style: none; padding: 0; margin: clamp(.8rem, 2.4vh, 1.6rem) 0 0; display: grid; gap: clamp(.4rem, 1.2vh, .8rem); max-width: 64ch; }
+ul.plain li { padding-left: 1.4rem; position: relative; }
+ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--seal); font-family: var(--serif); }
+
+/* reveal on arrival */
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s cubic-bezier(.16, 1, .3, 1); }
+.slide.visible .reveal { opacity: 1; transform: none; }
+.slide.visible .reveal:nth-child(2) { transition-delay: .08s; }
+.slide.visible .reveal:nth-child(3) { transition-delay: .16s; }
+.slide.visible .reveal:nth-child(4) { transition-delay: .24s; }
+.slide.visible .reveal:nth-child(5) { transition-delay: .32s; }
+
+/* progress and index */
+.progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--seal); width: 0; z-index: 10; transition: width .3s ease; }
+.index { position: fixed; right: 1rem; bottom: .8rem; font-family: var(--mono); font-size: var(--small); color: var(--ink-muted); z-index: 10; }
+.footer-mark { position: absolute; left: var(--pad); bottom: clamp(.6rem, 2vh, 1.2rem); font-family: var(--mono); font-size: var(--small); color: var(--ink-muted); letter-spacing: .14em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="progress" aria-hidden="true"></div>
+<p class="index" aria-live="polite"></p>
+<main>
+
+<!-- 1. Title -->
+<section class="slide" aria-label="Title">
+  <div class="slide-content">
+    <p class="eyebrow reveal">NEAR HACKATHON · NEAR · OutLayer TEE · NEAR AI</p>
+    <h1 class="reveal">PROCTOR</h1>
+    <h2 class="reveal" style="margin-top:.4em">A driving test for AI agents.</h2>
+    <p class="lead reveal">Secret exams sealed in a hardware enclave. Certificates on NEAR. Surprise re-tests that suspend and revoke.</p>
+  </div>
+  <div class="seal hide-short" aria-hidden="true"><div>Certified<strong>4/5</strong>then revoked</div></div>
+</section>
+
+<!-- 2. Problem -->
+<section class="slide" aria-label="The problem">
+  <div class="slide-content">
+    <p class="eyebrow reveal">The problem</p>
+    <h2 class="reveal">A score says nothing about tomorrow.</h2>
+    <div class="grid g2">
+      <div class="card reveal"><p class="tag">Benchmarks leak</p><p>Public test sets end up in training data, so a high score can mean the model memorised the test.</p></div>
+      <div class="card reveal"><p class="tag">Models get swapped</p><p>An agent certified today can switch to a cheaper model behind the same endpoint. A buyer on an agent marketplace has no way to notice.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. How it works -->
+<section class="slide" aria-label="How it works">
+  <div class="slide-content">
+    <p class="eyebrow reveal">How it works</p>
+    <h2 class="reveal">Seal, sit, certify, re-test.</h2>
+    <div class="grid g4">
+      <div class="card reveal"><p class="tag">01 · Seal</p><p>The exam is an OutLayer secret, readable only by one runner build (by SHA-256) and only via the registry. Only its hash is on chain.</p></div>
+      <div class="card reveal"><p class="tag">02 · Sit</p><p>Anyone pays for a sitting. OutLayer runs the runner in Intel TDX; it asks a NEAR AI model, or an agent's own endpoint, each question and grades by fixed rules.</p></div>
+      <div class="card reveal"><p class="tag">03 · Certify</p><p>The registry writes a certificate only from OutLayer's callback, after re-checking exam, candidate, sitting and arithmetic.</p></div>
+      <div class="card reveal"><p class="tag">04 · Re-test</p><p>Anyone may re-test hourly. One fail suspends, two in a row revoke, a pass restores. Outages never fail a model.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4. The swap demo -->
+<section class="slide" aria-label="The model-swap demo">
+  <div class="slide-content">
+    <p class="eyebrow reveal">On NEAR testnet</p>
+    <h2 class="reveal">A quiet model swap, caught in two re-tests.</h2>
+    <div class="timeline">
+      <div class="step reveal"><span class="pill ok">Certified 4/5</span><span>The demo agent sits through its own endpoint, answering with Claude Sonnet 5.5.</span><span class="tx">9Jwx3jXp…</span></div>
+      <div class="step reveal"><span class="pill warn">Suspended 2/5</span><span>Its owner redeploys the same URL with GPT-5.4 nano. A surprise re-test arrives.</span><span class="tx">BrcXSNwX…</span></div>
+      <div class="step reveal"><span class="pill bad">Revoked 2/5</span><span>An hour later, a second surprise re-test.</span><span class="tx">3SGvHzEY…</span></div>
+    </div>
+    <p class="lead reveal hide-short">Re-tests come from a sentinel that wakes every hour and, one time in five, re-tests a certificate chosen at random.</p>
+  </div>
+</section>
+
+<!-- 5. Verify -->
+<section class="slide" aria-label="Verification">
+  <div class="slide-content">
+    <p class="eyebrow reveal">Don't take our word for it</p>
+    <h2 class="reveal">One command checks any sitting.</h2>
+    <div class="card reveal mono" style="margin-top:clamp(1rem,3vh,2rem);font-size:clamp(.75rem,1.1vw,.95rem);line-height:var(--term-lh, 1.7)">
+      PASS&nbsp; certificate 0's response_ids_hash matches the 5 completion ids<br>
+      PASS&nbsp; OutLayer ran runner 9a41b2354d7c…, the build on the certificate<br>
+      PASS&nbsp; chatcmpl-a59ca0e4…: signed inside deepseek-ai/DeepSeek-V4.1-Flash-1017's TEE<br>
+      <span class="muted hide-short">… 4 more answers …<br></span>
+      verified (10 checks)
+    </div>
+    <p class="lead reveal">From public data plus any NEAR AI Cloud key (lookups are not billed): the sitting's event, the registry's record, OutLayer's run, and NEAR AI's signature on each completion, checked against the key in NEAR AI's attestation report.</p>
+  </div>
+</section>
+
+<!-- 6. Benchmark -->
+<section class="slide" aria-label="Benchmark">
+  <div class="slide-content">
+    <p class="eyebrow reveal">Benchmark · 10 sittings per model</p>
+    <h2 class="reveal">The swap was caught in every measured case.</h2>
+    <table class="reveal">
+      <thead><tr><th>Model</th><th>Mean score</th><th>Pass rate</th><th>Revoked within 2 re-tests</th></tr></thead>
+      <tbody>
+        <tr><td>Claude Sonnet 5.5</td><td class="num">86%</td><td class="num">100%</td><td class="num">0%</td></tr>
+        <tr class="hl"><td>GPT-5.4 nano</td><td class="num">36%</td><td class="num">0%</td><td class="num">100%</td></tr>
+        <tr><td>DeepSeek V4.1 Flash</td><td class="num">58%</td><td class="num">88%</td><td class="num">2%</td></tr>
+        <tr><td>Gemini 3.5 Flash</td><td class="num">65%</td><td class="num">100%</td><td class="num">0%</td></tr>
+        <tr><td>GPT-5.5</td><td class="num">50%</td><td class="num">50%</td><td class="num">25%</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 7. Trust model -->
+<section class="slide" aria-label="Trust model">
+  <div class="slide-content">
+    <p class="eyebrow reveal">Trust model</p>
+    <h2 class="reveal">What you don't have to take on faith.</h2>
+    <ul class="plain reveal">
+      <li><strong>The exam is never published.</strong> Only its commitment is on chain.</li>
+      <li><strong>The score isn't self-reported.</strong> Certificates come only from OutLayer's callback.</li>
+      <li><strong>A model's answers came from NEAR AI,</strong> signed in its TEE or NEAR AI's TEE gateway. For an agent, the ids prove real completions only.</li>
+      <li><strong>The grader can't change without notice.</strong> New runner builds wait out a 24-hour timelock (code upgrades don't yet).</li>
+      <li><strong>Outages don't fail a model.</strong> Only an agent silent for three re-tests in a row takes a strike.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 8. Honest limits -->
+<section class="slide" aria-label="Limits">
+  <div class="slide-content">
+    <p class="eyebrow reveal">What it can't do yet</p>
+    <h2 class="reveal">Limits, stated with numbers.</h2>
+    <div class="grid g2">
+      <div class="card reveal"><p class="tag">Agents can spot exams</p><p>An agent's endpoint sees the fixed instruction and questions, so agent re-tests catch only a swap the owner doesn't hide. NEAR AI models don't have this gap.</p></div>
+      <div class="card reveal"><p class="tag">Borderline certificates</p><p>A 3/5 certificate can be re-tested until it falls: about 78 re-tests for certificate 0. Larger exams, up to 64 questions, fix it.</p></div>
+      <div class="card reveal"><p class="tag">Upgrade key</p><p>The registry account can still upgrade its code at once. Every upgrade is public; a timelocked upgrade path is next.</p></div>
+      <div class="card reveal"><p class="tag">Testnet only</p><p>Nothing here holds real funds. The demo exam is public so anyone can check the grading.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 9. NEAR tech -->
+<section class="slide" aria-label="NEAR technology used">
+  <div class="slide-content">
+    <p class="eyebrow reveal">Built on NEAR's stack</p>
+    <h2 class="reveal">NEAR's stack, used deeply (1/2).</h2>
+    <div class="grid g3">
+      <div class="card reveal"><p class="tag">NEAR contract</p><p>The registry: exams, sittings, certificates, two-strike re-tests, fees, a runner timelock, in-place migration, NEP-297 events.</p></div>
+      <div class="card reveal"><p class="tag">OutLayer (Intel TDX)</p><p>Runs the pinned runner; holds the exam as a secret bound to the runner hash and the calling contract.</p></div>
+      <div class="card reveal"><p class="tag">NEAR AI Cloud</p><p>The candidates: TEE-hosted models and external models relayed by NEAR AI's TEE gateway.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 9b. NEAR tech, continued -->
+<section class="slide" aria-label="NEAR technology used, continued">
+  <div class="slide-content">
+    <p class="eyebrow reveal">Built on NEAR's stack</p>
+    <h2 class="reveal">NEAR's stack, used deeply (2/2).</h2>
+    <div class="grid g3">
+      <div class="card reveal"><p class="tag">NEAR Intents</p><p>Dry 1Click quotes for paying an author's earnings out as another chain's token.</p></div>
+      <div class="card reveal"><p class="tag">Agent Market</p><p>The MCP server vets market listings before Claude Code hires them.</p></div>
+      <div class="card reveal"><p class="tag">Reproducible builds</p><p>CI rebuilds the runner and registry and fails unless they hash to the pinned release.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10. Who pays, who uses it -->
+<section class="slide" aria-label="Business">
+  <div class="slide-content">
+    <p class="eyebrow reveal">Who pays, who uses it</p>
+    <h2 class="reveal">Authors earn. Buyers check before they hire.</h2>
+    <div class="grid g2">
+      <div class="card reveal"><p class="tag">Exam authors</p><p>Charge up to 1 NEAR per first sitting, held with the sitting and credited on a verdict. Shown end to end on chain: fee set, credited, withdrawn.</p></div>
+      <div class="card reveal"><p class="tag">Agent buyers</p><p>Add the PROCTOR MCP server next to the Agent Market's, and Claude Code checks for a live certificate on a trusted exam before every hire.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 11. Next -->
+<section class="slide" aria-label="What's next">
+  <div class="slide-content">
+    <p class="eyebrow reveal">What's next</p>
+    <h2 class="reveal">From one demo exam to a market of them.</h2>
+    <ul class="plain reveal">
+      <li>Runner v0.3.0, already proposed under the timelock, built so a slow answer can no longer end a run.</li>
+      <li>Larger exams sampled per sitting, so a re-test is harder to recognise.</li>
+      <li>Upgrades behind the same 24-hour timelock, then the full-access key removed.</li>
+      <li>Exams written by domain experts, vetted for every Agent Market category.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 12. Links -->
+<section class="slide" aria-label="Links">
+  <div class="slide-content">
+    <p class="eyebrow reveal">Try it</p>
+    <h1 class="reveal">PROCTOR</h1>
+    <ul class="plain reveal">
+      <li>Registry: <span class="mono">registry-v2.attrito.testnet</span></li>
+      <li>Code: <span class="mono">&lt;REPO&gt;</span></li>
+      <li>Site: <span class="mono">&lt;SITE&gt;</span></li>
+      <li>Test it in 5 minutes: the README's first section (step 1 needs no keys).</li>
+    </ul>
+  </div>
+  <p class="footer-mark">Built at NEAR HACKATHON</p>
+</section>
+
+</main>
+<script>
+/** Keyboard, wheel and touch navigation, a progress bar, and reveal-on-arrival. */
+class Deck {
+  constructor() {
+    this.slides = [...document.querySelectorAll(".slide")];
+    this.progress = document.querySelector(".progress");
+    this.index = document.querySelector(".index");
+    this.current = 0;
+    this.locked = false;
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add("visible");
+        // While go() is scrolling, it owns the index; slides passed on the way don't count.
+        if (this.navigating) continue;
+        this.current = this.slides.indexOf(e.target);
+        this.update();
+      }
+    }, { threshold: 0.55 });
+    this.slides.forEach((s) => io.observe(s));
+    document.addEventListener("keydown", (e) => this.onKey(e));
+    window.addEventListener("wheel", (e) => this.onWheel(e), { passive: false });
+    let startY = 0;
+    window.addEventListener("touchstart", (e) => { startY = e.touches[0].clientY; }, { passive: true });
+    window.addEventListener("touchend", (e) => {
+      const dy = startY - e.changedTouches[0].clientY;
+      if (Math.abs(dy) > 50) this.go(this.current + (dy > 0 ? 1 : -1));
+    });
+    this.update();
+  }
+  go(i) {
+    const next = Math.max(0, Math.min(this.slides.length - 1, i));
+    this.current = next;
+    this.update();
+    this.navigating = true;
+    clearTimeout(this.navTimer);
+    this.navTimer = setTimeout(() => { this.navigating = false; }, 900);
+    // Instant: smooth scrolling fights mandatory snap and can be snapped back.
+    // Each slide's reveal animation is the transition.
+    window.scrollTo({ top: this.slides[next].offsetTop, behavior: "instant" });
+  }
+  onKey(e) {
+    if (["ArrowDown", "PageDown", " ", "ArrowRight"].includes(e.key)) { e.preventDefault(); this.go(this.current + 1); }
+    if (["ArrowUp", "PageUp", "ArrowLeft"].includes(e.key)) { e.preventDefault(); this.go(this.current - 1); }
+    if (e.key === "Home") { e.preventDefault(); this.go(0); }
+    if (e.key === "End") { e.preventDefault(); this.go(this.slides.length - 1); }
+  }
+  onWheel(e) {
+    e.preventDefault();
+    if (this.locked || Math.abs(e.deltaY) < 20) return;
+    this.locked = true;
+    this.go(this.current + (e.deltaY > 0 ? 1 : -1));
+    setTimeout(() => { this.locked = false; }, 700);
+  }
+  update() {
+    const n = this.slides.length;
+    this.progress.style.width = `${((this.current + 1) / n) * 100}%`;
+    this.index.textContent = `${this.current + 1} / ${n}`;
+  }
+}
+new Deck();
+</script>
+</body>
+</html>

@@ -96,10 +96,11 @@ html {
   }
 }
 
-/* Hashes and ids wrap instead of overflowing on narrow screens. */
+/* Hashes and ids wrap instead of overflowing on narrow screens: at a <wbr>
+   (see Breakable) when there is one, mid-token only when nothing else fits. */
 .hash {
   font-family: var(--font-plex-mono), ui-monospace, monospace;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   font-variant-ligatures: none;
 }
 

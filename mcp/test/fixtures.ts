@@ -27,7 +27,7 @@ export function certificate(overrides: Partial<Certificate> = {}): Certificate {
 export function exam(overrides: Partial<Exam> = {}): Exam {
   return {
     exam_id: "near-basics-v1",
-    author: "author.testnet",
+    author: "attrito.testnet",
     title: "NEAR basics",
     commitment: "aed0590cdb979c1bea7f5d2c3c0f76151524c618a8f71a37ce9a9a4e44bed51c",
     pass_mark_bps: 6000,

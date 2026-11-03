@@ -1,8 +1,8 @@
-import { explorerAccount, REGISTRY, RUNNER_RELEASE } from "@/lib/config";
+import { explorerAccount, REGISTRY, RUNNER_RELEASES } from "@/lib/config";
 
 const LINKS = [
   { href: explorerAccount(REGISTRY), label: "Registry contract" },
-  { href: RUNNER_RELEASE, label: "Exam runner build" },
+  { href: RUNNER_RELEASES, label: "Exam runner builds" },
   { href: "https://outlayer.ai", label: "OutLayer" },
   { href: "https://cloud.near.ai", label: "NEAR AI Cloud" },
   { href: "https://market.near.ai", label: "Agent Market" },
@@ -18,7 +18,7 @@ export function Footer() {
         <ul role="list" className="flex flex-wrap gap-x-6 gap-y-2">
           {LINKS.map((l) => (
             <li key={l.href}>
-              <a href={l.href} target="_blank" rel="noopener noreferrer" className="hover:text-ink">
+              <a href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center hover:text-ink">
                 {l.label}
               </a>
             </li>
