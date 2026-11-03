@@ -14,3 +14,5 @@ web/qa/lighthouse-*/
 demo-agent/dist/
 sentinel/dist/
 web/qa/gan/
+docs/submission/*.webm
+docs/submission/.video-tmp/

@@ -6,7 +6,9 @@
 //
 // Environment: DEMO_BASE_URL (default http://localhost:4310, the static build
 // served with `npx serve web/out -l 4310`), PLAYWRIGHT_CORE (path to a
-// playwright-core install; default: the one bundled with @playwright/mcp).
+// playwright-core install; default: the one bundled with @playwright/mcp),
+// CHROMIUM_PATH (a Chromium executable; default: the newest one Playwright
+// has installed, so a version mismatch with playwright-core doesn't matter).
 //
 // The on-chain scenes are not screenshots of an explorer: they render each
 // transaction as read live from NEAR's archival RPC, including the registry's
@@ -22,6 +24,21 @@ const PLAYWRIGHT_CORE =
   path.join(execSync('npm root -g').toString().trim(), '@playwright', 'mcp', 'node_modules', 'playwright-core');
 const { chromium } = require(PLAYWRIGHT_CORE);
 
+/** The newest Chromium Playwright has downloaded, if any. */
+function installedChromium() {
+  if (process.env.CHROMIUM_PATH) return process.env.CHROMIUM_PATH;
+  const root = path.join(process.env.LOCALAPPDATA || path.join(require('os').homedir(), '.cache'), 'ms-playwright');
+  if (!fs.existsSync(root)) return undefined;
+  const builds = fs.readdirSync(root).filter((d) => /^chromium-\d+$/.test(d)).sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1]));
+  for (const build of builds) {
+    for (const exe of ['chrome-win64/chrome.exe', 'chrome-win/chrome.exe', 'chrome-linux/chrome', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium']) {
+      const candidate = path.join(root, build, exe);
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  }
+  return undefined;
+}
+
 const OUT_DIR = __dirname;
 const VIDEO_DIR = path.join(OUT_DIR, '.video-tmp');
 const OUTPUT = path.join(OUT_DIR, 'proctor-demo.webm');
@@ -34,6 +51,9 @@ const SWAP = [
   ['BrcXSNwX1qy7APxoTDNL5heFN22eB5FqoBT4teiQPUYX', 'proctor-sentinel.testnet', 'Its owner swaps the same URL to GPT-5.4 nano. A surprise re-test: suspended'],
   ['3SGvHzEY7c2Bo91eehtnapZbXE2eVk5mv4y1DDPWBLm4', 'proctor-sentinel.testnet', 'An hour later, another surprise re-test: revoked'],
 ];
+
+/** The stall test under runner v0.2.0: the gap v0.3.0 closes. */
+const STALL = ['7twfXXC81HAGRxg8VnMQrmWTjAMQ6aqrrLiiUpcwFPbz', 'attrito.testnet'];
 
 const PALETTE = { paper: '#f4f1ea', raised: '#fbf9f4', ink: '#16140f', muted: '#57524a', rule: '#d4ccbb', seal: '#1f3a5f' };
 
@@ -100,17 +120,18 @@ function titleScene() {
     <h1>PROCTOR</h1><h2>A driving test for AI agents.</h2></div>`);
 }
 
-function receiptScene(r, step) {
+function receiptScene(r, eyebrow) {
   const [name, value] = Object.entries(r.outcome)[0];
-  const color = { Certified: '#1d6b45', Suspended: '#8a5a0c', Revoked: '#a3221b' }[name] ?? PALETTE.ink;
-  return shell(`<div><p class="eyebrow">On NEAR testnet · step ${step} of 3 · read live from the archival RPC</p>
+  const color = { Certified: '#1d6b45', Suspended: '#8a5a0c', Revoked: '#a3221b', RunnerFailed: '#8a5a0c' }[name] ?? PALETTE.ink;
+  const detail = typeof value?.score_bps === 'number' ? `${value.score_bps / 100}%` : 'no verdict, no strike';
+  return shell(`<div><p class="eyebrow">${esc(eyebrow)}</p>
     <div class="card" style="margin-top:14px">
       <div class="row"><b>Transaction</b><span class="mono">${esc(r.hash)}</span></div>
       <div class="row"><b>Signed by</b><span class="mono">${esc(r.signer)}</span></div>
       <div class="row"><b>Called</b><span class="mono">registry-v2.attrito.testnet · ${esc(r.method)}</span></div>
       <div class="row"><b>When</b><span class="mono">${esc(r.time)}</span></div>
       <div class="row"><b>Candidate</b><span class="mono">${esc(r.candidate)}</span></div>
-      <div class="row" style="border:0"><b>Registry event</b><span style="font-family:Newsreader,serif;font-size:44px;color:${color}">${esc(name)} · ${value.score_bps / 100}%</span></div>
+      <div class="row" style="border:0"><b>Registry event</b><span style="font-family:Newsreader,serif;font-size:44px;color:${color}">${esc(name)} · ${esc(detail)}</span></div>
     </div></div>`);
 }
 
@@ -123,6 +144,10 @@ function verifierScene(text) {
     .join('\n');
   return shell(`<div><p class="eyebrow">$ npm --prefix mcp run verify -- --tx 3SGvHzEY… --sender proctor-sentinel.testnet</p>
     <div class="term" style="margin-top:14px">${lines}</div></div>`);
+}
+
+function limitScene(r) {
+  return receiptScene(r, 'An honest limit · runner v0.2.0 · read live from the archival RPC');
 }
 
 function endScene() {
@@ -230,64 +255,77 @@ async function rehearse(page, receipts) {
     ok &&= found;
   }
   for (const r of receipts) console.log(`REHEARSAL OK  : ${r.hash.slice(0, 8)} ${r.method} -> ${Object.keys(r.outcome)[0]}`);
+  if (!(await page.locator('#test-it').count())) throw new Error('rehearsal failed: no #test-it');
   if (!ok) throw new Error('rehearsal failed: fix selectors before recording');
   console.log('REHEARSAL PASSED');
 }
 
 // ---------- the recording ----------
 
-async function record(page, receipts, verifyText) {
+async function record(page, receipts, stall, verifyText) {
   await showScene(page, titleScene());
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(4500);
 
   await openSite(page);
-  await caption(page, 'Public benchmarks leak into training data, and a certified agent can quietly swap models.', 2600);
-  await caption(page, 'PROCTOR seals the exam in a hardware enclave and keeps re-testing the certificate.', 2600);
+  await caption(page, 'Public benchmarks leak into training data, and a certified agent can quietly swap models.', 3600);
+  await caption(page, 'PROCTOR seals the exam in a hardware enclave and keeps re-testing the certificate.', 3600);
+
+  await smoothScrollTo(page, '#test-it');
+  await caption(page, 'A judge can test it in 5 minutes: reading a live certificate needs no account and no keys.', 3800);
 
   await smoothScrollTo(page, '#how');
-  await caption(page, 'The exam is an OutLayer secret, readable only by one pinned runner build, via the registry.', 2800);
+  await caption(page, 'The exam is an OutLayer secret, readable only by one pinned runner build, via the registry.', 3800);
   await page.mouse.wheel(0, 380);
-  await page.waitForTimeout(900);
-  await caption(page, 'Certificates are written only from OutLayer’s callback, after the contract re-checks the result.', 2800);
+  await page.waitForTimeout(1200);
+  await caption(page, 'Certificates are written only from OutLayer’s callback, after the contract re-checks the result.', 3800);
 
   await smoothScrollTo(page, '#registry');
-  await caption(page, 'Read live from NEAR testnet: certificate 0 is active, certificate 1 is revoked.', 2600);
+  await caption(page, 'Read live from NEAR testnet: certificate 0 is active, certificate 1 is revoked.', 3400);
   await page.mouse.wheel(0, 520);
-  await page.waitForTimeout(1600);
+  await page.waitForTimeout(2400);
 
   for (const [i, r] of receipts.entries()) {
-    await showScene(page, receiptScene(r, i + 1));
-    await caption(page, SWAP[i][2], 3600);
+    await showScene(page, receiptScene(r, `On NEAR testnet · step ${i + 1} of 3 · read live from the archival RPC`));
+    await caption(page, SWAP[i][2], 4600);
   }
 
   await openSite(page);
-  await smoothScrollTo(page, '#proof', 70, 1400);
-  await caption(page, 'Every step of the swap demo, and the author payouts, are linked transactions.', 2600);
+  await smoothScrollTo(page, '#proof', 70, 1600);
+  await caption(page, 'Every step of the swap demo is a linked transaction, and so are the exam author’s payouts.', 3400);
+  await page.mouse.wheel(0, 420);
+  await page.waitForTimeout(2200);
 
   await smoothScrollTo(page, '#check');
-  await caption(page, 'A buyer checks before hiring: the same verdict the MCP server gives Claude Code.', 1600);
-  await moveAndClick(page, page.locator('button:has-text("DeepSeek V4.1 Flash")'), 'DeepSeek chip', 3500);
-  await caption(page, 'DeepSeek V4.1 Flash holds a live certificate with passed surprise re-tests: hire.', 2200);
-  await moveAndClick(page, page.locator('button:has-text("agent: demo-agent")'), 'demo agent chip', 3500);
-  await caption(page, 'The swapped demo agent was revoked after two failed re-tests: do not hire.', 2600);
+  await caption(page, 'A buyer checks before hiring: the same verdict the MCP server gives Claude Code.', 2200);
+  await moveAndClick(page, page.locator('button:has-text("DeepSeek V4.1 Flash")'), 'DeepSeek chip', 4000);
+  await caption(page, 'DeepSeek V4.1 Flash holds a live certificate with passed surprise re-tests: hire.', 3000);
+  await moveAndClick(page, page.locator('button:has-text("agent: demo-agent")'), 'demo agent chip', 4000);
+  await caption(page, 'The swapped demo agent was revoked after two failed re-tests: do not hire.', 3400);
 
   await showScene(page, verifierScene(verifyText));
-  await caption(page, 'Anyone can verify a sitting from public data, down to NEAR AI’s signature on every answer.', 4200);
+  await caption(page, 'One command and any NEAR AI key verify a sitting: runner build, ids, and NEAR AI’s signatures.', 5200);
+
+  await showScene(page, limitScene(stall));
+  await caption(page, 'Limits are stated too: under runner v0.2.0 an endpoint that stalls past 30 s gets no strike.', 4200);
+  await caption(page, 'Runner v0.3.0 cuts each answer at 25 s. It is proposed on chain, behind a 24-hour timelock.', 4200);
 
   await openSite(page);
   await smoothScrollTo(page, '#trust');
-  await caption(page, 'What you don’t have to take on faith, and the limits, are stated in the README.', 3200);
+  await caption(page, 'What you don’t have to take on faith, and how Claude Code adds the PROCTOR MCP server.', 4200);
+  await page.mouse.wheel(0, 420);
+  await page.waitForTimeout(2400);
 
   await showScene(page, endScene());
-  await page.waitForTimeout(4000);
+  await page.waitForTimeout(5000);
 }
 
 (async () => {
   const receipts = [];
   for (const [hash, sender] of SWAP) receipts.push(await readReceipt(hash, sender));
+  const stall = await readReceipt(...STALL);
   const verifyText = fs.readFileSync(path.join(OUT_DIR, 'verify-3SGvHzEY.txt'), 'utf8');
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: true, executablePath: installedChromium() });
   try {
     if (REHEARSAL) {
       const page = await (await browser.newContext({ viewport: { width: 1280, height: 720 } })).newPage();
@@ -301,7 +339,7 @@ async function record(page, receipts, verifyText) {
     });
     const page = await context.newPage();
     try {
-      await record(page, receipts, verifyText);
+      await record(page, receipts, stall, verifyText);
     } finally {
       await context.close();
       fs.copyFileSync(await page.video().path(), OUTPUT);
