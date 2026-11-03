@@ -8,7 +8,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json && tsc -p test/tsconfig.json",
     "deploy:strong": "wrangler deploy --var MODE:strong",
-    "deploy:weak": "wrangler deploy --var MODE:weak"
+    "deploy:weak": "wrangler deploy --var MODE:weak",
+    "deploy:stall-test": "wrangler deploy --name proctor-stall-agent --var MODE:strong --var STALL_MS:40000"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20261101.1",
