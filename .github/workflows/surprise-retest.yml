@@ -1,4 +1,4 @@
-# Manual surprise re-test (and fallback scheduler). The hourly schedule runs
+# Manual surprise re-test. The hourly schedule runs
 # on the proctor-sentinel Cloudflare Worker (sentinel/): GitHub's own cron
 # never fired for this repository. This workflow does the same job on
 # demand: expires any re-test whose callback never came, picks a live
@@ -45,7 +45,7 @@ jobs:
             [[ "$CERT_INPUT" =~ ^[0-9]+$ ]] || { echo "cert_id must be a number" >&2; exit 1; }
             choice="$(node scripts/retest/surprise-retest.mjs --cert "$CERT_INPUT")"
           else
-            choice="$(node scripts/retest/surprise-retest.mjs --chance 0.2)"
+            choice="$(node scripts/retest/surprise-retest.mjs)"
           fi
           echo "$choice"
           read_field() { node -e 'const c = JSON.parse(process.argv[1]); const v = c[process.argv[2]]; process.stdout.write(v === undefined ? "" : Array.isArray(v) ? v.join(" ") : String(v))' "$choice" "$1"; }

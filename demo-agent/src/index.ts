@@ -25,7 +25,7 @@ export const MODELS = {
 type Mode = keyof typeof MODELS;
 
 const NEAR_AI_COMPLETIONS = "https://cloud-api.near.ai/v1/chat/completions";
-const SOURCE = "https://github.com/egbujor-emmanuel/proctor/tree/main/demo-agent";
+const SOURCE = "https://github.com/egbujor-emmanuel/proctor/tree/master/demo-agent";
 /** Under the runner's 165 s run deadline, so a slow model fails the call, not the run. */
 const UPSTREAM_TIMEOUT_MS = 120_000;
 
@@ -140,7 +140,9 @@ export default {
     if (pathname === "/v1/chat/completions") {
       if (request.method !== "POST") return fail(405, "use POST", { allow: "POST" });
       const client = request.headers.get("cf-connecting-ip") ?? "unknown";
-      if (env.LIMITER && !(await env.LIMITER.limit({ key: client })).success) {
+      // Fail closed: without the limiter this would be an open proxy to a paid key.
+      if (!env.LIMITER) return fail(500, "rate limiter is not configured");
+      if (!(await env.LIMITER.limit({ key: client })).success) {
         return fail(429, "too many requests from this client; try again in a minute", { "retry-after": "60" });
       }
       return completions(request, env, mode);

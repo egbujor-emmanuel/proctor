@@ -80,7 +80,13 @@ async function main(): Promise<void> {
   }
   const attestations = new Attestations(apiKey);
   // A NEAR AI model candidate must have answered from that model's TEE; agents may use any model.
-  const expectModel = sitting.candidate.startsWith("agent:") ? undefined : sitting.candidate;
+  const isAgent = sitting.candidate.startsWith("agent:");
+  const expectModel = isAgent ? undefined : sitting.candidate;
+  if (isAgent) {
+    console.log(
+      "info  agent candidate: the signatures prove each id is a real NEAR AI completion (and the runner refuses repeated ids), but the agent's endpoint chose them, so they cannot be tied to this sitting's answers",
+    );
+  }
   const checks = await Promise.all(sitting.responseIds.map((id) => checkAnswer(id, apiKey, attestations, fetch, { expectModel })));
   for (const c of checks) check(c.ok, `${c.id}: ${describe(c)}`);
 }

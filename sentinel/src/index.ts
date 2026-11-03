@@ -40,7 +40,8 @@ function nearSender(env: Env): Send {
       waitUntil: "FINAL",
     });
     const tx = result.transaction_outcome?.id ?? "unknown";
-    const logs = (result.receipts_outcome ?? []).flatMap((r) => r.outcome.logs ?? []);
+    // Only receipts the registry itself executed can report its outcome.
+    const logs = (result.receipts_outcome ?? []).filter((r) => r.outcome.executor_id === env.REGISTRY).flatMap((r) => r.outcome.logs ?? []);
     return { tx, logs };
   };
 }
@@ -89,7 +90,8 @@ export default {
       log({ tick: startedAt, action: "none", reason: "SENTINEL_PRIVATE_KEY is not set" });
       return;
     }
-    const run = tick(env, nearSender(env)).then(
+    // nearSender parses the key, so a bad key is reported like any other failure.
+    const run = Promise.resolve().then(() => tick(env, nearSender(env))).then(
       (result) => log({ tick: startedAt, ...result }),
       (error: unknown) => {
         log({ tick: startedAt, error: error instanceof Error ? error.message : String(error) });
