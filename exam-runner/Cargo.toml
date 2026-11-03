@@ -19,3 +19,5 @@ futures = { version = "0.3.34", default-features = false, features = ["std", "ex
 # Async HTTP for WASI 0.2 from the Bytecode Alliance (the wasmtime team), so
 # questions can be asked concurrently.
 wstd = "0.6.8"
+# Reads a reply under a hard byte cap (already in the tree through wstd).
+http-body-util = "0.1.5"
