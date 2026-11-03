@@ -1,0 +1,11 @@
+# The website, hosted as a static Cloudflare Worker (assets only, no server
+# code): https://proctor.attrito.workers.dev. Build first, with the site URL
+# so share cards use absolute links:
+#   NEXT_PUBLIC_SITE_URL=https://proctor.attrito.workers.dev npm run build
+#   npx wrangler deploy
+name = "proctor"
+compatibility_date = "2026-10-15"
+
+[assets]
+directory = "./out"
+not_found_handling = "404-page"
