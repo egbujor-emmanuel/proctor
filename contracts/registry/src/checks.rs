@@ -42,7 +42,19 @@ pub(crate) fn require_endpoint(endpoint: &str) {
         host.contains('.') && !host.ends_with('.') && host != "localhost" && !host.ends_with(".localhost"),
         "endpoint must name a public host"
     );
-    require!(!host.bytes().all(|b| b.is_ascii_digit() || b == b'.'), "endpoint must be a host name, not an IP address");
+    // Plain DNS names only: no percent-encoding or Unicode look-alikes that a
+    // URL parser would turn into another host.
+    require!(
+        host.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'-'),
+        "endpoint host may only use letters, digits, dots and hyphens"
+    );
+    // A real top-level domain is all letters (or punycode, xn--), so numeric
+    // forms such as 10.0.0.1 or 0x7f.1 are refused.
+    let tld = host.rsplit('.').next().unwrap_or_default();
+    require!(
+        tld.len() >= 2 && (tld.bytes().all(|b| b.is_ascii_lowercase()) || tld.starts_with("xn--")),
+        "endpoint must be a host name, not an IP address"
+    );
     if host == "cloud-api.near.ai" {
         require!(endpoint == NEAR_AI_COMPLETIONS, format!("on cloud-api.near.ai only {NEAR_AI_COMPLETIONS} is allowed"));
     }

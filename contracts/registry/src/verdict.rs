@@ -47,7 +47,11 @@ impl Registry {
                     cert.retest_in_flight = None;
                     // A re-test that judged nothing must not burn the hourly
                     // slot, or a candidate could block re-tests by failing calls.
-                    if !outcome.is_verdict() {
+                    // An agent's incomplete re-test is the exception: it counts
+                    // towards a strike, so strikes stay an hour apart and nobody
+                    // can stack them during one outage of someone else's endpoint.
+                    let counts_as_silence = sitting.candidate_endpoint.is_some() && matches!(outcome, SittingOutcome::Incomplete { .. });
+                    if !outcome.is_verdict() && !counts_as_silence {
                         if let Some(previous) = previous {
                             cert.last_retest_requested_ns = previous;
                         }

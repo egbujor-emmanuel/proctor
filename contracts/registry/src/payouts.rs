@@ -11,7 +11,7 @@ use crate::checks::{charge_storage, emit};
 use crate::{Registry, RegistryExt, Sitting, SittingOutcome};
 
 /// Gas for the withdrawal callback, which only records the outcome.
-const WITHDRAW_CALLBACK_GAS: Gas = Gas::from_tgas(5);
+const WITHDRAW_CALLBACK_GAS: Gas = Gas::from_tgas(10);
 
 /// The most an author may charge for one sitting.
 pub const MAX_EXAM_FEE: NearToken = NearToken::from_near(1);

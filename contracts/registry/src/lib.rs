@@ -8,7 +8,9 @@
 //! Certified candidates can be re-tested. A complete re-test below the pass
 //! mark suspends the certificate; a second one in a row revokes it, and a
 //! passing re-test restores it. Outages, incomplete runs and rejected outputs
-//! never suspend or revoke.
+//! never suspend or revoke a NEAR AI model candidate. An agent whose own
+//! endpoint leaves 3 re-tests in a row incomplete takes a strike as if it had
+//! failed one, and those re-tests keep the hourly gap.
 
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::serde_json::{self, json, Value};
