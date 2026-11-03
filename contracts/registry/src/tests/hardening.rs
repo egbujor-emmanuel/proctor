@@ -68,6 +68,16 @@ fn an_agent_that_goes_silent_on_its_re_tests_is_suspended_then_revoked() {
 }
 
 #[test]
+#[should_panic(expected = "at least an hour apart")]
+fn an_agents_silent_re_test_keeps_the_hourly_gap() {
+    // Otherwise a third party could stack strikes during one outage of the endpoint.
+    let mut r = certified_agent();
+    let id = start_retest_at(&mut r, 0, HOUR_NS);
+    resolve(&mut r, id, Ok(Some(silent_agent_output(id, QUESTIONS))));
+    start_retest_at(&mut r, 0, HOUR_NS + 1);
+}
+
+#[test]
 fn a_verdict_resets_the_silence_count() {
     let mut r = certified_agent();
     let mut at = HOUR_NS;
@@ -157,6 +167,12 @@ fn endpoints_must_be_public_https_hosts() {
         "https://[::1]/v1",
         "https://cloud-api.near.ai/v1/files",
         "http://agent.example.org/v1",
+        // Encodings a URL parser would resolve to another host.
+        "https://%31%32%37.0.0.1/v1",
+        "https://0x7f.1/v1",
+        "https://10.0.0.1/v1",
+        "https://cloud\u{2010}api.near.ai/v1/chat/completions",
+        "https://agent.example.1/v1",
     ] {
         let result = std::panic::catch_unwind(|| checks::require_endpoint(bad));
         assert!(result.is_err(), "{bad} should be refused");

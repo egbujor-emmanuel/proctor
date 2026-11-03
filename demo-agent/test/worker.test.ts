@@ -6,8 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ANSWER_INSTRUCTION, MAX_BODY_BYTES, MAX_TOKENS, parseExamRequest } from "../src/exam";
 import worker, { MODELS, type Env } from "../src/index";
 
-const STRONG: Env = { MODE: "strong", NEARAI_API_KEY: "test-key" };
-const WEAK: Env = { MODE: "weak", NEARAI_API_KEY: "test-key" };
+/** A limiter that lets everything through, as Cloudflare's does under the limit. */
+const OPEN = { limit: async () => ({ success: true }) } as unknown as RateLimit;
+const STRONG: Env = { MODE: "strong", NEARAI_API_KEY: "test-key", LIMITER: OPEN };
+const WEAK: Env = { MODE: "weak", NEARAI_API_KEY: "test-key", LIMITER: OPEN };
 const URL_BASE = "https://proctor-demo-agent.example.workers.dev";
 
 /** A request exactly as exam-runner builds it for an agent candidate. */
@@ -140,6 +142,13 @@ describe("POST /v1/chat/completions", () => {
 });
 
 describe("abuse limits", () => {
+  it("refuses to serve exams without its rate limiter", async () => {
+    const spy = mockUpstream();
+    const res = await worker.fetch(post(examBody()), { MODE: "strong", NEARAI_API_KEY: "test-key" });
+    expect(res.status).toBe(500);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it("rate-limits a client that sends too many requests, before calling NEAR AI", async () => {
     const spy = mockUpstream();
     const limiter = { limit: vi.fn(async () => ({ success: false })) };

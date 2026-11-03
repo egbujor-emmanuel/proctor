@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Surprise re-test picker. Reads the registry over NEAR RPC (no keys), then
 // prints one JSON line: the certificate to re-test, or why it skipped.
-// The GitHub workflow signs the re-test with near-cli-rs.
+// The manual GitHub workflow signs the re-test with near-cli-rs; the hourly
+// schedule runs on the sentinel Worker, which shares pick.mjs.
 //
 //   REGISTRY=registry-v2.attrito.testnet node scripts/retest/surprise-retest.mjs [--cert N] [--chance 0.25]
 //
-// --chance makes the hourly schedule fire at random hours, so nobody can
-// predict when the next re-test comes. --cert forces one certificate.
+// --chance skips the pick with the given probability; --cert forces one certificate.
 
 import { randomInt } from "node:crypto";
 

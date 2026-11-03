@@ -34,6 +34,23 @@ const CONCURRENCY: usize = 8;
 const RUN_DEADLINE_SECS: u64 = 165;
 #[cfg(target_os = "wasi")]
 const CONNECT_TIMEOUT_SECS: u64 = 30;
+/// OutLayer ends the whole run, and charges it in full, when any one HTTP
+/// request takes over 30 s. Each attempt is cut at 25 s instead, so a slow
+/// answer costs one question, not the sitting.
+const ATTEMPT_TIMEOUT_SECS: u64 = 25;
+/// A question whose attempt timed out is asked once more if the run
+/// deadline allows: answer times vary run to run, so a retry usually lands.
+const ATTEMPTS: u32 = 2;
+/// The error an attempt that ran out of time returns; only this is retried.
+const ATTEMPT_TIMED_OUT: &str = "no answer within the time allowed";
+/// The registry's limit on a completion id (MAX_RESPONSE_ID_LEN in the
+/// contract). An id it would refuse is a failed call here, so an agent's
+/// endpoint cannot turn its own sitting into a rejected (strike-free) run.
+const MAX_RESPONSE_ID_LEN: usize = 96;
+/// A chat reply larger than this is a failed call: no honest answer needs
+/// it, and an endless body must not exhaust the enclave's memory.
+#[cfg_attr(not(target_os = "wasi"), allow(dead_code))] // read only by the WASI HTTP path
+const MAX_REPLY_BYTES: usize = 256 * 1024;
 
 /// Public request: who sits the exam. Never contains exam content.
 #[derive(Debug, Deserialize)]
@@ -141,6 +158,7 @@ async fn run() -> Result<(), String> {
         .collect()
         .await;
 
+    let answers = drop_repeated_ids(answers);
     let mut correct = 0u32;
     let mut failed_calls = 0u32;
     let mut response_ids = Vec::with_capacity(exam.questions.len());
@@ -217,6 +235,9 @@ fn parse_reply(body: &[u8]) -> Result<(String, String), String> {
     let reply: ChatResponse =
         serde_json::from_slice(body).map_err(|e| format!("unexpected response shape: {e}"))?;
     let id = reply.id.filter(|id| !id.is_empty()).ok_or("response had no id")?;
+    if id.len() > MAX_RESPONSE_ID_LEN || !id.bytes().all(|b| b.is_ascii_graphic()) {
+        return Err("response id is not a valid completion id".into());
+    }
     let choice = reply.choices.into_iter().next().ok_or("response had no choices")?;
     if let Some(reason @ ("length" | "content_filter")) = choice.finish_reason.as_deref() {
         return Err(format!("answer was cut off (finish_reason {reason})"));
@@ -229,6 +250,20 @@ fn parse_reply(body: &[u8]) -> Result<(String, String), String> {
     Ok((id, content))
 }
 
+/// A completion id may back only one answer. An endpoint that repeats one
+/// (to replay a single real NEAR AI completion as evidence for several
+/// answers) gets every repeat counted as a failed call.
+fn drop_repeated_ids(answers: Vec<Result<(String, String), String>>) -> Vec<Result<(String, String), String>> {
+    let mut seen = std::collections::HashSet::new();
+    answers
+        .into_iter()
+        .map(|answer| match answer {
+            Ok((id, _)) if !seen.insert(id.clone()) => Err("response id repeats an earlier answer's".to_string()),
+            other => other,
+        })
+        .collect()
+}
+
 /// Asks one question, but only in the time left before the run deadline.
 async fn ask_before(
     candidate: &Candidate,
@@ -237,11 +272,30 @@ async fn ask_before(
     max_tokens: u32,
     deadline: Instant,
 ) -> Result<(String, String), String> {
-    let remaining = deadline.saturating_duration_since(Instant::now());
-    if remaining.is_zero() {
-        return Err("skipped, time budget used up".into());
+    with_attempts(deadline, |limit| ask(candidate, api_key, prompt, max_tokens, limit)).await
+}
+
+/// Runs `attempt` with a per-attempt time limit of at most
+/// ATTEMPT_TIMEOUT_SECS and never past `deadline`, trying again only after a
+/// timeout. Any other error (a refusal, a cut-off answer) is final.
+async fn with_attempts<F, Fut>(deadline: Instant, attempt: F) -> Result<(String, String), String>
+where
+    F: Fn(Duration) -> Fut,
+    Fut: std::future::Future<Output = Result<(String, String), String>>,
+{
+    let mut last = Err("skipped, time budget used up".to_string());
+    for _ in 0..ATTEMPTS {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return last;
+        }
+        last = attempt(remaining.min(Duration::from_secs(ATTEMPT_TIMEOUT_SECS))).await;
+        match &last {
+            Err(e) if e == ATTEMPT_TIMED_OUT => continue,
+            _ => return last,
+        }
     }
-    ask(candidate, api_key, prompt, max_tokens, remaining).await
+    last
 }
 
 #[cfg(target_os = "wasi")]
@@ -252,6 +306,7 @@ async fn ask(
     max_tokens: u32,
     limit: Duration,
 ) -> Result<(String, String), String> {
+    use http_body_util::{BodyExt as _, Limited};
     use wstd::future::FutureExt as _;
     use wstd::http::{Body, Client, Request};
 
@@ -270,8 +325,16 @@ async fn ask(
                 .map_err(|e| format!("cannot build request: {e}"))?;
             let response = client.send(request).await.map_err(|e| format!("request failed: {e}"))?;
             let status = response.status();
-            let mut body = response.into_body();
-            let bytes = body.contents().await.map_err(|e| format!("cannot read body: {e}"))?.to_vec();
+            let body = response.into_body();
+            if body.content_length().is_some_and(|n| n > MAX_REPLY_BYTES as u64) {
+                return Err("reply is larger than allowed".to_string());
+            }
+            let bytes = Limited::new(body.into_boxed_body(), MAX_REPLY_BYTES)
+                .collect()
+                .await
+                .map_err(|_| "reply is larger than allowed or unreadable".to_string())?
+                .to_bytes()
+                .to_vec();
             Ok::<_, String>((status, bytes))
         }
     };
@@ -287,7 +350,7 @@ async fn ask(
     };
     call.timeout(wstd::time::Duration::from(limit))
         .await
-        .map_err(|_| "no answer before the run deadline".to_string())?
+        .map_err(|_| ATTEMPT_TIMED_OUT.to_string())?
 }
 
 #[cfg(not(target_os = "wasi"))]
@@ -378,6 +441,83 @@ mod tests {
         assert!(rejects_temperature(400, refusal));
         assert!(!rejects_temperature(400, br#"{"error":{"message":"unknown model"}}"#));
         assert!(!rejects_temperature(500, refusal));
+    }
+
+    fn far_deadline() -> Instant {
+        Instant::now() + Duration::from_secs(RUN_DEADLINE_SECS)
+    }
+
+    #[test]
+    fn a_timed_out_question_is_asked_once_more() {
+        let calls = std::cell::Cell::new(0);
+        let answer = futures::executor::block_on(with_attempts(far_deadline(), |limit| {
+            calls.set(calls.get() + 1);
+            assert_eq!(limit, Duration::from_secs(ATTEMPT_TIMEOUT_SECS), "each attempt stays under OutLayer's 30 s cap");
+            let n = calls.get();
+            async move { if n == 1 { Err(ATTEMPT_TIMED_OUT.to_string()) } else { Ok(("id".to_string(), "ANSWER: 4".to_string())) } }
+        }));
+        assert_eq!(answer, Ok(("id".to_string(), "ANSWER: 4".to_string())));
+        assert_eq!(calls.get(), 2);
+    }
+
+    #[test]
+    fn retries_stop_after_two_attempts() {
+        let calls = std::cell::Cell::new(0);
+        let answer = futures::executor::block_on(with_attempts(far_deadline(), |_| {
+            calls.set(calls.get() + 1);
+            async { Err(ATTEMPT_TIMED_OUT.to_string()) }
+        }));
+        assert_eq!(answer, Err(ATTEMPT_TIMED_OUT.to_string()));
+        assert_eq!(calls.get(), ATTEMPTS);
+    }
+
+    #[test]
+    fn other_errors_are_never_retried() {
+        let calls = std::cell::Cell::new(0);
+        let answer = futures::executor::block_on(with_attempts(far_deadline(), |_| {
+            calls.set(calls.get() + 1);
+            async { Err("answer was cut off (finish_reason length)".to_string()) }
+        }));
+        assert!(answer.unwrap_err().contains("cut off"));
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn nothing_is_asked_after_the_run_deadline() {
+        let answer = futures::executor::block_on(with_attempts(Instant::now(), |_| async { Ok(("id".into(), "x".into())) }));
+        assert_eq!(answer, Err("skipped, time budget used up".to_string()));
+    }
+
+    #[test]
+    fn the_last_attempt_never_runs_past_the_deadline() {
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let answer = futures::executor::block_on(with_attempts(deadline, |limit| {
+            assert!(limit <= Duration::from_secs(10));
+            async { Ok(("id".to_string(), "ANSWER: 1".to_string())) }
+        }));
+        assert!(answer.is_ok());
+    }
+
+    #[test]
+    fn ids_the_registry_would_refuse_are_failed_calls() {
+        for bad in ["a b", "line
+break", &"x".repeat(MAX_RESPONSE_ID_LEN + 1)] {
+            let body = format!(r#"{{"id":{},"choices":[{{"message":{{"content":"ANSWER: 4"}},"finish_reason":"stop"}}]}}"#, serde_json::to_string(bad).unwrap());
+            assert_eq!(parse_reply(body.as_bytes()).unwrap_err(), "response id is not a valid completion id", "{bad:?}");
+        }
+        let longest = "x".repeat(MAX_RESPONSE_ID_LEN);
+        let body = format!(r#"{{"id":"{longest}","choices":[{{"message":{{"content":"ANSWER: 4"}},"finish_reason":"stop"}}]}}"#);
+        assert!(parse_reply(body.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn a_repeated_completion_id_counts_as_a_failed_call() {
+        let ok = |id: &str| Ok((id.to_string(), "ANSWER: 1".to_string()));
+        let out = drop_repeated_ids(vec![ok("a"), ok("b"), ok("a"), Err("timed out".to_string()), ok("c")]);
+        assert_eq!(out[0], ok("a"));
+        assert_eq!(out[2], Err("response id repeats an earlier answer's".to_string()));
+        assert_eq!(out[3], Err("timed out".to_string()));
+        assert_eq!(out[4], ok("c"));
     }
 
     #[test]

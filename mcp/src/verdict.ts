@@ -167,7 +167,7 @@ export function checkExam(examId: string, cert: Certificate | null, nowMs: numbe
 
 const STATE_REASON: Record<Exclude<CertState, "active">, string> = {
   none: "holds no PROCTOR certificate",
-  stale: "has not passed a sitting or re-test in over 7 days, so its certificate is not current",
+  stale: `has not passed a sitting or re-test in over ${MAX_CERT_AGE_MS / 86_400_000} days, so its certificate is not current`,
   suspended: "failed its most recent re-test; its certificate is suspended until it passes again",
   revoked: "failed two re-tests in a row; its certificate was revoked",
 };

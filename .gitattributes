@@ -1,0 +1,3 @@
+# Exams are hashed byte for byte (the on-chain commitment), so their line
+# endings must never be converted on checkout.
+exams/*.json text eol=lf
