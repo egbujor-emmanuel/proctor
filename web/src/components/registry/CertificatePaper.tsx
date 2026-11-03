@@ -1,12 +1,13 @@
 "use client";
 
+import { Breakable } from "@/components/ui/Breakable";
 import { useGSAP } from "@gsap/react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useRef } from "react";
 
 import { certState } from "../../../../mcp/src/verdict";
-import { explorerAccount, explorerTx, FIRST_CERT_TX, REGISTRY, RUNNER_RELEASE } from "@/lib/config";
+import { CERT_TXS, explorerAccount, explorerTx, REGISTRY, runnerRelease, runnerVersion } from "@/lib/config";
 import type { Certificate } from "@/lib/registry";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { StatusBadge } from "./StatusBadge";
@@ -54,7 +55,12 @@ export function CertificatePaper({ cert }: { cert: Certificate }) {
   );
 
   const fields: Field[] = [
-    { label: "Runner build", value: short(cert.runner_hash), href: RUNNER_RELEASE, full: cert.runner_hash },
+    {
+      label: "Runner build",
+      value: `${runnerVersion(cert.runner_hash) ?? "build"} · ${short(cert.runner_hash)}`,
+      href: runnerRelease(cert.runner_hash),
+      full: cert.runner_hash,
+    },
     { label: "Exam commitment", value: short(cert.exam_commitment), full: cert.exam_commitment },
     { label: `Answers (${cert.response_count} NEAR AI completions)`, value: short(cert.response_ids_hash), full: cert.response_ids_hash },
     { label: "Issued", value: utc(isoFromNs(cert.issued_at_ns)), time: isoFromNs(cert.issued_at_ns) },
@@ -62,7 +68,8 @@ export function CertificatePaper({ cert }: { cert: Certificate }) {
     { label: "Surprise re-tests passed", value: String(cert.retests_passed) },
     { label: "Sitting paid by", value: cert.requested_by, href: explorerAccount(encodeURIComponent(cert.requested_by)) },
   ];
-  const evidence = cert.cert_id === 0 ? explorerTx(FIRST_CERT_TX) : explorerAccount(REGISTRY);
+  const sittingTx = CERT_TXS[cert.cert_id];
+  const evidence = sittingTx ? explorerTx(sittingTx) : explorerAccount(REGISTRY);
 
   return (
     <article
@@ -82,14 +89,14 @@ export function CertificatePaper({ cert }: { cert: Certificate }) {
         <div className="min-w-0">
           <p className="text-sm text-ink-muted">This certifies that</p>
           <h3 id={`cert-${cert.cert_id}-title`} className="hash mt-1 font-serif text-2xl leading-tight text-ink sm:text-3xl">
-            {cert.candidate_model}
+            <Breakable text={cert.candidate_model} />
           </h3>
           <p className="mt-3 text-sm text-ink-muted">
             passed the sealed exam <span className="hash text-ink">{cert.exam_id}</span>
           </p>
           {cert.candidate_endpoint && (
             <p className="mt-1 text-sm text-ink-muted">
-              answering at <span className="hash break-all text-ink">{cert.candidate_endpoint}</span>, where every re-test asks again
+              answering at <span className="hash text-ink"><Breakable text={cert.candidate_endpoint} /></span>, where every re-test asks again
             </p>
           )}
         </div>
@@ -112,7 +119,7 @@ export function CertificatePaper({ cert }: { cert: Certificate }) {
             <dt className="text-xs uppercase tracking-wide text-ink-muted">{f.label}</dt>
             <dd className="hash mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink">
               {f.href ? (
-                <a href={f.href} target="_blank" rel="noopener noreferrer" className="underline decoration-ink-muted underline-offset-4 hover:decoration-seal hover:text-seal">
+                <a href={f.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-6 items-center underline decoration-ink-muted underline-offset-4 hover:decoration-seal hover:text-seal">
                   <span aria-hidden={f.full ? true : undefined}>{f.value}</span>
                   {f.full && <span className="sr-only">{f.label} release on GitHub</span>}
                   <span className="sr-only"> (opens in a new tab)</span>
@@ -125,7 +132,7 @@ export function CertificatePaper({ cert }: { cert: Certificate }) {
               {f.full && (
                 <>
                   <code className="sr-only">{f.full}</code>
-                  <CopyButton text={f.full} label={`full ${f.label.toLowerCase()} hash`} className="min-h-7 px-2 py-0 text-[11px]" />
+                  <CopyButton text={f.full} label={`full ${f.label.toLowerCase()} hash`} className="min-h-7 px-2 py-0 text-xs" />
                 </>
               )}
             </dd>

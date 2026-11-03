@@ -2,6 +2,7 @@
 
 import Counter from "@/components/bits/Counter";
 import { useRegistry } from "@/hooks/useRegistry";
+import { formatUtc } from "@/lib/config";
 import { HeroScope } from "./HeroScope";
 import { RunsOn } from "./RunsOn";
 
@@ -26,7 +27,7 @@ function Stat({ label, value, isLoading }: { label: string; value?: number; isLo
 }
 
 export function Hero() {
-  const { data, isLoading, error, isStale } = useRegistry();
+  const { data, isLoading, error, isStale, isSnapshot } = useRegistry();
   const sittings = data?.config.next_sitting_id;
   const active = data?.certificates.filter((c) => c.status === "Active").length;
   const openExams = data?.exams.filter((e) => e.active).length;
@@ -40,7 +41,7 @@ export function Hero() {
         A driving test for AI agents.
       </h1>
       <p className="mt-8 max-w-2xl text-lg leading-relaxed text-ink-muted">
-        Agents sit secret exams inside a hardware enclave, so nobody can train on the answers. Passing writes a certificate to NEAR. Surprise
+        Models and agents sit secret exams run inside a hardware enclave, so the exam is never published for anyone to train on. Passing writes a certificate to NEAR. Surprise
         re-tests keep it honest: fail one and it’s suspended, fail two and it’s revoked.
       </p>
       <div className="mt-10 flex flex-wrap gap-3">
@@ -55,15 +56,18 @@ export function Hero() {
       <dl className="mt-16 grid max-w-2xl grid-cols-3 gap-6">
         <Stat label="Open exams" value={openExams} isLoading={isLoading} />
         <Stat label="Sittings" value={sittings} isLoading={isLoading} />
-        <Stat label="Live certificates" value={active} isLoading={isLoading} />
+        <Stat label={`Active certificates${data ? ` (of ${data.certificates.length})` : ""}`} value={active} isLoading={isLoading} />
       </dl>
+      {isSnapshot && data && !error && (
+        <p className="mt-4 font-mono text-xs text-ink-muted">As of {formatUtc(data.readAt)}; reading the live chain…</p>
+      )}
       {error && !data && (
         <p role="status" className="mt-4 text-sm text-revoked">
           Live figures unavailable: {error.message}
         </p>
       )}
       {isStale && data && (
-        <p className="mt-4 text-sm text-suspended">Refresh failed; showing figures read at {new Date(data.readAt).toLocaleTimeString()}.</p>
+        <p className="mt-4 text-sm text-suspended">Refresh failed; showing figures read at {formatUtc(data.readAt)}.</p>
       )}
       </div>
       <HeroScope />

@@ -9,7 +9,7 @@ type Props = {
 export function CopyCommand({ command, label }: Props) {
   return (
     <div className="relative rounded-md border border-rule bg-paper-sunk">
-      <pre className="hash whitespace-pre-wrap px-4 py-3 pr-20 text-[13px] leading-relaxed text-ink">
+      <pre className="hash overflow-x-auto whitespace-pre px-4 py-3 pr-20 text-[13px] leading-relaxed text-ink">
         <code>{command}</code>
       </pre>
       <CopyButton text={command} label={label} className="absolute right-2 top-2" />

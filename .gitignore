@@ -13,3 +13,4 @@ web/qa/lighthouse-*/
 .wrangler/
 demo-agent/dist/
 sentinel/dist/
+web/qa/gan/

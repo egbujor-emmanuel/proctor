@@ -5,7 +5,7 @@
 // zod/mini: the same validation at about a quarter of zod's bundle size.
 import * as z from "zod/mini";
 
-import { REGISTRY, RPC_URL } from "./config";
+import { REGISTRY, RPC_URLS } from "./config";
 
 const RPC_TIMEOUT_MS = 15_000;
 /** The contract's own page-size cap for list views. */
@@ -64,6 +64,8 @@ export const ConfigSchema = z.object({
   owner: z.string(),
   outlayer_account: z.string(),
   runner_hash: z.string(),
+  /** A proposed runner build waiting out the 24-hour timelock. */
+  pending_runner: z.optional(z.nullable(z.object({ runner_hash: z.string(), effective_at_ns: timestampNs }))),
   exams: u32,
   certificates: u32,
   next_sitting_id: count,
@@ -97,34 +99,53 @@ function toBase64(text: string): string {
   return btoa(binary);
 }
 
-async function rpc(method: string, args: Record<string, unknown>, fetchImpl: typeof fetch): Promise<unknown> {
-  let response: Response;
-  try {
-    response = await fetchImpl(RPC_URL, {
+/**
+ * POSTs `body` to every RPC node at once and returns the first OK response;
+ * the others are aborted. Fails only when every node failed.
+ */
+async function postFirst(body: string, fetchImpl: typeof fetch): Promise<Response> {
+  const losers = RPC_URLS.map(() => new AbortController());
+  const attempts = RPC_URLS.map(async (url, i) => {
+    const response = await fetchImpl(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "proctor-web",
-        method: "query",
-        params: {
-          request_type: "call_function",
-          finality: "final",
-          account_id: REGISTRY,
-          method_name: method,
-          args_base64: toBase64(JSON.stringify(args)),
-        },
-      }),
-      signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
+      body,
+      signal: AbortSignal.any([losers[i]!.signal, AbortSignal.timeout(RPC_TIMEOUT_MS)]),
     });
-  } catch (cause) {
-    const timedOut = cause instanceof DOMException && cause.name === "TimeoutError";
+    if (!response.ok) throw new RegistryError(`NEAR RPC answered HTTP ${response.status}.`);
+    return { response, i };
+  });
+  try {
+    const { response, i } = await Promise.any(attempts);
+    losers.forEach((controller, j) => j !== i && controller.abort());
+    return response;
+  } catch (all) {
+    const first = all instanceof AggregateError ? all.errors[0] : all;
+    if (first instanceof RegistryError) throw first;
+    const timedOut = first instanceof DOMException && first.name === "TimeoutError";
     throw new RegistryError(
       timedOut ? "NEAR testnet took too long to answer. Try again." : "Could not reach NEAR testnet. Check your connection and try again.",
-      { cause },
+      { cause: first },
     );
   }
-  if (!response.ok) throw new RegistryError(`NEAR RPC answered HTTP ${response.status}.`);
+}
+
+async function rpc(method: string, args: Record<string, unknown>, fetchImpl: typeof fetch): Promise<unknown> {
+  const response = await postFirst(
+    JSON.stringify({
+      jsonrpc: "2.0",
+      id: "proctor-web",
+      method: "query",
+      params: {
+        request_type: "call_function",
+        finality: "final",
+        account_id: REGISTRY,
+        method_name: method,
+        args_base64: toBase64(JSON.stringify(args)),
+      },
+    }),
+    fetchImpl,
+  );
 
   let body: unknown;
   try {
