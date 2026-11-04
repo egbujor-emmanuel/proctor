@@ -3,7 +3,7 @@ import { explorerAccount, REGISTRY } from "@/lib/config";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 
 const EXAM = "near-protocol-basics-demo-v1";
-const MODEL = "deepseek-ai/DeepSeek-V4.1-Flash-1017";
+const MODEL = "anthropic/claude-sonnet-5-5";
 /** PROCTOR's public demo agent; GET / on it says which model answers right now. */
 const DEMO_AGENT = "https://proctor-demo-agent.attrito.workers.dev/v1/chat/completions";
 

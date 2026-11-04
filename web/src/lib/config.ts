@@ -45,4 +45,5 @@ export function explorerAccount(account: string): string {
 export const CERT_TXS: Record<number, string> = {
   0: "4ewFE77FvYXLTzA5dfBWWanntAQeyfFEXAvZFo6LaoR1",
   1: "9Jwx3jXp8We4a77VVBNv7qGLKpL48UC3zF8uf7CX9yT5",
+  2: "2gk5NcRM2b4DVewk6K9JhBqNzuj3SDsEH1MnXW3bw6Au",
 };

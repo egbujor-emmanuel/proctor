@@ -19,6 +19,7 @@ type Status =
   | { kind: "error"; message: string };
 
 const EXAMPLES: { kind: CandidateKind; value: string; label: string }[] = [
+  { kind: "model", value: "anthropic/claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
   { kind: "model", value: "deepseek-ai/DeepSeek-V4.1-Flash-1017", label: "DeepSeek V4.1 Flash" },
   { kind: "model", value: "openai/gpt-5.4-nano", label: "GPT-5.4 nano" },
   { kind: "agent", value: "attrito.testnet/demo-agent", label: "agent: demo-agent" },
