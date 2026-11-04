@@ -97,6 +97,8 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--seal); outline-
 .timeline { display: grid; gap: clamp(.5rem, 1.4vh, .9rem); margin-top: clamp(1rem, 3vh, 2rem); }
 .step { display: grid; grid-template-columns: minmax(9rem, 12rem) 1fr auto; gap: clamp(.6rem, 1.6vw, 1.4rem); align-items: center; background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 3px; padding: clamp(.6rem, 1.4vw, 1rem) clamp(.8rem, 1.6vw, 1.3rem); }
 @media (max-width: 520px) { .step { grid-template-columns: 1fr; gap: .3rem; } }
+/* phones: the timeline keeps its pills and text; the time labels go */
+@media (max-width: 520px), (max-height: 500px) { .step .tx { display: none; } .step { padding: .45rem .7rem; } .timeline { gap: .45rem; } }
 .tx { font-family: var(--mono); font-size: var(--small); color: var(--ink-muted); }
 
 table { width: 100%; border-collapse: collapse; margin-top: clamp(.8rem, 2.4vh, 1.6rem); font-size: clamp(.8rem, 1.25vw, 1.05rem); }
@@ -231,7 +233,7 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
 <!-- 8. Re-tests cut both ways -->
 <section class="slide" aria-label="Re-tests cut both ways">
   <div class="slide-content">
-    <p class="eyebrow reveal">Live on NEAR testnet</p>
+    <p class="eyebrow reveal hide-short">Live on NEAR testnet</p>
     <h2 class="reveal">Re-tests cut both ways.</h2>
     <div class="timeline">
       <div class="step reveal"><span class="pill ok">Active 3/5</span><span>DeepSeek V4.1 Flash is certified and passes three surprise re-tests.</span><span class="tx">cert 0</span></div>
