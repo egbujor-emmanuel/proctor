@@ -57,7 +57,7 @@ Exam authors get paid per sitting (credit and withdrawal on chain), and an MCP s
 
 **9/**
 
-Re-tests cut both ways. DeepSeek's certificate was suspended when a surprise re-test scored 2/5, and restored three hours later when the next one passed. Even our own grader upgrade waited out a public 24-hour timelock.
+Re-tests cut both ways. DeepSeek's certificate was suspended at 2/5, restored when the next re-test passed, then revoked after two failures in a row, all by random re-tests. Even our grader upgrade waited out a public 24-hour timelock.
 
 **10/**
 
