@@ -5,7 +5,10 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-/// Instruction given to every candidate so answers can be graded mechanically.
+pub mod sitting;
+
+/// The fixed instruction of the classic format, still used by `proctor-bench`.
+/// Sittings frame each request differently instead (see `sitting::Framing`).
 pub const ANSWER_INSTRUCTION: &str = "You are taking a test. Think as needed, then put your \
 final answer alone on the last line in the form: ANSWER: <answer>";
 
@@ -22,6 +25,15 @@ pub struct Exam {
     pub title: String,
     /// Passing score in basis points (7000 = 70%).
     pub pass_mark_bps: u32,
+    /// Questions asked per sitting, drawn at random from `questions` inside
+    /// the enclave. Absent: every question is asked. This is the
+    /// `question_count` the exam is registered with on chain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sample: Option<u32>,
+    /// A NEAR AI model (one hosted in a TEE, so the exam stays private) that
+    /// rewords each question before it is asked. Absent: no rewording.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reword_model: Option<String>,
     pub questions: Vec<Question>,
 }
 
@@ -29,6 +41,9 @@ pub struct Exam {
 pub struct Question {
     pub id: String,
     pub prompt: String,
+    /// Other phrasings of the same question; each sitting picks one at random.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<String>,
     pub grader: Grader,
 }
 
@@ -62,6 +77,7 @@ pub enum ExamError {
     Empty,
     InvalidPassMark(u32),
     TooManyQuestions(usize),
+    InvalidSample(u32),
     InvalidQuestion { index: usize, reason: &'static str },
 }
 
@@ -72,6 +88,7 @@ impl std::fmt::Display for ExamError {
             Self::Empty => write!(f, "exam has no questions"),
             Self::InvalidPassMark(bps) => write!(f, "pass mark {bps} bps is above {BPS_SCALE}"),
             Self::TooManyQuestions(n) => write!(f, "exam has {n} questions; the limit is {MAX_QUESTIONS}"),
+            Self::InvalidSample(k) => write!(f, "sample of {k} must be between 1 and the number of questions"),
             Self::InvalidQuestion { index, reason } => write!(f, "question {index}: {reason}"),
         }
     }
@@ -92,6 +109,11 @@ pub fn parse_exam(bytes: &[u8]) -> Result<Exam, ExamError> {
     if exam.questions.len() > MAX_QUESTIONS {
         return Err(ExamError::TooManyQuestions(exam.questions.len()));
     }
+    if let Some(k) = exam.sample {
+        if k == 0 || k as usize > exam.questions.len() {
+            return Err(ExamError::InvalidSample(k));
+        }
+    }
     let mut seen = std::collections::HashSet::new();
     for (index, question) in exam.questions.iter().enumerate() {
         let invalid = |reason| ExamError::InvalidQuestion { index, reason };
@@ -103,6 +125,9 @@ pub fn parse_exam(bytes: &[u8]) -> Result<Exam, ExamError> {
         }
         if question.prompt.trim().is_empty() {
             return Err(invalid("prompt is empty"));
+        }
+        if question.variants.iter().any(|v| v.trim().is_empty()) {
+            return Err(invalid("a variant is empty"));
         }
         validate_grader(&question.grader).map_err(invalid)?;
     }
@@ -143,12 +168,23 @@ pub fn commitment(exam_bytes: &[u8]) -> String {
     hex::encode(Sha256::digest(exam_bytes))
 }
 
+/// Questions one sitting asks: the exam's `sample`, or all of them.
+pub fn asked_count(exam: &Exam) -> u32 {
+    exam.sample.unwrap_or(exam.questions.len() as u32)
+}
+
 /// The candidate's final answer: the text after the last `ANSWER:` marker, or
 /// the last non-empty line when no marker is present.
 pub fn extract_final_answer(response: &str) -> &str {
-    let marker = "ANSWER:";
+    extract_answer_after(response, "ANSWER:")
+}
+
+/// The text after the last `marker` (case-insensitive), or the last non-empty
+/// line when the marker is absent.
+pub fn extract_answer_after<'a>(response: &'a str, marker: &str) -> &'a str {
+    let marker = marker.to_ascii_uppercase();
     let upper = response.to_ascii_uppercase();
-    if let Some(pos) = upper.rfind(marker) {
+    if let Some(pos) = upper.rfind(&marker) {
         let rest = &response[pos + marker.len()..];
         // The answer may sit on the marker's line or on the next non-empty one.
         return rest.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or("");
@@ -169,9 +205,14 @@ fn normalize(text: &str) -> String {
         .to_lowercase()
 }
 
-/// Grades one full model response against a grader.
+/// Grades one full model response against a grader (classic `ANSWER:` format).
 pub fn grade(grader: &Grader, response: &str) -> bool {
-    let answer = extract_final_answer(response);
+    grade_after(grader, response, "ANSWER:")
+}
+
+/// Grades a response whose final answer follows `marker`.
+pub fn grade_after(grader: &Grader, response: &str, marker: &str) -> bool {
+    let answer = extract_answer_after(response, marker);
     match grader {
         Grader::Exact { accepted } => {
             let got = normalize(answer);
@@ -209,11 +250,14 @@ fn choice_letter(answer: &str) -> Option<char> {
 fn parse_number(text: &str) -> Option<f64> {
     text.split_whitespace()
         .map(|token| {
-            token
-                .replace(',', "")
-                .trim_matches(|c: char| !(c.is_ascii_digit() || c == '-' || c == '.'))
-                .trim_end_matches('.')
-                .to_string()
+            let token = token.replace(',', "");
+            let trimmed = token.trim_matches(|c: char| !(c.is_ascii_digit() || c == '-' || c == '.'));
+            // A hyphen straight after a letter joins a label to its number
+            // ("NEP-141", "v-2"); it is not a minus sign.
+            let start = token.len() - token.trim_start_matches(|c: char| !(c.is_ascii_digit() || c == '-' || c == '.')).len();
+            let after_letter = start > 0 && token[..start].chars().last().is_some_and(char::is_alphabetic);
+            let trimmed = if after_letter { trimmed.trim_start_matches('-') } else { trimmed };
+            trimmed.trim_end_matches('.').to_string()
         })
         .filter(|token| token.chars().any(|c| c.is_ascii_digit()))
         .find_map(|token| token.parse::<f64>().ok().filter(|n| n.is_finite()))
@@ -227,9 +271,11 @@ pub fn score_bps(correct: u32, total: u32) -> u32 {
     ((u64::from(correct) * u64::from(BPS_SCALE)) / u64::from(total)) as u32
 }
 
-/// Builds the public result for a sitting.
+/// Builds the public result for a sitting. `total` is the questions it
+/// asked (`asked_count`), which the registry checks against the exam's
+/// registered question count.
 pub fn result(exam: &Exam, exam_bytes: &[u8], correct: u32) -> ExamResult {
-    let total = exam.questions.len() as u32;
+    let total = asked_count(exam);
     let score = score_bps(correct, total);
     ExamResult {
         exam_commitment: commitment(exam_bytes),
@@ -256,6 +302,42 @@ mod tests {
     fn parses_valid_exam() {
         let exam = parse_exam(&sample_bytes()).unwrap();
         assert_eq!(exam.questions.len(), 2);
+    }
+
+    #[test]
+    fn a_sample_must_fit_the_pool_and_sets_the_asked_count() {
+        let pool = |sample: u32| {
+            format!(
+                r#"{{"exam_id":"p","title":"P","pass_mark_bps":5000,"sample":{sample},"questions":[
+                {{"id":"a","prompt":"1+1?","grader":{{"type":"number","value":2,"tolerance":0}}}},
+                {{"id":"b","prompt":"2+2?","variants":["Two plus two?"],"grader":{{"type":"number","value":4,"tolerance":0}}}}]}}"#
+            )
+        };
+        let exam = parse_exam(pool(1).as_bytes()).unwrap();
+        assert_eq!(asked_count(&exam), 1);
+        assert_eq!(result(&exam, b"x", 1).total, 1);
+        assert_eq!(parse_exam(pool(0).as_bytes()).unwrap_err(), ExamError::InvalidSample(0));
+        assert_eq!(parse_exam(pool(3).as_bytes()).unwrap_err(), ExamError::InvalidSample(3));
+        assert_eq!(asked_count(&parse_exam(&sample_bytes()).unwrap()), 2);
+    }
+
+    #[test]
+    fn grades_by_the_marker_the_question_asked_for() {
+        let grader = Grader::Number { value: 80.0, tolerance: 0.0 };
+        assert!(grade_after(&grader, "120 / 1.5 = 80
+Final answer: 80", "Final answer:"));
+        assert!(grade_after(&grader, "so the answer is: 80 km/h", "So the answer is:"));
+        assert!(!grade_after(&grader, "Final answer: 75", "Final answer:"));
+    }
+
+    #[test]
+    fn a_hyphen_after_a_label_is_not_a_minus_sign() {
+        let grader = Grader::Number { value: 141.0, tolerance: 0.0 };
+        assert!(grade(&grader, "ANSWER: NEP-141"));
+        assert!(grade(&grader, "ANSWER: 141"));
+        let negative = Grader::Number { value: -3.0, tolerance: 0.0 };
+        assert!(grade(&negative, "ANSWER: -3"));
+        assert!(grade(&negative, "ANSWER: (-3)"));
     }
 
     #[test]

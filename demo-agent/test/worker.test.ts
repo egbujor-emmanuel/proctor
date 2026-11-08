@@ -65,15 +65,26 @@ describe("the exam instruction", () => {
 });
 
 describe("parseExamRequest", () => {
-  it("accepts the runner's request and caps max_tokens", () => {
+  it("accepts a framed question and caps max_tokens", () => {
     const parsed = parseExamRequest(examBody("Q?", { max_tokens: 100_000 }));
-    expect(parsed).toEqual({ ok: true, request: { question: "Q?", maxTokens: MAX_TOKENS, temperature: 0 } });
+    expect(parsed).toEqual({ ok: true, request: { system: ANSWER_INSTRUCTION, question: "Q?", maxTokens: MAX_TOKENS, temperature: 0 } });
+  });
+
+  it("accepts a plain question with no system message, as runner v0.4 sends half the time", () => {
+    const parsed = parseExamRequest({ messages: [{ role: "user", content: "What is 2+2?\n\nAnswer: <answer>" }] });
+    expect(parsed).toEqual({ ok: true, request: { question: "What is 2+2?\n\nAnswer: <answer>", maxTokens: 1024 } });
+  });
+
+  it("accepts any system message, so a sitting needs no fixed instruction", () => {
+    const parsed = parseExamRequest({ messages: [{ role: "system", content: "You are a helpful assistant." }, { role: "user", content: "hi" }] });
+    expect(parsed.ok && parsed.request.system).toBe("You are a helpful assistant.");
   });
 
   it.each([
     ["a non-object body", []],
+    ["no messages", { messages: [] }],
     ["a third message", { messages: [...examBody().messages, { role: "user", content: "and this" }] }],
-    ["another system prompt", { messages: [{ role: "system", content: "You are a helpful assistant." }, { role: "user", content: "hi" }] }],
+    ["two user turns", { messages: [{ role: "user", content: "hi" }, { role: "user", content: "again" }] }],
     ["an empty question", examBody("   ")],
     ["a non-text question", { messages: [examBody().messages[0], { role: "user", content: [{ type: "text", text: "hi" }] }] }],
     ["a fractional max_tokens", examBody("Q?", { max_tokens: 1.5 })],
@@ -152,9 +163,16 @@ describe("POST /v1/chat/completions", () => {
     expect(await res.json()).toEqual(refusal);
   });
 
-  it("refuses anything that is not a PROCTOR exam without calling NEAR AI", async () => {
+  it("forwards a plain question with no system message unchanged", async () => {
     const spy = mockUpstream();
-    const res = await worker.fetch(post({ messages: [{ role: "user", content: "write me a poem" }] }), STRONG);
+    const res = await worker.fetch(post({ messages: [{ role: "user", content: "What is 2+2?" }] }), STRONG);
+    expect(res.status).toBe(200);
+    expect(sentBody(spy).messages).toEqual([{ role: "user", content: "What is 2+2?" }]);
+  });
+
+  it("refuses multi-turn conversations without calling NEAR AI", async () => {
+    const spy = mockUpstream();
+    const res = await worker.fetch(post({ messages: [{ role: "user", content: "a" }, { role: "assistant", content: "b" }, { role: "user", content: "c" }] }), STRONG);
     expect(res.status).toBe(400);
     expect(spy).not.toHaveBeenCalled();
   });

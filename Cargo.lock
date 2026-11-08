@@ -103,7 +103,7 @@ dependencies = [
 
 [[package]]
 name = "exam-runner"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "futures",
  "http-body-util",
@@ -374,7 +374,7 @@ dependencies = [
 
 [[package]]
 name = "proctor-bench"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "proctor-core",
  "serde",
@@ -384,7 +384,7 @@ dependencies = [
 
 [[package]]
 name = "proctor-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "hex",
  "serde",

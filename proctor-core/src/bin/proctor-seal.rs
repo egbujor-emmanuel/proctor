@@ -38,7 +38,7 @@ fn seal(exam_path: &str, secret_out: Option<&String>) -> Result<(), String> {
     let summary = json!({
         "exam_id": exam.exam_id,
         "commitment": commitment(&bytes),
-        "question_count": exam.questions.len(),
+        "question_count": proctor_core::asked_count(&exam),
         "pass_mark_bps": exam.pass_mark_bps,
         "bytes": bytes.len(),
     });
