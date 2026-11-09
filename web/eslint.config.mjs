@@ -19,6 +19,8 @@ const eslintConfig = defineConfig([
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([
+    // Standalone Node scripts (CommonJS), not site code.
+    "e2e/**",
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",

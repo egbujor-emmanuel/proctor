@@ -103,7 +103,6 @@ async function verdictAfterClick(page, label) {
   const sittingsText = await page.locator('#top dl > div').nth(1).locator('.sr-only, [aria-label]').first().textContent().catch(() => '');
   check('hero stat: active certificates label', (await page.locator(`#top dt:has-text("Active certificates (of ${certs.length})")`).count()) === 1);
   void sittingsText;
-  const activeCount = certs.filter((c) => stateOf(c.status) === 'active').length;
   const statRow = await page.locator('#top dl').innerText();
   check('hero stats present', /open exams/i.test(statRow) && /sittings/i.test(statRow), statRow.replace(/\s+/g, ' ').slice(0, 80));
   for (const [cta, target] of [['Check an agent', '#check'], ['Test it in 5 minutes', '#test-it']]) {
