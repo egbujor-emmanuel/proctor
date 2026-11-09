@@ -14,6 +14,7 @@
 import { createHash } from "node:crypto";
 
 import { secp256k1 } from "@noble/curves/secp256k1.js";
+import { checkHardware, type AttestDeps, type HardwareCheck, type TeeAttestation } from "./attest.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { z } from "zod";
 
@@ -167,13 +168,21 @@ const SignatureSchema = z.object({
   signature_kind: z.string().optional(),
 });
 const ReportSchema = z.object({
-  model_attestations: z.array(z.object({ signing_address: z.string().optional() })).optional(),
-  gateway_attestation: z.object({ signing_address: z.string().optional() }).optional(),
+  model_attestations: z.array(z.looseObject({ signing_address: z.string().optional() })).optional(),
+  gateway_attestation: z.looseObject({ signing_address: z.string().optional() }).optional(),
 });
+
+/** One model's attestation report: the listed keys, plus the raw evidence and the nonce we sent. */
+export interface Report {
+  model: string[];
+  gateway?: string;
+  nonce: string;
+  raw: z.infer<typeof ReportSchema>;
+}
 
 /** NEAR AI attestation reports, cached per model; a failed lookup is not cached. */
 export class Attestations {
-  private cache = new Map<string, Promise<{ model: string[]; gateway?: string }>>();
+  private cache = new Map<string, Promise<Report>>();
   constructor(
     private apiKey: string,
     private doFetch: Fetch = fetch,
@@ -202,7 +211,22 @@ export class Attestations {
     return {
       model: (report.data.model_attestations ?? []).flatMap((a) => (a.signing_address ? [a.signing_address.toLowerCase()] : [])),
       gateway: report.data.gateway_attestation?.signing_address?.toLowerCase(),
+      nonce,
+      raw: report.data,
     };
+  }
+
+  /**
+   * Hardware checks on the TEEs behind a model's report: the gateway, and
+   * unless `gatewayOnly` the model's own TEE(s). See attest.ts.
+   */
+  async hardware(model: string, gatewayOnly = false, deps?: AttestDeps): Promise<HardwareCheck[]> {
+    const { raw, nonce } = await this.get(model);
+    const tees: [string, unknown][] = [["NEAR AI gateway", raw.gateway_attestation]];
+    if (!gatewayOnly) for (const a of raw.model_attestations ?? []) tees.push([`${model} TEE`, a]);
+    return Promise.all(
+      tees.filter(([, a]) => a && typeof (a as TeeAttestation).intel_quote === "string").map(([tee, a]) => checkHardware(tee, a as TeeAttestation, nonce, deps)),
+    );
   }
 }
 

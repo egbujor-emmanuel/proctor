@@ -9,7 +9,7 @@
 // check ran and passed: 1 if any failed or none could run, 2 on an error.
 
 import { createRegistryReader } from "./near.js";
-import { Attestations, checkAnswer, readTransaction, responseIdsHash, sittingFromTransaction, type AnswerCheck } from "./verify.js";
+import { Attestations, checkAnswer, DEFAULT_ATTESTATION_MODEL, readTransaction, responseIdsHash, sittingFromTransaction, type AnswerCheck } from "./verify.js";
 
 // Archival: regular nodes keep about two days of blocks, so any older sitting
 // would come back NOT_OBSERVED.
@@ -91,6 +91,20 @@ async function main(): Promise<void> {
   }
   const checks = await Promise.all(sitting.responseIds.map((id) => checkAnswer(id, apiKey, attestations, fetch, { expectModel })));
   for (const c of checks) check(c.ok, `${c.id}: ${describe(c)}`);
+
+  // The hardware under those keys: every TEE the signatures relied on, once each.
+  if (process.argv.includes("--no-hardware")) return;
+  const models = [...new Set(checks.filter((c) => c.kind === "provider_tee" && c.model).map((c) => c.model!))];
+  const reports = models.length > 0 ? models.map((m) => [m, false] as const) : [[DEFAULT_ATTESTATION_MODEL, true] as const];
+  const seen = new Set<string>();
+  for (const [model, gatewayOnly] of reports) {
+    for (const h of await attestations.hardware(model, gatewayOnly)) {
+      if (seen.has(h.tee)) continue;
+      seen.add(h.tee);
+      const failedChecks = h.checks.filter((c) => !c.ok).map((c) => `${c.name}${c.detail ? ` (${c.detail})` : ""}`);
+      check(h.ok, `hardware: ${h.tee}: ${h.ok ? h.checks.map((c) => c.detail ?? c.name).filter(Boolean).join("; ") : failedChecks.join("; ")}`);
+    }
+  }
 }
 
 main().then(
