@@ -85,7 +85,11 @@ async function verdictAfterClick(page, label) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await context.newPage();
   const consoleErrors = [];
-  page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text().slice(0, 140)));
+  // The site races its reads across several RPC nodes and keeps the first
+  // answer, so a node that loses (or fails) the race is not an error.
+  const RPC_NODES = ['https://rpc.testnet.fastnear.com', 'https://rpc.testnet.near.org'];
+  const fromRpcRace = (m) => RPC_NODES.some((u) => (m.location().url || '').startsWith(u) || m.text().includes(`fetch at '${u}`));
+  page.on('console', (m) => m.type() === 'error' && !fromRpcRace(m) && consoleErrors.push(m.text().slice(0, 140)));
   page.on('pageerror', (e) => consoleErrors.push(String(e).slice(0, 140)));
 
   // ---- load ----
@@ -125,7 +129,7 @@ async function verdictAfterClick(page, label) {
   await pause.click();
 
   // ---- header nav ----
-  for (const [label, id] of [['Test it', 'test-it'], ['How it works', 'how'], ['Registry', 'registry'], ['Check an agent', 'check'], ['Trust model', 'trust']]) {
+  for (const [label, id] of [['Test it', 'test-it'], ['How it works', 'how'], ['Index', 'index'], ['Registry', 'registry'], ['Check an agent', 'check'], ['Trust model', 'trust']]) {
     await page.locator(`header nav a:has-text("${label}")`).first().click();
     await page.waitForTimeout(1200);
     const top = await page.locator(`#${id}`).evaluate((el) => el.getBoundingClientRect().top);
@@ -133,6 +137,19 @@ async function verdictAfterClick(page, label) {
   }
   const runnerHref = await page.locator('header a:has-text("Runner build")').getAttribute('href');
   check('header "Runner build" link', runnerHref?.includes('proctor-runner/releases'), runnerHref);
+
+  // ---- PROCTOR Index: one row per candidate and exam, latest certificate ----
+  const pairs = new Map();
+  for (const c of certs) {
+    const key = `${c.candidate_model}|${c.exam_id}`;
+    if (!pairs.has(key) || c.cert_id > pairs.get(key).cert_id) pairs.set(key, c);
+  }
+  const indexRows = page.locator('#index tbody tr');
+  check('Index has one row per candidate and exam', (await indexRows.count()) === pairs.size, `${await indexRows.count()} rows, ${pairs.size} expected`);
+  const indexText = (await page.locator('#index').innerText()).replace(/\s+/g, ' ');
+  const missing = [...pairs.values()].filter((c) => !indexText.includes(c.candidate_model));
+  check('Index lists every certified candidate', missing.length === 0, missing.map((c) => c.candidate_model).join(', ') || `${pairs.size} candidates`);
+  check('Index states how many hold a live certificate', new RegExp(`\\d+ of ${pairs.size} holding a live certificate`).test(indexText), indexText.match(/\d+ of \d+ holding[^·]*/)?.[0]);
 
   // ---- test it: copy buttons copy the exact command ----
   const commands = page.locator('#test-it pre code');
@@ -208,11 +225,15 @@ async function verdictAfterClick(page, label) {
   const hrefs = [...new Set(await page.locator('a[href^="http"]').evaluateAll((as) => as.map((a) => a.href)))];
   const bad = [];
   for (const href of hrefs) {
-    const status = await linkStatus(context.request, href);
+    let status = await linkStatus(context.request, href);
+    // GitHub rate-limits repeated runs; wait and ask once more.
+    if (status === 429) {
+      await new Promise((r) => setTimeout(r, 20000));
+      status = await linkStatus(context.request, href);
+    }
     if (status !== 200) bad.push(`${status} ${href}`);
   }
-  const repoOnly = bad.every((b) => b.includes('github.com/egbujor-emmanuel/proctor') && !b.includes('proctor-runner'));
-  check(`external links return 200 (${hrefs.length} checked)`, bad.length === 0, bad.length ? `${bad.length} not 200${repoOnly ? ', all on the private repo' : ''}: ${bad.slice(0, 4).join(' | ')}` : '');
+  check(`external links return 200 (${hrefs.length} checked)`, bad.length === 0, bad.length ? `${bad.length} not 200: ${bad.slice(0, 4).join(' | ')}` : '');
   const blankWithoutRel = await page.locator('a[target=_blank]:not([rel*=noopener])').count();
   check('new-tab links carry rel=noopener', blankWithoutRel === 0);
 
