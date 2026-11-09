@@ -42,19 +42,32 @@ export interface AttestDeps {
   now: () => number;
 }
 
+/** NVIDIA's and Intel's services are sometimes slow; a network error, timeout or 5xx is tried once more. */
+async function fetchWithRetry(url: string, init: Omit<RequestInit, "signal">, timeoutMs: number): Promise<Response> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+      if (res.status < 500 || attempt === 2) return res;
+    } catch (error) {
+      if (attempt === 2) throw error;
+    }
+  }
+}
+
 export const liveDeps: AttestDeps = {
   verifyQuote: async (quote, nowSeconds) => {
-    const result = verifyQuote(quote, await getCollateralFromPcs(quote), nowSeconds);
+    const collateral = await getCollateralFromPcs(quote).catch(() => getCollateralFromPcs(quote));
+    const result = verifyQuote(quote, collateral, nowSeconds);
     // A TDX report body (TD10/TD15); the fields read here are byte arrays.
     return { status: result.status, report: result.report.data as unknown as Record<string, Uint8Array> };
   },
   nras: async (payload) => {
-    const res = await fetch(NRAS_URL, { method: "POST", headers: { "content-type": "application/json" }, body: payload, signal: AbortSignal.timeout(60_000) });
+    const res = await fetchWithRetry(NRAS_URL, { method: "POST", headers: { "content-type": "application/json" }, body: payload }, 60_000);
     if (!res.ok) throw new Error(`NRAS answered HTTP ${res.status}`);
     return res.json();
   },
   nrasKeys: async () => {
-    const res = await fetch(NRAS_JWKS_URL, { signal: AbortSignal.timeout(30_000) });
+    const res = await fetchWithRetry(NRAS_JWKS_URL, {}, 30_000);
     if (!res.ok) throw new Error(`NRAS keys: HTTP ${res.status}`);
     return res.json() as Promise<{ keys: { kid: string; x: string; y: string }[] }>;
   },
