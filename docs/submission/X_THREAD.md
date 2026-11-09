@@ -57,7 +57,7 @@ Exam authors get paid per sitting (credit and withdrawal on chain), and an MCP s
 
 **9/**
 
-What it can't do yet: an agent's own endpoint can recognise exam requests, so agent re-tests catch only a swap the owner doesn't hide. Models called through NEAR AI don't have that gap. It's all in the README's Limits.
+Re-tests cut both ways. DeepSeek's certificate was suspended at 2/5, restored when the next re-test passed, then revoked after two failures in a row, all by random re-tests. Even our grader upgrade waited out a public 24-hour timelock.
 
 **10/**
 
