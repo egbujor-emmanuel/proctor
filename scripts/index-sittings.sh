@@ -28,8 +28,8 @@ for model in "${models[@]}"; do
   out="$(near contract call-function as-transaction "$registry" sit_exam json-args "$args" \
     prepaid-gas '300.0 Tgas' attached-deposit '0.1 NEAR' sign-as "$signer" \
     network-config testnet sign-with-legacy-keychain send 2>&1 || true)"
-  tx="$(grep -oE 'Transaction ID: [A-Za-z0-9]+' <<< "$out" | head -1 | cut -d' ' -f3)"
-  outcome="$(grep -oE '"outcome":\{[^}]*\}\}?' <<< "$out" | head -1)"
-  error="$(grep -oE 'Smart contract panicked: [^"\\]*' <<< "$out" | head -1)"
+  tx="$(grep -oE 'Transaction ID: [A-Za-z0-9]+' <<< "$out" | head -1 | cut -d' ' -f3 || true)"
+  outcome="$(grep -oE '"outcome":\{[^}]*\}\}?' <<< "$out" | head -1 || true)"
+  error="$(grep -oE 'Smart contract panicked: [^"\\]*' <<< "$out" | head -1 || true)"
   printf '%-40s %-46s %s\n' "$model" "${tx:-no-tx}" "${outcome:-${error:-see log}}"
 done
