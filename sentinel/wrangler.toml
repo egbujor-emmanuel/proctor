@@ -15,7 +15,7 @@ RPC_URL = "https://rpc.testnet.fastnear.com"
 CHANCE = "0.2"
 # The exams it patrols. Anyone can register an exam, so certificates on
 # throwaway ones are left out of the draw.
-EXAMS = "near-protocol-basics-demo-v1"
+EXAMS = "near-protocol-basics-demo-v1,near-reasoning-pool-v1"
 
 # Keep each tick's log line in Workers Logs.
 [observability]
