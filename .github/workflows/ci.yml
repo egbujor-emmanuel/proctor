@@ -193,6 +193,28 @@ jobs:
       - run: npm test
       - run: npx wrangler deploy --dry-run --outdir dist
 
+  market-agent:
+    name: Agent Market agent Worker (typecheck, tests, bundle)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: market-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            market-agent/package-lock.json
+            mcp/package-lock.json
+      # The agent shares the MCP server's verdict code, which needs the MCP package's dependencies.
+      - run: npm ci --prefix ../mcp
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npx wrangler deploy --dry-run --outdir dist
+
   web:
     name: Website (typecheck, lint, tests, static build)
     runs-on: ubuntu-latest
