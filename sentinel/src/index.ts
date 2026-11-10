@@ -9,6 +9,7 @@
 
 import { Account, type KeyPairString, JsonRpcProvider, nearToYocto, teraToGas } from "near-api-js";
 
+import { kvQuota, retestOnRequest } from "./ondemand";
 import { outcomeFromLogs, plan, VERDICTS } from "./plan";
 import { chainNowNs, listCertificates, view } from "./registry";
 
@@ -21,6 +22,39 @@ export interface Env {
   /** Comma-separated exam ids to patrol; empty means every exam. */
   EXAMS?: string;
   SENTINEL_PRIVATE_KEY?: string;
+  /** Comma-separated origins whose pages may order a re-test (the website). */
+  ALLOWED_ORIGINS?: string;
+  /** Counts the website's re-tests per day (the daily cap). */
+  RETEST_QUOTA?: KVNamespace;
+}
+
+/** CORS headers for a request from one of the allowed origins; none for anyone else. */
+function cors(request: Request, env: Env): Record<string, string> {
+  const origin = request.headers.get("origin") ?? "";
+  const allowed = (env.ALLOWED_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean);
+  if (!allowed.includes(origin)) return {};
+  return { "access-control-allow-origin": origin, "access-control-allow-methods": "POST", "access-control-allow-headers": "content-type", vary: "origin" };
+}
+
+/** POST /retest {"cert_id": n}: a surprise re-test ordered from the website, paid by the sentinel. */
+async function handleRetest(request: Request, env: Env): Promise<Response> {
+  const headers = cors(request, env);
+  const reply = (status: number, body: Record<string, unknown>) => Response.json(body, { status, headers });
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+  if (request.method !== "POST") return reply(405, { error: "POST a JSON body {\"cert_id\": n}" });
+  if (!env.SENTINEL_PRIVATE_KEY) return reply(503, { error: "the sentinel holds no key, so it cannot pay for re-tests" });
+  const body = (await request.json().catch(() => null)) as { cert_id?: unknown } | null;
+  if (!body || typeof body.cert_id !== "number") return reply(400, { error: "POST a JSON body {\"cert_id\": n}" });
+  if (!env.RETEST_QUOTA) return reply(503, { error: "the daily re-test budget is not configured" });
+  try {
+    const { status, body: out } = await retestOnRequest(body.cert_id, env, nearSender(env), kvQuota(env.RETEST_QUOTA));
+    log({ request: "retest", cert_id: body.cert_id, status, ...out });
+    return reply(status, out);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    log({ request: "retest", cert_id: body.cert_id, error: message });
+    return reply(502, { error: `the re-test could not be sent: ${message}` });
+  }
 }
 
 /** The EXAMS setting as a set, or undefined to patrol every exam. */
@@ -111,7 +145,9 @@ export default {
   },
 
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (new URL(request.url).pathname !== "/") return new Response("not found", { status: 404 });
+    const path = new URL(request.url).pathname;
+    if (path === "/retest") return handleRetest(request, env);
+    if (path !== "/") return new Response("not found", { status: 404 });
     return Response.json({
       name: "proctor-sentinel",
       purpose: "Runs PROCTOR's surprise re-tests: every hour, with probability CHANCE, re-tests one live certificate chosen at random.",
@@ -120,6 +156,7 @@ export default {
       chance_per_hour: Number(env.CHANCE),
       exams: [...(patrolledExams(env) ?? ["every exam"])],
       armed: Boolean(env.SENTINEL_PRIVATE_KEY),
+      order_a_retest: "POST /retest with {\"cert_id\": n} from the website; at most once an hour per certificate (the registry's rule) and a daily cap",
       history: `https://testnet.near.rocks/account/${env.SENTINEL_ACCOUNT}`,
       source: "https://github.com/egbujor-emmanuel/proctor/tree/master/sentinel",
     });
