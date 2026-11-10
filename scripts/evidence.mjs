@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Re-checks every NEAR testnet transaction cited in README.md and CLAIMS.md
+// Re-checks every NEAR testnet transaction cited in README.md, CLAIMS.md and THREAT_MODEL.md
 // against the chain, and prints what each one did.
 //
 //   node scripts/evidence.mjs            (exits 1 if any cited transaction is missing or failed)
@@ -76,7 +76,7 @@ async function fetchBatch(hashes) {
 async function main() {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const read = (f) => readFileSync(path.join(root, f), "utf8");
-  const hashes = extractTxHashes(read("README.md"), read("CLAIMS.md"));
+  const hashes = extractTxHashes(read("README.md"), read("CLAIMS.md"), read("THREAT_MODEL.md"));
   const found = new Map();
   for (let i = 0; i < hashes.length; i += BATCH) {
     for (const entry of await fetchBatch(hashes.slice(i, i + BATCH))) found.set(entry.transaction.hash, summarize(entry));

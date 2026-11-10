@@ -167,6 +167,21 @@ async function rpc(method: string, args: Record<string, unknown>, fetchImpl: typ
   }
 }
 
+const AccountSchema = z.object({ result: z.optional(z.object({ code_hash: z.string() })), error: z.optional(z.looseObject({ message: z.optional(z.string()) })) });
+
+/** The base58 SHA-256 of the code deployed on `accountId`, as NEAR reports it. */
+export async function accountCodeHash(accountId: string, fetchImpl: typeof fetch = fetch): Promise<string> {
+  const response = await postFirst(
+    JSON.stringify({ jsonrpc: "2.0", id: "proctor-web", method: "query", params: { request_type: "view_account", finality: "final", account_id: accountId } }),
+    fetchImpl,
+  );
+  const parsed = AccountSchema.safeParse(await response.json().catch(() => null));
+  if (!parsed.success || !parsed.data.result) {
+    throw new RegistryError(`NEAR RPC did not return ${accountId}'s code hash${parsed.success && parsed.data.error?.message ? `: ${parsed.data.error.message}` : "."}`);
+  }
+  return parsed.data.result.code_hash;
+}
+
 /** One view call, validated against `schema`. */
 export async function view<T>(
   schema: z.ZodMiniType<T>,

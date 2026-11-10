@@ -124,3 +124,13 @@ describe("the /retest endpoint", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("the status page", () => {
+  it("can be read by the website, and only the website", async () => {
+    const site = await worker.fetch(new Request("https://s.example/", { headers: { origin: "https://proctor.attrito.workers.dev" } }), ENV);
+    expect(site.headers.get("access-control-allow-origin")).toBe("https://proctor.attrito.workers.dev");
+    expect(await site.json()).toMatchObject({ armed: false });
+    const other = await worker.fetch(new Request("https://s.example/", { headers: { origin: "https://evil.example" } }), ENV);
+    expect(other.headers.get("access-control-allow-origin")).toBeNull();
+  });
+});

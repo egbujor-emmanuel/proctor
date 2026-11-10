@@ -63,7 +63,7 @@ export function IndexBoard() {
         </p>
       )}
 
-      <div className="mt-8 overflow-x-auto rounded-sm border border-rule">
+      <div className="mt-8 relative overflow-x-auto rounded-sm border border-rule">
         <table className="w-full min-w-[720px] border-collapse text-left text-sm">
           <caption className="sr-only">PROCTOR certificates, ranked by standing</caption>
           <thead className="bg-paper-sunk font-mono text-xs uppercase tracking-wide text-ink-muted">

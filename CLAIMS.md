@@ -55,8 +55,9 @@ Every claim PROCTOR makes, mapped to the code that enforces it, the tests that c
 |---|---|---|---|
 | Every answer id is a real NEAR AI completion, signed by an attested key | `mcp/src/verify.ts` (`checkAnswer`) | `mcp/test/verify.test.ts` | `npm --prefix mcp run verify -- --tx 4ewFE77F… --sender attrito.testnet` |
 | The hardware under those keys is checked: Intel TDX quote (against Intel's PCS), no debug mode, key and nonce bound in the quote, measured software, NVIDIA GPU evidence | `mcp/src/attest.ts` (`checkHardware`) | `mcp/test/attest.test.ts` (out-of-date TCB, debug, replayed nonce, forged NVIDIA token, GPU in debug: each fails) | Certificate 0: 12 checks, 8 GPUs attested |
+| The website checks the chain on every visit: the registry and escrow run the CI builds, the registry pins the released runner, the timelock, the sentinel | `web/src/lib/live-checks.ts` | `web/src/lib/__tests__/live-checks.test.ts` (each check fails when the chain disagrees; a network failure is "not checked", never a pass); `web/e2e/site.e2e.cjs` ("5 of 5 passed" on the live site) | [proctor.attrito.workers.dev/#verify](https://proctor.attrito.workers.dev/#verify) |
 | Every transaction cited in the README and this file is on chain and did what the text says | `scripts/evidence.mjs` | `scripts/evidence.test.mjs` | `node scripts/evidence.mjs`: 40/40 found, every receipt succeeded |
-| The website and the MCP server give the same verdict | `mcp/src/verdict.ts`, imported by `web/src/lib/check.ts` | `mcp/test/verdict.test.ts`, `web/src/lib/__tests__/check.test.ts`, `web/e2e/site.e2e.cjs` (58 browser checks) | [proctor.attrito.workers.dev](https://proctor.attrito.workers.dev) |
+| The website and the MCP server give the same verdict | `mcp/src/verdict.ts`, imported by `web/src/lib/check.ts` | `mcp/test/verdict.test.ts`, `web/src/lib/__tests__/check.test.ts`, `web/e2e/site.e2e.cjs` (61 browser checks) | [proctor.attrito.workers.dev](https://proctor.attrito.workers.dev) |
 
 ## Attacks the registry refuses
 

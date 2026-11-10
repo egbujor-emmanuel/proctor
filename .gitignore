@@ -13,6 +13,7 @@ web/qa/lighthouse-*/
 .wrangler/
 demo-agent/dist/
 sentinel/dist/
+market-agent/dist/
 web/qa/gan/
 docs/submission/*.webm
 docs/submission/.video-tmp/

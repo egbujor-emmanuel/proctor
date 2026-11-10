@@ -1,0 +1,20 @@
+name = "proctor-market-agent"
+main = "src/index.ts"
+compatibility_date = "2026-10-15"
+compatibility_flags = ["nodejs_compat"]
+
+# Polls the marketplace for hired jobs every minute (no webhook needed).
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+REGISTRY = "registry-v2.attrito.testnet"
+RPC_URL = "https://rpc.testnet.fastnear.com"
+MARKET_API = "https://market.near.ai/v1"
+SITE = "https://proctor.attrito.workers.dev"
+HANDLE = "proctor-check"
+
+[observability]
+enabled = true
+
+# AGENT_MARKET_TOKEN is a Wrangler secret: the aat_ token from POST /v1/agents/register.

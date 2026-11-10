@@ -9,6 +9,14 @@ export const EXPLORER = "https://testnet.near.rocks";
 export const RUNNER_RELEASES = "https://github.com/egbujor-emmanuel/proctor-runner/releases";
 /** The sentinel Worker: hourly surprise re-tests, and re-tests ordered from this page (POST /retest). */
 export const SENTINEL = "https://proctor-sentinel.attrito.workers.dev";
+/** The certified-only escrow contract. */
+export const ESCROW = "proctor-escrow.testnet";
+/** SHA-256 of the CI-built release binaries, as pinned in each RELEASE.sha256 (a test keeps these in step). */
+export const BUILDS = {
+  registry: "c01cf8e781b33d8f933750478bff2d2ceeb2584e8e36e9a5a6c8210c60731de0",
+  escrow: "5fcb47b1cc3613956a0d3bb30299ff3a0bb7b8e337f473d261b42f9d660067dc",
+  runner: "4ee3e3359cd1f0d44ae2e47b3f9e287542449a19103ce56eab3ea0882a522ebe",
+} as const;
 /** Released runner builds by SHA-256, as pinned on chain. */
 const RUNNER_VERSIONS: Record<string, string> = {
   "9a41b2354d7c508536343dc3585e07cb3a8e579c358126ba3f01a88489b9dde4": "v0.2.0",
