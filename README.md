@@ -16,7 +16,7 @@ The full walk-through, from reading a certificate to sitting the exam yourself, 
 
 **Demo:** a 2-minute step-by-step guide recorded from the live site ([`docs/submission/proctor-demo.mp4`](docs/submission/proctor-demo.mp4)) and a 17-slide deck ([`docs/submission/deck.html`](docs/submission/deck.html), open it in a browser). Both show only what is in this README, with the transactions.
 
-**Every claim, with its evidence:** [`CLAIMS.md`](CLAIMS.md) maps each thing PROCTOR says it does to the code that enforces it, the tests that check it and the transaction that shows it, plus the attacks the registry refuses.
+**Every claim, with its evidence:** [`CLAIMS.md`](CLAIMS.md) maps each thing PROCTOR says it does to the code that enforces it, the tests that check it and the transaction that shows it, plus the attacks the registry refuses. [`THREAT_MODEL.md`](THREAT_MODEL.md) goes through 23 ways a candidate, the operator or a buyer could try to beat PROCTOR, each with what stops it, its test and its transaction.
 
 ![CI](https://github.com/egbujor-emmanuel/proctor/actions/workflows/ci.yml/badge.svg)
 
@@ -307,6 +307,7 @@ How to read it:
 | [`bench/`](bench) | The benchmark and its published results |
 | [`scripts/`](scripts) | Build, test, exam registration, the surprise re-test picker, the payout quote, and `index-sittings.sh`, which sits a list of NEAR AI models on an exam for the Index |
 | [`CLAIMS.md`](CLAIMS.md) | Every claim mapped to its code, tests and transactions |
+| [`THREAT_MODEL.md`](THREAT_MODEL.md) | 23 attacks on PROCTOR, each with what stops it in the code, its test and its transaction |
 | [`exams/`](exams) | The public demo exam (real exams stay secret; this one is public so anyone can check the grading) |
 
 ## Libraries and tools
