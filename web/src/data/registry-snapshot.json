@@ -1,28 +1,28 @@
 {
   "registry": "registry-v2.attrito.testnet",
-  "readAt": 1793748805679,
+  "readAt": 1794257411712,
   "config": {
     "owner": "attrito.testnet",
     "outlayer_account": "outlayer.testnet",
     "runner_source": {
       "WasmUrl": {
         "build_target": "wasm32-wasip2",
-        "hash": "9a41b2354d7c508536343dc3585e07cb3a8e579c358126ba3f01a88489b9dde4",
-        "url": "https://github.com/egbujor-emmanuel/proctor-runner/releases/download/v0.2.0/exam-runner.wasm"
+        "hash": "96abb4a702c2ec060604ef4040a54dce95b57bffc872b3a091016ab57cd5ddae",
+        "url": "https://github.com/egbujor-emmanuel/proctor-runner/releases/download/v0.3.0/exam-runner.wasm"
       }
     },
-    "runner_hash": "9a41b2354d7c508536343dc3585e07cb3a8e579c358126ba3f01a88489b9dde4",
+    "runner_hash": "96abb4a702c2ec060604ef4040a54dce95b57bffc872b3a091016ab57cd5ddae",
     "max_instructions": 50000000000,
     "max_memory_mb": 256,
     "max_execution_seconds": 180,
     "exams": 1,
-    "certificates": 3,
-    "next_sitting_id": 21,
+    "certificates": 4,
+    "next_sitting_id": 43,
     "pending_runner": {
-      "runner_source": "{\"WasmUrl\":{\"build_target\":\"wasm32-wasip2\",\"hash\":\"96abb4a702c2ec060604ef4040a54dce95b57bffc872b3a091016ab57cd5ddae\",\"url\":\"https://github.com/egbujor-emmanuel/proctor-runner/releases/download/v0.3.0/exam-runner.wasm\"}}",
-      "runner_hash": "96abb4a702c2ec060604ef4040a54dce95b57bffc872b3a091016ab57cd5ddae",
-      "proposed_at_ns": 1793688573209101300,
-      "effective_at_ns": 1793774973209101300
+      "runner_source": "{\"WasmUrl\":{\"build_target\":\"wasm32-wasip2\",\"hash\":\"4ee3e3359cd1f0d44ae2e47b3f9e287542449a19103ce56eab3ea0882a522ebe\",\"url\":\"https://github.com/egbujor-emmanuel/proctor-runner/releases/download/v0.4.0/exam-runner.wasm\"}}",
+      "runner_hash": "4ee3e3359cd1f0d44ae2e47b3f9e287542449a19103ce56eab3ea0882a522ebe",
+      "proposed_at_ns": 1794200151815771100,
+      "effective_at_ns": 1794286551815771100
     },
     "pending_owner": null
   },
@@ -36,7 +36,7 @@
       "question_count": 5,
       "secrets_profile": "exam-near-basics-v2",
       "active": true,
-      "sittings": 21,
+      "sittings": 43,
       "registered_at_ns": 1793579127951910700
     }
   ],
@@ -54,13 +54,18 @@
       "issued_at_ns": 1793579482791780400,
       "last_verified_ns": 1793747895332304400,
       "retests_passed": 4,
-      "status": "Active",
+      "status": {
+        "Revoked": {
+          "reason": "second failed re-test: re-test scored 4000 bps, below the pass mark of 6000 bps",
+          "at_ns": 1793791091775144200
+        }
+      },
       "requested_by": "attrito.testnet",
       "sitting_id": 0,
       "response_ids_hash": "8a107b87b4f49db7d1b57cba320900f6fed60f3297c02f567478f2a11a67e985",
       "response_count": 5,
       "retest_in_flight": null,
-      "last_retest_requested_ns": 1793747863032736500
+      "last_retest_requested_ns": 1793791061861782500
     },
     {
       "cert_id": 1,
@@ -99,12 +104,33 @@
       "correct": 4,
       "total": 5,
       "issued_at_ns": 1793745891246435000,
-      "last_verified_ns": 1793745891246435000,
-      "retests_passed": 0,
+      "last_verified_ns": 1794251876819785500,
+      "retests_passed": 17,
       "status": "Active",
       "requested_by": "attrito.testnet",
       "sitting_id": 19,
       "response_ids_hash": "ff37e441fb9779feceb2d2f4ffb248a5a34482348914cb9ca2b75ec993fdd8c2",
+      "response_count": 5,
+      "retest_in_flight": null,
+      "last_retest_requested_ns": 1794251862166263600
+    },
+    {
+      "cert_id": 3,
+      "exam_id": "near-protocol-basics-demo-v1",
+      "exam_commitment": "aed0590cdb979c1bea7f5d2c3c0f76151524c618a8f71a37ce9a9a4e44bed51c",
+      "candidate_model": "agent:attrito.testnet/escrow-demo",
+      "candidate_endpoint": "https://proctor-demo-agent.attrito.workers.dev/v1/chat/completions",
+      "runner_hash": "96abb4a702c2ec060604ef4040a54dce95b57bffc872b3a091016ab57cd5ddae",
+      "score_bps": 10000,
+      "correct": 5,
+      "total": 5,
+      "issued_at_ns": 1794254408523281200,
+      "last_verified_ns": 1794254408523281200,
+      "retests_passed": 0,
+      "status": "Active",
+      "requested_by": "attrito.testnet",
+      "sitting_id": 42,
+      "response_ids_hash": "2507419f87276f9185d9782da8a1c3a4a442238d963deee8281223de9f684ab2",
       "response_count": 5,
       "retest_in_flight": null,
       "last_retest_requested_ns": null

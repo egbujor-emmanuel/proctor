@@ -63,8 +63,12 @@
   --font-mono: var(--font-plex-mono);
 }
 
+/* Entrance animations start their pieces slightly off to the side; `clip`
+   (unlike `hidden`) stops that from ever scrolling the page sideways without
+   making a scroll container, so the sticky header keeps working. */
 html {
   background: var(--paper);
+  overflow-x: clip;
 }
 
 body {

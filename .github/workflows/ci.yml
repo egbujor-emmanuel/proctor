@@ -13,7 +13,7 @@ env:
 
 jobs:
   unit:
-    name: Unit tests and clippy (core, runner, bench, registry)
+    name: Unit tests and clippy (core, runner, bench, registry, escrow)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,11 +26,15 @@ jobs:
           workspaces: |
             .
             contracts/registry
+            contracts/escrow
       - name: Grading core and exam runner
         run: cargo test --workspace
       - name: Registry contract
         run: cargo test
         working-directory: contracts/registry
+      - name: Escrow contract
+        run: cargo test
+        working-directory: contracts/escrow
       - name: Exam runner builds for OutLayer (wasm32-wasip2)
         run: cargo build -p exam-runner --target wasm32-wasip2 --release
       # Each crate is linted for the target it ships to: the runner's HTTP
@@ -42,6 +46,11 @@ jobs:
           cargo clippy -p exam-runner --target wasm32-wasip2 --release -- -D warnings
       - name: Clippy, registry contract (tests and on-chain build)
         working-directory: contracts/registry
+        run: |
+          cargo clippy --tests -- -D warnings
+          RUSTFLAGS="--cfg near" cargo clippy --target wasm32-unknown-unknown --release -- -D warnings
+      - name: Clippy, escrow contract (tests and on-chain build)
+        working-directory: contracts/escrow
         run: |
           cargo clippy --tests -- -D warnings
           RUSTFLAGS="--cfg near" cargo clippy --target wasm32-unknown-unknown --release -- -D warnings
@@ -96,6 +105,34 @@ jobs:
       - name: Hash matches the pinned release
         run: |
           expected="$(cut -d' ' -f1 contracts/registry/RELEASE.sha256)"
+          echo "built:    ${{ steps.build.outputs.sha256 }}"
+          echo "expected: $expected"
+          test "${{ steps.build.outputs.sha256 }}" = "$expected"
+
+  escrow-build:
+    name: Escrow contract release build (hash-checked)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+          targets: wasm32-unknown-unknown
+      - name: Install cargo-near 0.22.0
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
+      - name: Build with remapped paths
+        id: build
+        run: |
+          bash scripts/build-escrow.sh > build.out
+          echo "sha256=$(tail -1 build.out)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: proctor-escrow-${{ steps.build.outputs.sha256 }}
+          path: contracts/escrow/target/near/proctor_escrow.wasm
+          if-no-files-found: error
+      - name: Hash matches the pinned release
+        run: |
+          expected="$(cut -d' ' -f1 contracts/escrow/RELEASE.sha256)"
           echo "built:    ${{ steps.build.outputs.sha256 }}"
           echo "expected: $expected"
           test "${{ steps.build.outputs.sha256 }}" = "$expected"

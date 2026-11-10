@@ -3,6 +3,7 @@ import { RUNNER_RELEASES } from "@/lib/config";
 const LINKS = [
   { href: "#test-it", label: "Test it" },
   { href: "#how", label: "How it works" },
+  { href: "#index", label: "Index" },
   { href: "#registry", label: "Registry" },
   { href: "#check", label: "Check an agent" },
   { href: "#trust", label: "Trust model" },
