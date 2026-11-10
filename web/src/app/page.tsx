@@ -8,6 +8,7 @@ import { Footer } from "@/components/site/Footer";
 import { Header } from "@/components/site/Header";
 import { TestIt } from "@/components/test-it/TestIt";
 import { TrustModel } from "@/components/trust/TrustModel";
+import { Verify } from "@/components/verify/Verify";
 
 export default function Home() {
   return (
@@ -22,6 +23,7 @@ export default function Home() {
         <OnChainProof />
         <CheckAgent />
         <TrustModel />
+        <Verify />
       </main>
       <Footer />
     </>

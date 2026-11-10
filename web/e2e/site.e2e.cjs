@@ -59,11 +59,15 @@ async function view(method, args = {}) {
 const stateOf = (status) => (typeof status === 'string' ? status : Object.keys(status)[0]).toLowerCase();
 
 async function linkStatus(request, url) {
-  try {
-    const res = await request.get(url, { timeout: 30000, maxRedirects: 5 });
-    return res.status();
-  } catch (e) {
-    return `error: ${e.message.split('\n')[0].slice(0, 60)}`;
+  // One more try after a dropped connection: a reset is the network, not the link.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await request.get(url, { timeout: 30000, maxRedirects: 5 });
+      return res.status();
+    } catch (e) {
+      if (attempt === 2) return `error: ${e.message.split('\n')[0].slice(0, 60)}`;
+      await new Promise((r) => setTimeout(r, 3000));
+    }
   }
 }
 
@@ -131,7 +135,7 @@ async function verdictAfterClick(page, label) {
   await pause.click();
 
   // ---- header nav ----
-  for (const [label, id] of [['Test it', 'test-it'], ['How it works', 'how'], ['Index', 'index'], ['Registry', 'registry'], ['Check an agent', 'check'], ['Trust model', 'trust']]) {
+  for (const [label, id] of [['Test it', 'test-it'], ['How it works', 'how'], ['Index', 'index'], ['Registry', 'registry'], ['Check an agent', 'check'], ['Trust model', 'trust'], ['Verify', 'verify']]) {
     await page.locator(`header nav a:has-text("${label}")`).first().click();
     await page.waitForTimeout(2200);
     const top = await page.locator(`#${id}`).evaluate((el) => el.getBoundingClientRect().top);
@@ -173,6 +177,15 @@ async function verdictAfterClick(page, label) {
     } catch (e) { return String(e); }
   });
   check('the page can order a re-test (a revoked one is refused, unpaid)', refusal === '409 revoked', refusal);
+
+  // ---- verify: the live checks pass against the real chain, and every claim is listed ----
+  await page.locator('#verify').scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => /\d+ of \d+ passed/.test(document.querySelector('#verify')?.innerText || ''), null, { timeout: 60000 }).catch(() => {});
+  const verifyText = (await page.locator('#verify').innerText()).replace(/\s+/g, ' ');
+  const tally = verifyText.match(/(\d+) of (\d+) passed/);
+  check('verify: every live check passes against the chain', tally && tally[1] === tally[2] && tally[2] === '5', tally ? tally[0] : 'no result');
+  const claimRows = await page.locator('#verify tbody tr').count();
+  check('verify: each claim with its test', claimRows >= 9, `${claimRows} claims`);
 
   // ---- test it: copy buttons copy the exact command ----
   const commands = page.locator('#test-it pre code');
@@ -248,10 +261,11 @@ async function verdictAfterClick(page, label) {
   const hrefs = [...new Set(await page.locator('a[href^="http"]').evaluateAll((as) => as.map((a) => a.href)))];
   const bad = [];
   for (const href of hrefs) {
+    // GitHub rate-limits bursts: pace its links, and back off when it says 429.
+    if (href.includes('github.com')) await new Promise((r) => setTimeout(r, 1500));
     let status = await linkStatus(context.request, href);
-    // GitHub rate-limits repeated runs; wait and ask once more.
-    if (status === 429) {
-      await new Promise((r) => setTimeout(r, 20000));
+    for (let wait = 20000; status === 429 && wait <= 80000; wait *= 2) {
+      await new Promise((r) => setTimeout(r, wait));
       status = await linkStatus(context.request, href);
     }
     if (status !== 200) bad.push(`${status} ${href}`);

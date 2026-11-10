@@ -7,6 +7,7 @@ const LINKS = [
   { href: "#registry", label: "Registry" },
   { href: "#check", label: "Check an agent" },
   { href: "#trust", label: "Trust model" },
+  { href: "#verify", label: "Verify" },
 ];
 
 export function Header() {
