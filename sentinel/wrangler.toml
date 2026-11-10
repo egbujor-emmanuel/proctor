@@ -16,6 +16,13 @@ CHANCE = "0.2"
 # The exams it patrols. Anyone can register an exam, so certificates on
 # throwaway ones are left out of the draw.
 EXAMS = "near-protocol-basics-demo-v1,near-reasoning-pool-v1"
+# Pages that may order a re-test with POST /retest (the website).
+ALLOWED_ORIGINS = "https://proctor.attrito.workers.dev"
+
+# Counts the re-tests the website orders each day (the daily cap in src/ondemand.ts).
+[[kv_namespaces]]
+binding = "RETEST_QUOTA"
+id = "bfad57e81e85488eaba9cab05a11dadc"
 
 # Keep each tick's log line in Workers Logs.
 [observability]
