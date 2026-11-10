@@ -304,6 +304,7 @@ How to read it:
 | [`web/`](web) | The website: live registry reads, the PROCTOR Index, the buyer check, certificates as stamped papers |
 | [`demo-agent/`](demo-agent) | The Cloudflare Worker agent used for the model-swap demo |
 | [`sentinel/`](sentinel) | The Cloudflare Worker that runs the hourly surprise re-tests and the re-tests ordered from the website (near-api-js, sharing the picker in [`scripts/retest/`](scripts/retest)) |
+| [`market-agent/`](market-agent) | PROCTOR as a hireable agent on the NEAR AI Agent Market: a Cloudflare Worker that polls for hired jobs every minute and delivers a certificate check read from the registry, using the same verdict code as the MCP server (`mcp/src/check.ts`). [`scripts/market-register.sh`](scripts/market-register.sh) lists it |
 | [`bench/`](bench) | The benchmark and its published results |
 | [`scripts/`](scripts) | Build, test, exam registration, the surprise re-test picker, the payout quote, and `index-sittings.sh`, which sits a list of NEAR AI models on an exam for the Index |
 | [`CLAIMS.md`](CLAIMS.md) | Every claim mapped to its code, tests and transactions |
