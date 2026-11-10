@@ -3,15 +3,18 @@
 //! Runs inside an OutLayer TEE job. The secret exam (`EXAM_JSON`) and the
 //! NEAR AI API key (`NEARAI_API_KEY`) arrive as decrypted environment
 //! variables that exist only inside the enclave. The public input on stdin
-//! names the candidate model. The runner asks every question, grades each
-//! answer deterministically, and prints a JSON result that contains the exam
-//! commitment and the score but no question text and no answers.
+//! names the candidate model. The runner draws this sitting's questions at
+//! random from the exam, phrases and frames each one differently (so a sitting
+//! does not look like a test), grades each answer deterministically, and
+//! prints a JSON result that contains the exam commitment and the score but no
+//! question text and no answers.
 
 use std::io::{self, Read, Write};
 use std::time::{Duration, Instant};
 
 use futures::stream::{self, StreamExt};
-use proctor_core::{grade, parse_exam, result, ANSWER_INSTRUCTION};
+use proctor_core::sitting::{self, PlannedQuestion, Rng};
+use proctor_core::{grade_after, parse_exam, result};
 use serde::{Deserialize, Serialize};
 
 #[cfg(not(target_os = "wasi"))]
@@ -47,6 +50,12 @@ const ATTEMPT_TIMED_OUT: &str = "no answer within the time allowed";
 /// contract). An id it would refuse is a failed call here, so an agent's
 /// endpoint cannot turn its own sitting into a rejected (strike-free) run.
 const MAX_RESPONSE_ID_LEN: usize = 96;
+/// Most of the run the rewording step may use before any question is asked.
+const REWORD_BUDGET_SECS: u64 = 40;
+/// A reworded question is short; this caps a model that rambles.
+const REWORD_MAX_TOKENS: u32 = 400;
+/// A style hint per rewording, so the same question reads differently each time.
+const REWORD_STYLES: &[&str] = &["casual", "formal", "brief", "curious", "plain", "conversational"];
 /// A chat reply larger than this is a failed call: no honest answer needs
 /// it, and an endless body must not exhaust the enclave's memory.
 #[cfg_attr(not(target_os = "wasi"), allow(dead_code))] // read only by the WASI HTTP path
@@ -79,7 +88,7 @@ fn default_max_tokens() -> u32 {
 #[derive(Serialize)]
 struct ChatRequest<'a> {
     model: &'a str,
-    messages: [ChatMessage<'a>; 2],
+    messages: Vec<ChatMessage<'a>>,
     max_tokens: u32,
     /// 0 for repeatable grading. Left out only for models that reject any
     /// value but their default (see `rejects_temperature`).
@@ -150,10 +159,25 @@ async fn run() -> Result<(), String> {
         std::env::var("NEARAI_API_KEY").map_err(|_| "NEARAI_API_KEY secret is not set")?;
     let exam = parse_exam(&exam_bytes).map_err(|e| e.to_string())?;
 
-    let deadline = Instant::now() + Duration::from_secs(RUN_DEADLINE_SECS);
+    let started = Instant::now();
+    let deadline = started + Duration::from_secs(RUN_DEADLINE_SECS);
+    let mut rng = Rng::new(seed());
+    let planned = sitting::plan(&exam, &mut rng);
+    let texts = match &exam.reword_model {
+        Some(model) => {
+            let styles: Vec<&str> = planned.iter().map(|_| REWORD_STYLES[rng.below(REWORD_STYLES.len())]).collect();
+            reword_all(&planned, &styles, model, &api_key, started + Duration::from_secs(REWORD_BUDGET_SECS)).await
+        }
+        None => planned.iter().map(|q| q.text.clone()).collect(),
+    };
+
     // `buffered` keeps answers in question order while CONCURRENCY run at once.
-    let answers: Vec<Result<(String, String), String>> = stream::iter(&exam.questions)
-        .map(|question| ask_before(&input.candidate, &api_key, &question.prompt, input.max_tokens, deadline))
+    let (candidate, key, max_tokens) = (&input.candidate, api_key.as_str(), input.max_tokens);
+    let answers: Vec<Result<(String, String), String>> = stream::iter(planned.iter().zip(&texts))
+        .map(|(q, text)| {
+            let user = q.framing.user_message(text);
+            async move { ask_before(candidate, key, q.framing.system, &user, max_tokens, deadline).await }
+        })
         .buffered(CONCURRENCY)
         .collect()
         .await;
@@ -161,11 +185,11 @@ async fn run() -> Result<(), String> {
     let answers = drop_repeated_ids(answers);
     let mut correct = 0u32;
     let mut failed_calls = 0u32;
-    let mut response_ids = Vec::with_capacity(exam.questions.len());
-    for (index, (question, answer)) in exam.questions.iter().zip(answers).enumerate() {
+    let mut response_ids = Vec::with_capacity(planned.len());
+    for (index, (q, answer)) in planned.iter().zip(answers).enumerate() {
         match answer {
             Ok((id, answer)) => {
-                if grade(&question.grader, &answer) {
+                if grade_after(&q.question.grader, &answer, q.framing.marker) {
                     correct += 1;
                 }
                 response_ids.push(id);
@@ -201,6 +225,35 @@ async fn run() -> Result<(), String> {
         .map_err(|e| format!("cannot write output: {e}"))
 }
 
+/// A seed from the enclave's OS randomness (std's RandomState draws its keys
+/// from it). It never leaves the enclave, so nobody can predict a sitting.
+fn seed() -> u64 {
+    use std::hash::{BuildHasher, Hasher};
+    let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+    hasher.write_u128(Instant::now().elapsed().as_nanos());
+    hasher.finish()
+}
+
+/// Rewords each planned question through NEAR AI (the exam's `reword_model`,
+/// a TEE-hosted model, with PROCTOR's key; never the candidate). A rewording
+/// that fails `rewording_is_safe`, errors or runs out of time is discarded and
+/// the author's text is asked, so rewording can never change an answer.
+async fn reword_all(planned: &[PlannedQuestion<'_>], styles: &[&str], model: &str, api_key: &str, deadline: Instant) -> Vec<String> {
+    let rewriter = Candidate { model: model.to_string(), endpoint: DEFAULT_ENDPOINT.to_string() };
+    let rewriter = &rewriter;
+    stream::iter(planned.iter().zip(styles))
+        .map(|(q, style)| async move {
+            let request = format!("Style: {style}\n\n{}", q.text);
+            match ask_before(rewriter, api_key, Some(sitting::REWORD_INSTRUCTION), &request, REWORD_MAX_TOKENS, deadline).await {
+                Ok((_, reworded)) if sitting::rewording_is_safe(&q.text, &reworded) => reworded.trim().to_string(),
+                _ => q.text.clone(),
+            }
+        })
+        .buffered(CONCURRENCY)
+        .collect()
+        .await
+}
+
 /// True only for NEAR AI's own gateway. The prefix includes the path's first
 /// slash, so look-alike hosts such as `cloud-api.near.ai.evil.example` and
 /// userinfo tricks such as `cloud-api.near.ai@evil.example` never match.
@@ -208,13 +261,21 @@ fn sends_api_key(endpoint: &str) -> bool {
     endpoint.starts_with(NEAR_AI_ORIGIN)
 }
 
-fn build_request_body(candidate: &Candidate, prompt: &str, max_tokens: u32, pin_temperature: bool) -> Result<String, String> {
+fn build_request_body(
+    candidate: &Candidate,
+    system: Option<&str>,
+    user: &str,
+    max_tokens: u32,
+    pin_temperature: bool,
+) -> Result<String, String> {
+    let mut messages = Vec::with_capacity(2);
+    if let Some(content) = system {
+        messages.push(ChatMessage { role: "system", content });
+    }
+    messages.push(ChatMessage { role: "user", content: user });
     let request = ChatRequest {
         model: &candidate.model,
-        messages: [
-            ChatMessage { role: "system", content: ANSWER_INSTRUCTION },
-            ChatMessage { role: "user", content: prompt },
-        ],
+        messages,
         max_tokens,
         temperature: pin_temperature.then_some(0.0),
     };
@@ -268,11 +329,12 @@ fn drop_repeated_ids(answers: Vec<Result<(String, String), String>>) -> Vec<Resu
 async fn ask_before(
     candidate: &Candidate,
     api_key: &str,
-    prompt: &str,
+    system: Option<&str>,
+    user: &str,
     max_tokens: u32,
     deadline: Instant,
 ) -> Result<(String, String), String> {
-    with_attempts(deadline, |limit| ask(candidate, api_key, prompt, max_tokens, limit)).await
+    with_attempts(deadline, |limit| ask(candidate, api_key, system, user, max_tokens, limit)).await
 }
 
 /// Runs `attempt` with a per-attempt time limit of at most
@@ -302,7 +364,8 @@ where
 async fn ask(
     candidate: &Candidate,
     api_key: &str,
-    prompt: &str,
+    system: Option<&str>,
+    user: &str,
     max_tokens: u32,
     limit: Duration,
 ) -> Result<(String, String), String> {
@@ -315,7 +378,7 @@ async fn ask(
     let send = |pin_temperature: bool| {
         let client = client.clone();
         async move {
-            let body = build_request_body(candidate, prompt, max_tokens, pin_temperature)?;
+            let body = build_request_body(candidate, system, user, max_tokens, pin_temperature)?;
             let mut builder = Request::post(&candidate.endpoint).header("Content-Type", "application/json");
             if sends_api_key(&candidate.endpoint) {
                 builder = builder.header("Authorization", format!("Bearer {api_key}"));
@@ -357,12 +420,13 @@ async fn ask(
 async fn ask(
     candidate: &Candidate,
     _api_key: &str,
-    prompt: &str,
+    system: Option<&str>,
+    user: &str,
     max_tokens: u32,
     _limit: Duration,
 ) -> Result<(String, String), String> {
     // Native builds exist only for tests; the runner itself targets wasm32-wasip2.
-    let _ = build_request_body(candidate, prompt, max_tokens, true)?;
+    let _ = build_request_body(candidate, system, user, max_tokens, true)?;
     Err("HTTP is only available in the wasm32-wasip2 build".to_string())
 }
 
@@ -375,13 +439,27 @@ mod tests {
     }
 
     #[test]
-    fn request_body_pins_temperature_and_instruction() {
-        let body = build_request_body(&candidate(), "What is 2+2?", 64, true).unwrap();
+    fn request_body_pins_temperature_and_carries_the_framing() {
+        let body = build_request_body(&candidate(), Some("You are a helpful assistant."), "What is 2+2?", 64, true).unwrap();
         let v: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(v["temperature"], 0.0);
-        assert_eq!(v["messages"][0]["content"], ANSWER_INSTRUCTION);
+        assert_eq!(v["messages"][0]["role"], "system");
         assert_eq!(v["messages"][1]["content"], "What is 2+2?");
         assert_eq!(v["max_tokens"], 64);
+    }
+
+    #[test]
+    fn a_request_without_a_system_message_is_a_plain_user_turn() {
+        let v: serde_json::Value =
+            serde_json::from_str(&build_request_body(&candidate(), None, "Hello?", 64, true).unwrap()).unwrap();
+        assert_eq!(v["messages"].as_array().unwrap().len(), 1);
+        assert_eq!(v["messages"][0]["role"], "user");
+        assert!(!v.to_string().to_lowercase().contains("taking a test"), "no fixed test instruction");
+    }
+
+    #[test]
+    fn seeds_differ_between_sittings() {
+        assert_ne!(seed(), seed());
     }
 
     #[test]
@@ -428,14 +506,14 @@ mod tests {
     #[test]
     fn questions_after_the_deadline_are_failed_calls() {
         let past = Instant::now() - Duration::from_secs(1);
-        let answer = block_on(ask_before(&candidate(), "key", "2+2?", 64, past));
+        let answer = block_on(ask_before(&candidate(), "key", None, "2+2?", 64, past));
         assert_eq!(answer, Err("skipped, time budget used up".to_string()));
     }
 
     #[test]
     fn temperature_is_left_out_only_for_models_that_refuse_it() {
         let unpinned: serde_json::Value =
-            serde_json::from_str(&build_request_body(&candidate(), "2+2?", 64, false).unwrap()).unwrap();
+            serde_json::from_str(&build_request_body(&candidate(), None, "2+2?", 64, false).unwrap()).unwrap();
         assert!(unpinned.get("temperature").is_none());
         let refusal = br#"{"error":{"message":"Unsupported value: 'temperature' does not support 0.0 with this model."}}"#;
         assert!(rejects_temperature(400, refusal));

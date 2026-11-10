@@ -97,6 +97,8 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--seal); outline-
 .timeline { display: grid; gap: clamp(.5rem, 1.4vh, .9rem); margin-top: clamp(1rem, 3vh, 2rem); }
 .step { display: grid; grid-template-columns: minmax(9rem, 12rem) 1fr auto; gap: clamp(.6rem, 1.6vw, 1.4rem); align-items: center; background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 3px; padding: clamp(.6rem, 1.4vw, 1rem) clamp(.8rem, 1.6vw, 1.3rem); }
 @media (max-width: 520px) { .step { grid-template-columns: 1fr; gap: .3rem; } }
+/* phones: the timeline keeps its pills and text; the time labels go */
+@media (max-width: 520px), (max-height: 500px) { .step .tx { display: none; } .step { padding: .45rem .7rem; } .timeline { gap: .45rem; } }
 .tx { font-family: var(--mono); font-size: var(--small); color: var(--ink-muted); }
 
 table { width: 100%; border-collapse: collapse; margin-top: clamp(.8rem, 2.4vh, 1.6rem); font-size: clamp(.8rem, 1.25vw, 1.05rem); }
@@ -228,17 +230,18 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
   </div>
 </section>
 
-<!-- 8. Honest limits -->
-<section class="slide" aria-label="Limits">
+<!-- 8. Re-tests cut both ways -->
+<section class="slide" aria-label="Re-tests cut both ways">
   <div class="slide-content">
-    <p class="eyebrow reveal">What it can't do yet</p>
-    <h2 class="reveal">Limits, stated with numbers.</h2>
-    <div class="grid g2">
-      <div class="card reveal"><p class="tag">Agents can spot exams</p><p>An agent's endpoint sees the fixed instruction and questions, so agent re-tests catch only a swap the owner doesn't hide. NEAR AI models don't have this gap.</p></div>
-      <div class="card reveal"><p class="tag">Borderline certificates</p><p>A 3/5 certificate can be re-tested until it falls: about 78 re-tests for certificate 0. Larger exams, up to 64 questions, fix it.</p></div>
-      <div class="card reveal"><p class="tag">Upgrade key</p><p>The registry account can still upgrade its code at once. Every upgrade is public; a timelocked upgrade path is next.</p></div>
-      <div class="card reveal"><p class="tag">Testnet only</p><p>Nothing here holds real funds. The demo exam is public so anyone can check the grading.</p></div>
+    <p class="eyebrow reveal hide-short">Live on NEAR testnet</p>
+    <h2 class="reveal">Re-tests cut both ways.</h2>
+    <div class="timeline">
+      <div class="step reveal"><span class="pill ok">Active 3/5</span><span>DeepSeek V4.1 Flash is certified and passes three surprise re-tests.</span><span class="tx">cert 0</span></div>
+      <div class="step reveal"><span class="pill warn">Suspended 2/5</span><span>A sentinel re-test scores below the pass mark. Buyers are told: do not hire.</span><span class="tx">20:18 UTC</span></div>
+      <div class="step reveal"><span class="pill ok">Restored 3/5</span><span>Three hours later the next re-test passes, and the certificate is live again.</span><span class="tx">23:18 UTC</span></div>
+      <div class="step reveal"><span class="pill bad">Revoked 2/5</span><span>Two more failures in a row, and the registry revokes it for good.</span><span class="tx">Nov 4</span></div>
     </div>
+    <p class="lead reveal hide-short">The grader itself follows the rules: runner v0.3.0 was proposed on chain and applied only after its 24-hour timelock.</p>
   </div>
 </section>
 
@@ -286,9 +289,8 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
     <p class="eyebrow reveal">What's next</p>
     <h2 class="reveal">From one demo exam to a market of them.</h2>
     <ul class="plain reveal">
-      <li>Runner v0.3.0, already proposed under the timelock, built so a slow answer can no longer end a run.</li>
-      <li>Larger exams sampled per sitting, so a re-test is harder to recognise.</li>
-      <li>Upgrades behind the same 24-hour timelock, then the full-access key removed.</li>
+      <li>Larger exams, sampled per sitting from a bigger question pool.</li>
+      <li>Contract upgrades behind the same 24-hour timelock as the grader.</li>
       <li>Exams written by domain experts, vetted for every Agent Market category.</li>
     </ul>
   </div>

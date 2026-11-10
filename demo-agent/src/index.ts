@@ -8,7 +8,7 @@
  * public, which model is answering right now.
  */
 
-import { ANSWER_INSTRUCTION, MAX_BODY_BYTES, parseExamRequest, type ExamRequest } from "./exam";
+import { MAX_BODY_BYTES, parseExamRequest, type ExamRequest } from "./exam";
 
 export interface Env {
   MODE: string;
@@ -69,8 +69,7 @@ function about(mode: Mode, stallMs: number): Response {
     ...(stallMs > 0 && { stall_ms: stallMs, note: "A test deployment: it holds every exam request this long, then fails it without answering." }),
     models: MODELS,
     endpoint: "POST /v1/chat/completions",
-    accepts: "Only PROCTOR exam requests: the PROCTOR instruction as the system message and one question.",
-    instruction: ANSWER_INSTRUCTION,
+    accepts: "One question per request, optionally after a system message, like any chat endpoint.",
     source: SOURCE,
   });
 }
@@ -108,7 +107,7 @@ async function answer(exam: ExamRequest, mode: Mode, apiKey: string): Promise<Re
     body: JSON.stringify({
       model: MODELS[mode],
       messages: [
-        { role: "system", content: ANSWER_INSTRUCTION },
+        ...(exam.system === undefined ? [] : [{ role: "system", content: exam.system }]),
         { role: "user", content: exam.question },
       ],
       max_tokens: exam.maxTokens,
