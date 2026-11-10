@@ -148,6 +148,7 @@ export default {
     const path = new URL(request.url).pathname;
     if (path === "/retest") return handleRetest(request, env);
     if (path !== "/") return new Response("not found", { status: 404 });
+    // The website reads this page to show whether the sentinel is armed.
     return Response.json({
       name: "proctor-sentinel",
       purpose: "Runs PROCTOR's surprise re-tests: every hour, with probability CHANCE, re-tests one live certificate chosen at random.",
@@ -159,6 +160,6 @@ export default {
       order_a_retest: "POST /retest with {\"cert_id\": n} from the website; at most once an hour per certificate (the registry's rule) and a daily cap",
       history: `https://testnet.near.rocks/account/${env.SENTINEL_ACCOUNT}`,
       source: "https://github.com/egbujor-emmanuel/proctor/tree/master/sentinel",
-    });
+    }, { headers: cors(request, env) });
   },
 } satisfies ExportedHandler<Env>;
