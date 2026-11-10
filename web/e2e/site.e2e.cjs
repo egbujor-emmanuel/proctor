@@ -89,7 +89,9 @@ async function verdictAfterClick(page, label) {
   // answer, so a node that loses (or fails) the race is not an error.
   const RPC_NODES = ['https://rpc.testnet.fastnear.com', 'https://rpc.testnet.near.org'];
   const fromRpcRace = (m) => RPC_NODES.some((u) => (m.location().url || '').startsWith(u) || m.text().includes(`fetch at '${u}`));
-  page.on('console', (m) => m.type() === 'error' && !fromRpcRace(m) && consoleErrors.push(m.text().slice(0, 140)));
+  // The page never calls the sentinel on load; the only sentinel request is this suite's own refused re-test.
+  const fromRetestCheck = (m) => (m.location().url || '').startsWith('https://proctor-sentinel.attrito.workers.dev/retest');
+  page.on('console', (m) => m.type() === 'error' && !fromRpcRace(m) && !fromRetestCheck(m) && consoleErrors.push(m.text().slice(0, 140)));
   page.on('pageerror', (e) => consoleErrors.push(String(e).slice(0, 140)));
 
   // ---- load ----
@@ -131,7 +133,7 @@ async function verdictAfterClick(page, label) {
   // ---- header nav ----
   for (const [label, id] of [['Test it', 'test-it'], ['How it works', 'how'], ['Index', 'index'], ['Registry', 'registry'], ['Check an agent', 'check'], ['Trust model', 'trust']]) {
     await page.locator(`header nav a:has-text("${label}")`).first().click();
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(2200);
     const top = await page.locator(`#${id}`).evaluate((el) => el.getBoundingClientRect().top);
     check(`nav "${label}" scrolls to #${id}`, top > -5 && top < 160, `top=${Math.round(top)}`);
   }
@@ -150,6 +152,27 @@ async function verdictAfterClick(page, label) {
   const missing = [...pairs.values()].filter((c) => !indexText.includes(c.candidate_model));
   check('Index lists every certified candidate', missing.length === 0, missing.map((c) => c.candidate_model).join(', ') || `${pairs.size} candidates`);
   check('Index states how many hold a live certificate', new RegExp(`\\d+ of ${pairs.size} holding a live certificate`).test(indexText), indexText.match(/\d+ of \d+ holding[^·]*/)?.[0]);
+
+  // ---- order a surprise re-test: on every live or suspended certificate, never on a revoked one ----
+  const papers = page.locator('#registry article');
+  const paperCount = await papers.count();
+  let withButton = 0, wrong = [];
+  for (let i = 0; i < paperCount; i++) {
+    const paper = papers.nth(i);
+    const revoked = (await paper.innerText()).includes('REVOKED');
+    const has = (await paper.locator('button:has-text("Order a surprise re-test")').count()) === 1;
+    if (has) withButton++;
+    if (has === revoked) wrong.push(i);
+  }
+  check('re-test button on live certificates only', wrong.length === 0 && withButton > 0, `${withButton} of ${paperCount} papers have it${wrong.length ? `; wrong on ${wrong.join(',')}` : ''}`);
+  // The same cross-origin POST the button sends, for a revoked certificate: the sentinel refuses it and pays nothing.
+  const refusal = await page.evaluate(async () => {
+    try {
+      const r = await fetch('https://proctor-sentinel.attrito.workers.dev/retest', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cert_id: 1 }) });
+      return `${r.status} ${(await r.json()).error}`;
+    } catch (e) { return String(e); }
+  });
+  check('the page can order a re-test (a revoked one is refused, unpaid)', refusal === '409 revoked', refusal);
 
   // ---- test it: copy buttons copy the exact command ----
   const commands = page.locator('#test-it pre code');

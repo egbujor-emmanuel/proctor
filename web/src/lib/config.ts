@@ -7,6 +7,8 @@ export const RPC_URLS = ["https://rpc.testnet.fastnear.com", "https://rpc.testne
 // NEAR Rocks (FastNear): renders for people and for automated readers alike.
 export const EXPLORER = "https://testnet.near.rocks";
 export const RUNNER_RELEASES = "https://github.com/egbujor-emmanuel/proctor-runner/releases";
+/** The sentinel Worker: hourly surprise re-tests, and re-tests ordered from this page (POST /retest). */
+export const SENTINEL = "https://proctor-sentinel.attrito.workers.dev";
 /** Released runner builds by SHA-256, as pinned on chain. */
 const RUNNER_VERSIONS: Record<string, string> = {
   "9a41b2354d7c508536343dc3585e07cb3a8e579c358126ba3f01a88489b9dde4": "v0.2.0",

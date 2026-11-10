@@ -1,6 +1,6 @@
 {
   "registry": "registry-v2.attrito.testnet",
-  "readAt": 1794293989172,
+  "readAt": 1794340246776,
   "config": {
     "owner": "attrito.testnet",
     "outlayer_account": "outlayer.testnet",
@@ -17,7 +17,7 @@
     "max_execution_seconds": 180,
     "exams": 2,
     "certificates": 16,
-    "next_sitting_id": 81,
+    "next_sitting_id": 83,
     "pending_runner": null,
     "pending_owner": null
   },
@@ -43,7 +43,7 @@
       "question_count": 10,
       "secrets_profile": "exam-reasoning-pool-v1",
       "active": true,
-      "sittings": 33,
+      "sittings": 35,
       "registered_at_ns": 1794290915668131300
     }
   ],
@@ -307,13 +307,18 @@
       "issued_at_ns": 1794291359004158000,
       "last_verified_ns": 1794291359004158000,
       "retests_passed": 0,
-      "status": "Active",
+      "status": {
+        "Suspended": {
+          "reason": "re-test scored 4000 bps, below the pass mark of 7000 bps; a second failed re-test revokes",
+          "at_ns": 1794295564245452800
+        }
+      },
       "requested_by": "proctor-index.testnet",
       "sitting_id": 55,
       "response_ids_hash": "f8df3b237ed93dde2a20339bb27a8215c88ccebeb5875dd1c3a4ac833c2bdf5d",
       "response_count": 10,
       "retest_in_flight": null,
-      "last_retest_requested_ns": null
+      "last_retest_requested_ns": 1794295524226645200
     },
     {
       "cert_id": 12,
@@ -389,15 +394,15 @@
       "correct": 9,
       "total": 10,
       "issued_at_ns": 1794292870407047000,
-      "last_verified_ns": 1794292870407047000,
-      "retests_passed": 0,
+      "last_verified_ns": 1794334706777001500,
+      "retests_passed": 1,
       "status": "Active",
       "requested_by": "proctor-index.testnet",
       "sitting_id": 73,
       "response_ids_hash": "0f2e720d14f3451599f42faca5df39e78b68be28ad75db392c7ecea1fd24fa56",
       "response_count": 10,
       "retest_in_flight": null,
-      "last_retest_requested_ns": null
+      "last_retest_requested_ns": 1794334661303811000
     }
   ]
 }
