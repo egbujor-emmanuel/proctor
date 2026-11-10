@@ -6,7 +6,7 @@ Everything below runs on **NEAR testnet** today.
 
 **Live site:** [proctor.attrito.workers.dev](https://proctor.attrito.workers.dev). It reads the registry straight from NEAR testnet, and its buyer check gives the same verdict as the MCP server.
 
-**Demo:** a 2-minute video ([`docs/submission/proctor-demo.mp4`](docs/submission/proctor-demo.mp4)) and a 13-slide deck ([`docs/submission/deck.html`](docs/submission/deck.html), open it in a browser). Both show only what is in this README, with the transactions.
+**Demo:** a 2-minute step-by-step guide recorded from the live site ([`docs/submission/proctor-demo.mp4`](docs/submission/proctor-demo.mp4)) and a 17-slide deck ([`docs/submission/deck.html`](docs/submission/deck.html), open it in a browser). Both show only what is in this README, with the transactions.
 
 **Every claim, with its evidence:** [`CLAIMS.md`](CLAIMS.md) maps each thing PROCTOR says it does to the code that enforces it, the tests that check it and the transaction that shows it, plus the attacks the registry refuses.
 
@@ -103,6 +103,16 @@ near contract call-function as-read-only proctor-escrow.testnet get_job json-arg
 
 Job 0 hired `agent:attrito.testnet/escrow-demo`, which held a live certificate when it delivered: `"state": "Paid"`. Job 1 hired `agent:attrito.testnet/demo-agent`, whose certificate had been revoked: `"state": "Refunded"`, and the buyer got the 0.05 NEAR back. Both times the escrow asked the registry itself at the moment of delivery (see [Certified-only escrow, on chain](#certified-only-escrow-on-chain)).
 
+### 8. Order a surprise re-test yourself (no account, no keys)
+
+On [the live site](https://proctor.attrito.workers.dev/#registry), every live or suspended certificate has an **Order a surprise re-test** button. The sentinel pays for it and signs it, the runner sits the exam again inside OutLayer, and about a minute later the page shows the verdict and its transaction. The same request from a terminal:
+
+```bash
+curl -s -X POST https://proctor-sentinel.attrito.workers.dev/retest -H 'content-type: application/json' -d '{"cert_id": 4}'
+```
+
+You should get `{"cert_id":4,"candidate":"anthropic/claude-sonnet-5-5","tx":"…","outcome":"RetestPassed",…}`, or the reason it was refused. The registry allows one re-test per certificate per hour, revoked certificates cannot be re-tested, and the sentinel caps the website's re-tests at 48 a day so nobody can drain its account. The first one ordered this way re-tested `openai/gpt-5.4-mini`, which had passed the pool exam at exactly the pass mark: on fresh questions it fell short, and its certificate was **suspended** 46 seconds later ([`Eokg4Rja…`](https://testnet.near.rocks/tx/Eokg4Rja1MzFuHDKo998LNrtJNuqSRk21H9qF22PkK4U)).
+
 ## The problem
 
 Public benchmarks leak into training data, so a high score can mean the model memorised the test. And a score says nothing about tomorrow: an agent certified today can switch to a cheaper model behind the same endpoint, and nobody notices. Buyers on agent marketplaces have no way to check either thing. (Illia Polosukhin's list of ideas for this hackathon includes "AI benchmarking with private test sets.")
@@ -157,7 +167,7 @@ The registry still checks that exactly the registered number of questions was as
 | Escrow | [`proctor-escrow.testnet`](https://testnet.near.rocks/account/proctor-escrow.testnet), deployed in [`zzoYwa55…`](https://testnet.near.rocks/tx/zzoYwa55fp4uhoauUVsz9X7nRXzT6ZzRF3DuccCSxZN). Its code is the CI build `5fcb47b1…0067dc`: `near account view-account-summary proctor-escrow.testnet network-config testnet now` prints the same SHA-256 |
 | Website | [proctor.attrito.workers.dev](https://proctor.attrito.workers.dev), a static build of [`web/`](web) served by Cloudflare (`web/wrangler.toml`). Its **PROCTOR Index** ranks every candidate the registry has certified by where it stands today, read live from the chain |
 | Demo agent | `https://proctor-demo-agent.attrito.workers.dev`, a Cloudflare Worker ([`demo-agent/`](demo-agent)) |
-| Surprise re-tests | [`proctor-sentinel`](https://proctor-sentinel.attrito.workers.dev), a Cloudflare Worker ([`sentinel/`](sentinel)). A Cron Trigger wakes it at :17 every hour; with probability 0.2 it re-tests a live certificate chosen at random, signing from `proctor-sentinel.testnet`, and every tick it expires re-tests whose callback never came. Every re-test is a public transaction from that account ([history](https://testnet.near.rocks/account/proctor-sentinel.testnet)). [`.github/workflows/surprise-retest.yml`](.github/workflows/surprise-retest.yml) runs the same job on demand (GitHub's own cron never fired for this repository) |
+| Surprise re-tests | [`proctor-sentinel`](https://proctor-sentinel.attrito.workers.dev), a Cloudflare Worker ([`sentinel/`](sentinel)). A Cron Trigger wakes it at :17 every hour; with probability 0.2 it re-tests a live certificate chosen at random, signing from `proctor-sentinel.testnet`, and every tick it expires re-tests whose callback never came. Every re-test is a public transaction from that account ([history](https://testnet.near.rocks/account/proctor-sentinel.testnet)). [`.github/workflows/surprise-retest.yml`](.github/workflows/surprise-retest.yml) runs the same job on demand (GitHub's own cron never fired for this repository). Anyone can also order one from the website or with `POST /retest`, paid by the sentinel within the registry's hourly limit and a daily cap of 48 ([`sentinel/src/ondemand.ts`](sentinel/src/ondemand.ts)) |
 | Certificate 0 | `deepseek-ai/DeepSeek-V4.1-Flash-1017`, 3/5. Issued in [`4ewFE77F…`](https://testnet.near.rocks/tx/4ewFE77FvYXLTzA5dfBWWanntAQeyfFEXAvZFo6LaoR1); surprise re-test passed in [`9pZ51MMw…`](https://testnet.near.rocks/tx/9pZ51MMwwmMAYoo2BnSvdMLMD4oBqht91TmjjLA3fPi), three in all. Then the sentinel's random re-tests took it through the whole lifecycle: **suspended** at 2/5 (2026-11-03 20:18 UTC), **restored** when the next re-test passed (23:18 UTC), suspended again at 2/5, and **revoked** at 2026-11-04 11:18 UTC with the registry's reason *"second failed re-test: re-test scored 4000 bps, below the pass mark of 6000 bps"* |
 | Certificate 2 | `anthropic/claude-sonnet-5-5`, 4/5 (a NEAR AI model candidate, relayed by NEAR AI's TEE gateway). Issued in [`2gk5NcRM…`](https://testnet.near.rocks/tx/2gk5NcRM2b4DVewk6K9JhBqNzuj3SDsEH1MnXW3bw6Au) |
 | Certificate 3 | `agent:attrito.testnet/escrow-demo`, 5/5, sat through the demo agent's endpoint in strong mode for the escrow demo ([`5ZJcQyHH…`](https://testnet.near.rocks/tx/5ZJcQyHHvYFtNwBE61nn99yWDNYwnN7dZsPVzYKV9UD1)). The endpoint then went back to the weak model, and the sentinel's surprise re-tests caught it on their own: **suspended** at 1/5 ([`HzFpgdpJ…`](https://testnet.near.rocks/tx/HzFpgdpJEwGzhQTaSE8Euc2N6M2MT1Gz9yVH2X5Ccy7F)), then **revoked** at 1/5 ([`DU8puirp…`](https://testnet.near.rocks/tx/DU8puirp7PK8wDuqDMzddUC3zG2BH1X8KRfi1BQkKJFC)) |
@@ -247,6 +257,8 @@ How to read it:
 
 ## What you don't have to take on faith
 
+**Every transaction this README cites can be re-checked in one command:** `node scripts/evidence.mjs` reads each one from NEAR testnet by its hash (no account or key) and prints who sent it, which method it called and what the registry or escrow recorded. Today: *"40/40 cited transactions found on NEAR testnet, 40 with every receipt succeeding"*.
+
 - **The exam can't leak to the public or to PROCTOR's operator.** It exists only as an OutLayer secret, opened inside the enclave for one runner build (pinned by SHA-256) and only on calls that come through the registry. The candidate necessarily sees each question it answers. For a TEE-hosted NEAR AI model that happens inside the model's TEE. An agent endpoint, or an external provider relayed by NEAR AI, sees them in the clear, which is why agent sittings are off unless the author allows them.
 - **The score isn't self-reported.** Certificates are written only in the registry's own callback for OutLayer's result, after the re-checks above.
 - **A model's answers are real NEAR AI completions.** For a NEAR AI model candidate, the runner calls NEAR AI itself, so each answer is a NEAR AI completion; for an agent, its endpoint returns the ids, so they prove real completions but cannot be tied to its answers. The certificate stores a hash of the completion ids, and the ids are in the `sitting_resolved` event. [`mcp/src/verify.ts`](mcp/src/verify.ts) checks every one: NEAR AI's signature must be valid and its signer must be the key listed in NEAR AI's attestation report. It then checks the hardware under each signing key ([`mcp/src/attest.ts`](mcp/src/attest.ts)). The Intel TDX quote is checked against Intel's PCS: up-to-date TCB, no debug mode, the key and a fresh nonce bound in the quote, and measured software matching the reported configuration. NVIDIA's NRAS evidence is checked for every GPU, with NVIDIA's signature verified against its published keys. Events are accepted only from receipts the registry and OutLayer themselves executed, and are cross-checked against the registry's own record of the sitting. That is the model's own TEE for TEE-hosted models, or NEAR AI's gateway TEE for models at external providers. The signed request and response hashes cover the secret exam, so a third party sees them but cannot recompute them.
@@ -283,7 +295,7 @@ How to read it:
 | [`mcp/`](mcp) | The PROCTOR MCP server (4 read-only tools), the buyer skill, and the certificate verifier (`npm run verify`), including the hardware attestation checks |
 | [`web/`](web) | The website: live registry reads, the PROCTOR Index, the buyer check, certificates as stamped papers |
 | [`demo-agent/`](demo-agent) | The Cloudflare Worker agent used for the model-swap demo |
-| [`sentinel/`](sentinel) | The Cloudflare Worker that runs the hourly surprise re-tests (near-api-js, sharing the picker in [`scripts/retest/`](scripts/retest)) |
+| [`sentinel/`](sentinel) | The Cloudflare Worker that runs the hourly surprise re-tests and the re-tests ordered from the website (near-api-js, sharing the picker in [`scripts/retest/`](scripts/retest)) |
 | [`bench/`](bench) | The benchmark and its published results |
 | [`scripts/`](scripts) | Build, test, exam registration, the surprise re-test picker, the payout quote, and `index-sittings.sh`, which sits a list of NEAR AI models on an exam for the Index |
 | [`CLAIMS.md`](CLAIMS.md) | Every claim mapped to its code, tests and transactions |

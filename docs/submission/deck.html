@@ -181,6 +181,59 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
   </div>
 </section>
 
+<!-- 4b. The Index -->
+<section class="slide" aria-label="The PROCTOR Index">
+  <div class="slide-content">
+    <p class="eyebrow reveal">The PROCTOR Index, on NEAR testnet</p>
+    <h2 class="reveal">22 NEAR AI models sat the secret exam.</h2>
+    <div class="timeline">
+      <div class="step reveal"><span class="pill ok">Certified 10/10</span><span>Claude Opus 5.5, Claude Sonnet 5.5, Claude Fable 5.1</span><span class="tx">7DbiRqHe…</span></div>
+      <div class="step reveal"><span class="pill ok">Certified 9/10</span><span>Haiku 5.5, GPT-6 Luna, GPT-5.5, Gemini 3.5 and 3.8 Flash, Kimi K3.1 Pro, DeepSeek V4.1 Flash</span><span class="tx">12 in all</span></div>
+      <div class="step reveal"><span class="pill bad">Failed 6/10</span><span>GPT-5.4 nano, Gemini 2.5 Pro</span><span class="tx">FmYN1gH6…</span></div>
+    </div>
+    <p class="lead reveal hide-short">Models that were down or slower than the 25-second cap got no verdict, never a fail. The site ranks them live, and re-tests keep reordering them.</p>
+  </div>
+</section>
+
+<!-- 4c. Unrecognisable -->
+<section class="slide" aria-label="Exams an agent cannot recognise">
+  <div class="slide-content">
+    <p class="eyebrow reveal">Runner v0.4.0, live after a 24-hour timelock</p>
+    <h2 class="reveal">An agent can't tell it is being tested.</h2>
+    <div class="grid g3">
+      <div class="card reveal"><p class="tag">Sampled</p><p>Each sitting draws 10 of 28 hidden questions, so a re-test never repeats the first sitting.</p></div>
+      <div class="card reveal"><p class="tag">Reworded</p><p>A TEE-hosted NEAR AI model rewords every question; a wording that loses a number is thrown away.</p></div>
+      <div class="card reveal"><p class="tag">Reframed</p><p>The system message comes and goes, and the line asking for the answer changes every time.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 4d. Order a re-test -->
+<section class="slide" aria-label="Order a re-test">
+  <div class="slide-content">
+    <p class="eyebrow reveal">On the site, no wallet needed</p>
+    <h2 class="reveal">Anyone can order a surprise re-test.</h2>
+    <div class="timeline">
+      <div class="step reveal"><span class="pill ok">Certified 7/10</span><span>GPT-5.4 mini passes the pool exam at exactly the pass mark.</span><span class="tx">FNNyczZZ…</span></div>
+      <div class="step reveal"><span class="pill warn">Suspended</span><span>The first re-test ordered from the site: fresh questions, and it falls short. 46 seconds.</span><span class="tx">Eokg4Rja…</span></div>
+    </div>
+    <p class="lead reveal hide-short">The sentinel pays and signs. The registry allows one re-test per certificate per hour, and a daily cap keeps its account from being drained.</p>
+  </div>
+</section>
+
+<!-- 4e. Escrow -->
+<section class="slide" aria-label="Certified-only escrow">
+  <div class="slide-content">
+    <p class="eyebrow reveal">proctor-escrow.testnet</p>
+    <h2 class="reveal">Paid only while certified.</h2>
+    <div class="timeline">
+      <div class="step reveal"><span class="pill ok">Paid</span><span>Job 0: the agent's certificate is live at delivery, so its owner is paid.</span><span class="tx">AuzUsAoZ…</span></div>
+      <div class="step reveal"><span class="pill bad">Refunded</span><span>Job 1: the agent's certificate was revoked, so the buyer gets the money back.</span><span class="tx">ypHUGxQg…</span></div>
+    </div>
+    <p class="lead reveal hide-short">Delivery asks the registry's is_certified in a cross-contract call. A failed call reopens the job instead of locking the funds.</p>
+  </div>
+</section>
+
 <!-- 5. Verify -->
 <section class="slide" aria-label="Verification">
   <div class="slide-content">
@@ -191,9 +244,10 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
       PASS&nbsp; OutLayer ran runner 9a41b2354d7c…, the build on the certificate<br>
       PASS&nbsp; chatcmpl-a59ca0e4…: signed inside deepseek-ai/DeepSeek-V4.1-Flash-1017's TEE<br>
       <span class="muted hide-short">… 4 more answers …<br></span>
-      verified (10 checks)
+      PASS&nbsp; hardware: TCB UpToDate; not in debug mode; quote binds the key and our nonce; 8 GPU(s): secure boot on, debug off<br>
+      verified (12 checks)
     </div>
-    <p class="lead reveal">From public data plus any NEAR AI Cloud key (lookups are not billed): the sitting's event, the registry's record, OutLayer's run, and NEAR AI's signature on each completion, checked against the key in NEAR AI's attestation report.</p>
+    <p class="lead reveal">From public data plus any NEAR AI Cloud key (lookups are not billed): the sitting's event, the registry's record, OutLayer's run, NEAR AI's signature on each completion, and the hardware under the key: the Intel TDX quote against Intel's PCS and NVIDIA's GPU evidence. <span class="mono">node scripts/evidence.mjs</span> re-reads every transaction we cite: 40/40.</p>
   </div>
 </section>
 
@@ -251,7 +305,7 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
     <p class="eyebrow reveal">Built on NEAR's stack</p>
     <h2 class="reveal">NEAR's stack, used deeply (1/2).</h2>
     <div class="grid g3">
-      <div class="card reveal"><p class="tag">NEAR contract</p><p>The registry: exams, sittings, certificates, two-strike re-tests, fees, a runner timelock, in-place migration, NEP-297 events.</p></div>
+      <div class="card reveal"><p class="tag">NEAR contracts</p><p>The registry: exams, sittings, certificates, two-strike re-tests, fees, a runner timelock, NEP-297 events. The escrow: payment by cross-contract call.</p></div>
       <div class="card reveal"><p class="tag">OutLayer (Intel TDX)</p><p>Runs the pinned runner; holds the exam as a secret bound to the runner hash and the calling contract.</p></div>
       <div class="card reveal"><p class="tag">NEAR AI Cloud</p><p>The candidates: TEE-hosted models and external models relayed by NEAR AI's TEE gateway.</p></div>
     </div>
@@ -287,11 +341,11 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
 <section class="slide" aria-label="What's next">
   <div class="slide-content">
     <p class="eyebrow reveal">What's next</p>
-    <h2 class="reveal">From one demo exam to a market of them.</h2>
+    <h2 class="reveal">From two exams to a market of them.</h2>
     <ul class="plain reveal">
-      <li>Larger exams, sampled per sitting from a bigger question pool.</li>
+      <li>Exams written by domain experts for every Agent Market category, each with its own pool.</li>
       <li>Contract upgrades behind the same 24-hour timelock as the grader.</li>
-      <li>Exams written by domain experts, vetted for every Agent Market category.</li>
+      <li>Mainnet, with the escrow as the default way to pay a hired agent.</li>
     </ul>
   </div>
 </section>
