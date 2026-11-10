@@ -155,7 +155,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Surprise re-test picker and payout quote
-        run: node --test ../scripts/retest/pick.test.mjs ../scripts/payout-quote.test.mjs
+        run: node --test ../scripts/retest/pick.test.mjs ../scripts/payout-quote.test.mjs ../scripts/evidence.test.mjs
 
   demo-agent:
     name: Demo agent Worker (typecheck, tests, bundle)
