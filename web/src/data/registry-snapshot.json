@@ -1,6 +1,6 @@
 {
   "registry": "registry-v2.attrito.testnet",
-  "readAt": 1794344997313,
+  "readAt": 1794386093938,
   "config": {
     "owner": "attrito.testnet",
     "outlayer_account": "outlayer.testnet",
@@ -17,7 +17,7 @@
     "max_execution_seconds": 180,
     "exams": 2,
     "certificates": 16,
-    "next_sitting_id": 83,
+    "next_sitting_id": 86,
     "pending_runner": null,
     "pending_owner": null
   },
@@ -43,7 +43,7 @@
       "question_count": 10,
       "secrets_profile": "exam-reasoning-pool-v1",
       "active": true,
-      "sittings": 35,
+      "sittings": 38,
       "registered_at_ns": 1794290915668131300
     }
   ],
@@ -308,9 +308,9 @@
       "last_verified_ns": 1794291359004158000,
       "retests_passed": 0,
       "status": {
-        "Suspended": {
-          "reason": "re-test scored 4000 bps, below the pass mark of 7000 bps; a second failed re-test revokes",
-          "at_ns": 1794295564245452800
+        "Revoked": {
+          "reason": "second failed re-test: re-test scored 5000 bps, below the pass mark of 7000 bps",
+          "at_ns": 1794368888729358000
         }
       },
       "requested_by": "proctor-index.testnet",
@@ -318,7 +318,7 @@
       "response_ids_hash": "f8df3b237ed93dde2a20339bb27a8215c88ccebeb5875dd1c3a4ac833c2bdf5d",
       "response_count": 10,
       "retest_in_flight": null,
-      "last_retest_requested_ns": 1794295524226645200
+      "last_retest_requested_ns": 1794368861546347800
     },
     {
       "cert_id": 12,
@@ -331,15 +331,15 @@
       "correct": 9,
       "total": 10,
       "issued_at_ns": 1794291539596595500,
-      "last_verified_ns": 1794291539596595500,
-      "retests_passed": 0,
+      "last_verified_ns": 1794359899362045200,
+      "retests_passed": 2,
       "status": "Active",
       "requested_by": "proctor-index.testnet",
       "sitting_id": 59,
       "response_ids_hash": "7ef3807d343e086e866c4b6bc5114eecead312d01de6d45e023a03fd2cd950e5",
       "response_count": 10,
       "retest_in_flight": null,
-      "last_retest_requested_ns": null
+      "last_retest_requested_ns": 1794359861427815000
     },
     {
       "cert_id": 13,

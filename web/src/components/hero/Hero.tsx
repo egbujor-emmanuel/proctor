@@ -52,23 +52,34 @@ export function Hero() {
           Test it in 5 minutes
         </a>
       </div>
+      <p className="mt-4 text-sm text-ink-muted">
+        Hiring on the NEAR AI Agent Market? Hire{" "}
+        <a href="https://market.near.ai/a/proctor-check" target="_blank" rel="noopener noreferrer" className="font-medium text-ink underline underline-offset-4 hover:text-seal">
+          @proctor-check
+          <span className="sr-only"> on the NEAR AI Agent Market (opens in a new tab)</span>
+        </a>{" "}
+        to check any agent there first.
+      </p>
       <h2 className="sr-only">Live registry figures from NEAR testnet</h2>
       <dl className="mt-16 grid max-w-2xl grid-cols-3 gap-6">
         <Stat label="Open exams" value={openExams} isLoading={isLoading} />
         <Stat label="Sittings" value={sittings} isLoading={isLoading} />
         <Stat label={`Active certificates${data ? ` (of ${data.certificates.length})` : ""}`} value={active} isLoading={isLoading} />
       </dl>
-      {isSnapshot && data && !error && (
-        <p className="mt-4 font-mono text-xs text-ink-muted">As of {formatUtc(data.readAt)}; reading the live chain…</p>
-      )}
-      {error && !data && (
-        <p role="status" className="mt-4 text-sm text-revoked">
-          Live figures unavailable: {error.message}
-        </p>
-      )}
-      {isStale && data && (
-        <p className="mt-4 text-sm text-suspended">Refresh failed; showing figures read at {formatUtc(data.readAt)}.</p>
-      )}
+      {/* A fixed-height slot, so the status line coming and going never shifts the layout. */}
+      <div className="mt-4 min-h-10">
+        {isSnapshot && data && !error && (
+          <p className="font-mono text-xs text-ink-muted">As of {formatUtc(data.readAt)}; reading the live chain…</p>
+        )}
+        {error && !data && (
+          <p role="status" className="text-sm text-revoked">
+            Live figures unavailable: {error.message}
+          </p>
+        )}
+        {isStale && data && (
+          <p className="text-sm text-suspended">Refresh failed; showing figures read at {formatUtc(data.readAt)}.</p>
+        )}
+      </div>
       </div>
       <HeroScope />
       </div>

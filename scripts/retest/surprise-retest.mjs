@@ -12,7 +12,7 @@ import { randomInt } from "node:crypto";
 
 import { pick, stuckSittings } from "./pick.mjs";
 
-const RPC = process.env.NEAR_RPC ?? "https://rpc.testnet.near.org";
+const RPC = process.env.NEAR_RPC ?? "https://rpc.testnet.fastnear.com";
 const PAGE = 100;
 
 function arg(name) {

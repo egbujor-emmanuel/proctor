@@ -8,11 +8,13 @@ export interface Certificate {
   retest_in_flight: number | null;
   /** Quoted to a string on read: nanosecond timestamps exceed 2^53. */
   last_retest_requested_ns: string | null;
+  /** When it last passed a sitting or re-test; quoted to a string on read. */
+  last_verified_ns?: string | null;
 }
 
 const PAGE = 100;
 // Nanosecond fields are re-quoted before JSON.parse so they keep every digit.
-const NS_FIELDS = /("(?:last_retest_requested_ns|requested_at_ns)"\s*:\s*)(\d+)/g;
+const NS_FIELDS = /("(?:last_retest_requested_ns|last_verified_ns|requested_at_ns)"\s*:\s*)(\d+)/g;
 
 async function rpc(rpcUrl: string, method: string, params: unknown): Promise<unknown> {
   const response = await fetch(rpcUrl, {

@@ -14,7 +14,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const SITE = (process.env.SITE_URL || 'https://proctor.attrito.workers.dev').replace(/\/$/, '');
-const RPC = 'https://rpc.testnet.near.org';
+const RPC = 'https://rpc.testnet.fastnear.com';
 const REGISTRY = 'registry-v2.attrito.testnet';
 const PLAYWRIGHT_CORE =
   process.env.PLAYWRIGHT_CORE ||
@@ -89,9 +89,9 @@ async function verdictAfterClick(page, label) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await context.newPage();
   const consoleErrors = [];
-  // The site races its reads across several RPC nodes and keeps the first
-  // answer, so a node that loses (or fails) the race is not an error.
-  const RPC_NODES = ['https://rpc.testnet.fastnear.com', 'https://rpc.testnet.near.org'];
+  // The site asks one RPC node at a time and falls through to the next if it
+  // fails, so a node that fails is not an error as long as the page still loads.
+  const RPC_NODES = ['https://rpc.testnet.fastnear.com', 'https://test.rpc.fastnear.com', 'https://rpc.testnet.near.org'];
   const fromRpcRace = (m) => RPC_NODES.some((u) => (m.location().url || '').startsWith(u) || m.text().includes(`fetch at '${u}`));
   // The page never calls the sentinel on load; the only sentinel request is this suite's own refused re-test.
   const fromRetestCheck = (m) => (m.location().url || '').startsWith('https://proctor-sentinel.attrito.workers.dev/retest');

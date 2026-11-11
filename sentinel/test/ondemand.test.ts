@@ -87,7 +87,7 @@ describe("a re-test ordered from the website", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("counts a re-test against the cap only once it is sent", async () => {
+  it("counts a re-test it sends against the cap, and never one it refuses", async () => {
     chain([cert(3)]);
     const quota = memoryQuota();
     await retestOnRequest(3, ENV, async () => ({ tx: "T", logs: [resolved({ RetestPassed: { cert_id: 3, score_bps: 8000 } })] }), quota);

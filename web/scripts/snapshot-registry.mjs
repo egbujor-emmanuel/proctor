@@ -10,7 +10,7 @@
 import { writeFile } from "node:fs/promises";
 
 const REGISTRY = "registry-v2.attrito.testnet";
-const RPC_URLS = ["https://rpc.testnet.fastnear.com", "https://rpc.testnet.near.org"];
+const RPC_URLS = ["https://rpc.testnet.fastnear.com", "https://test.rpc.fastnear.com"];
 const OUT = new URL("../src/data/registry-snapshot.json", import.meta.url);
 const PAGE = 100;
 

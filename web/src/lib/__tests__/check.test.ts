@@ -90,6 +90,22 @@ describe("real registry data", () => {
     await expect(registry.config(bothDown)).rejects.toThrow("HTTP 503");
   });
 
+  it("asks the first RPC node only, and touches the fallbacks only when it fails", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => rpc({ owner: "o", outlayer_account: "outlayer.testnet", runner_hash: "r", exams: 1, certificates: 2, next_sitting_id: 3 }));
+    await registry.config(fetchMock);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([RPC_URLS[0]]);
+  });
+
+  it("falls through every node in order before giving up", async () => {
+    const tried: unknown[] = [];
+    const allDown = vi.fn<typeof fetch>(async (url) => {
+      tried.push(url);
+      throw new TypeError("node down (test)");
+    });
+    await expect(registry.config(allDown)).rejects.toThrow(/Could not reach NEAR testnet/);
+    expect(tried).toEqual([...RPC_URLS]);
+  });
+
   it("skips and counts a malformed row instead of blanking the list", async () => {
     const listing = await registry.certificates((async () => rpc([cert(), { bogus: true }])) as unknown as typeof fetch);
     expect(listing.rows).toHaveLength(1);

@@ -7,7 +7,7 @@ import * as z from "zod/mini";
 
 import { REGISTRY, RPC_URLS } from "./config";
 
-const RPC_TIMEOUT_MS = 15_000;
+const RPC_TIMEOUT_MS = 10_000;
 /** The contract's own page-size cap for list views. */
 const PAGE = 100;
 
@@ -100,34 +100,31 @@ function toBase64(text: string): string {
 }
 
 /**
- * POSTs `body` to every RPC node at once and returns the first OK response;
- * the others are aborted. Fails only when every node failed.
+ * POSTs `body` to the first RPC node, moving to the next only when one fails, so the fallback
+ * nodes are touched only during an outage. Fails only when every node failed.
  */
 async function postFirst(body: string, fetchImpl: typeof fetch): Promise<Response> {
-  const losers = RPC_URLS.map(() => new AbortController());
-  const attempts = RPC_URLS.map(async (url, i) => {
-    const response = await fetchImpl(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      signal: AbortSignal.any([losers[i]!.signal, AbortSignal.timeout(RPC_TIMEOUT_MS)]),
-    });
-    if (!response.ok) throw new RegistryError(`NEAR RPC answered HTTP ${response.status}.`);
-    return { response, i };
-  });
-  try {
-    const { response, i } = await Promise.any(attempts);
-    losers.forEach((controller, j) => j !== i && controller.abort());
-    return response;
-  } catch (all) {
-    const first = all instanceof AggregateError ? all.errors[0] : all;
-    if (first instanceof RegistryError) throw first;
-    const timedOut = first instanceof DOMException && first.name === "TimeoutError";
-    throw new RegistryError(
-      timedOut ? "NEAR testnet took too long to answer. Try again." : "Could not reach NEAR testnet. Check your connection and try again.",
-      { cause: first },
-    );
+  let first: unknown;
+  for (const url of RPC_URLS) {
+    try {
+      const response = await fetchImpl(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
+      });
+      if (!response.ok) throw new RegistryError(`NEAR RPC answered HTTP ${response.status}.`);
+      return response;
+    } catch (error) {
+      first ??= error;
+    }
   }
+  if (first instanceof RegistryError) throw first;
+  const timedOut = first instanceof DOMException && first.name === "TimeoutError";
+  throw new RegistryError(
+    timedOut ? "NEAR testnet took too long to answer. Try again." : "Could not reach NEAR testnet. Check your connection and try again.",
+    { cause: first },
+  );
 }
 
 async function rpc(method: string, args: Record<string, unknown>, fetchImpl: typeof fetch): Promise<unknown> {

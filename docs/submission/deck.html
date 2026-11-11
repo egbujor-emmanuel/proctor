@@ -174,10 +174,10 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
     <h2 class="reveal">A quiet model swap, caught in two re-tests.</h2>
     <div class="timeline">
       <div class="step reveal"><span class="pill ok">Certified 4/5</span><span>The demo agent sits through its own endpoint, answering with Claude Sonnet 5.5.</span><span class="tx">9Jwx3jXp…</span></div>
-      <div class="step reveal"><span class="pill warn">Suspended 2/5</span><span>Its owner redeploys the same URL with GPT-5.4 nano. A surprise re-test arrives.</span><span class="tx">BrcXSNwX…</span></div>
+      <div class="step reveal"><span class="pill warn">Suspended 2/5</span><span>Its owner redeploys the same URL with GPT-5.4 nano. A surprise re-test, ordered on demand.</span><span class="tx">BrcXSNwX…</span></div>
       <div class="step reveal"><span class="pill bad">Revoked 2/5</span><span>An hour later, a second surprise re-test.</span><span class="tx">3SGvHzEY…</span></div>
     </div>
-    <p class="lead reveal hide-short">Re-tests come from a sentinel that wakes every hour and, one time in five, re-tests a certificate chosen at random.</p>
+    <p class="lead reveal hide-short">An agent can't tell an ordered re-test from the sentinel's: that one wakes every hour and, one time in five, re-tests a certificate chosen at random.</p>
   </div>
 </section>
 
@@ -215,7 +215,7 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
     <h2 class="reveal">Anyone can order a surprise re-test.</h2>
     <div class="timeline">
       <div class="step reveal"><span class="pill ok">Certified 7/10</span><span>GPT-5.4 mini passes the pool exam at exactly the pass mark.</span><span class="tx">FNNyczZZ…</span></div>
-      <div class="step reveal"><span class="pill warn">Suspended</span><span>The first re-test ordered from the site: fresh questions, and it falls short. 46 seconds.</span><span class="tx">Eokg4Rja…</span></div>
+      <div class="step reveal"><span class="pill warn">Suspended</span><span>The first re-test ordered from the site: fresh questions, and it falls short. Under a minute.</span><span class="tx">Eokg4Rja…</span></div>
     </div>
     <p class="lead reveal hide-short">The sentinel pays and signs. The registry allows one re-test per certificate per hour, and a daily cap keeps its account from being drained.</p>
   </div>
@@ -278,7 +278,7 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
       <li><strong>The exam is never published.</strong> Only its commitment is on chain.</li>
       <li><strong>The score isn't self-reported.</strong> Certificates come only from OutLayer's callback.</li>
       <li><strong>A model's answers came from NEAR AI,</strong> signed in its TEE or NEAR AI's TEE gateway. For an agent, the ids prove real completions only.</li>
-      <li><strong>The grader can't change without notice.</strong> New runner builds wait out a 24-hour timelock (code upgrades don't yet).</li>
+      <li><strong>A new runner build can't grade without notice.</strong> New builds wait out a 24-hour timelock (code upgrades don't yet).</li>
       <li><strong>Outages don't fail a model.</strong> Only an agent silent for three re-tests in a row takes a strike.</li>
     </ul>
   </div>
@@ -303,7 +303,7 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
 <section class="slide" aria-label="NEAR technology used">
   <div class="slide-content">
     <p class="eyebrow reveal">Built on NEAR's stack</p>
-    <h2 class="reveal">NEAR's stack, used deeply (1/2).</h2>
+    <h2 class="reveal">What PROCTOR runs on NEAR (1/2).</h2>
     <div class="grid g3">
       <div class="card reveal"><p class="tag">NEAR contracts</p><p>The registry: exams, sittings, certificates, two-strike re-tests, fees, a runner timelock, NEP-297 events. The escrow: payment by cross-contract call.</p></div>
       <div class="card reveal"><p class="tag">OutLayer (Intel TDX)</p><p>Runs the pinned runner; holds the exam as a secret bound to the runner hash and the calling contract.</p></div>
@@ -316,7 +316,7 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
 <section class="slide" aria-label="NEAR technology used, continued">
   <div class="slide-content">
     <p class="eyebrow reveal">Built on NEAR's stack</p>
-    <h2 class="reveal">NEAR's stack, used deeply (2/2).</h2>
+    <h2 class="reveal">What PROCTOR runs on NEAR (2/2).</h2>
     <div class="grid g3">
       <div class="card reveal"><p class="tag">NEAR Intents</p><p>Dry 1Click quotes for paying an author's earnings out as another chain's token.</p></div>
       <div class="card reveal"><p class="tag">Agent Market</p><p>The MCP server vets market listings before Claude Code hires them.</p></div>
@@ -359,7 +359,7 @@ ul.plain li::before { content: "§"; position: absolute; left: 0; color: var(--s
       <li>Registry: <span class="mono">registry-v2.attrito.testnet</span></li>
       <li>Code: <span class="mono">github.com/egbujor-emmanuel/proctor</span></li>
       <li>Site: <span class="mono">proctor.attrito.workers.dev</span></li>
-      <li>Test it in 5 minutes: the README's first section (step 1 needs no keys).</li>
+      <li>Test it: the README opens with "For judges: 60 seconds", then "Test it in 5 minutes" (step 1 needs no keys).</li>
     </ul>
   </div>
   <p class="footer-mark">Built at NEAR HACKATHON</p>

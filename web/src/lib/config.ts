@@ -3,7 +3,12 @@
 export const NETWORK = "testnet";
 export const REGISTRY = "registry-v2.attrito.testnet";
 /** Asked in parallel; the first good answer wins, so one slow node cannot stall the page. */
-export const RPC_URLS = ["https://rpc.testnet.fastnear.com", "https://rpc.testnet.near.org"] as const;
+/**
+ * NEAR testnet RPC nodes, tried in this order. The site asks the first and moves on only if it
+ * fails: rpc.testnet.near.org rate-limits bursts, and its refusals carry no CORS header, so the
+ * browser would log them as CORS errors if it were asked on every read.
+ */
+export const RPC_URLS = ["https://rpc.testnet.fastnear.com", "https://test.rpc.fastnear.com", "https://rpc.testnet.near.org"] as const;
 // NEAR Rocks (FastNear): renders for people and for automated readers alike.
 export const EXPLORER = "https://testnet.near.rocks";
 export const RUNNER_RELEASES = "https://github.com/egbujor-emmanuel/proctor-runner/releases";

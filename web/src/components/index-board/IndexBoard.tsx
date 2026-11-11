@@ -47,11 +47,11 @@ export function IndexBoard() {
     <section id="index" aria-labelledby="index-title" className="mx-auto max-w-6xl px-5 py-24 sm:px-8">
       <Eyebrow text="The PROCTOR Index" />
       <h2 id="index-title" className="mt-3 max-w-3xl font-serif text-4xl text-ink sm:text-5xl">
-        Which models still hold their certificate
+        Which models and agents still hold their certificate
       </h2>
       <p className="mt-5 max-w-prose text-ink-muted">
-        Every candidate the registry has certified, ranked by where it stands today. Surprise re-tests keep moving this table: a model that
-        slips is suspended, then revoked, in public.
+        The latest certificate of every candidate on each exam, ranked by where it stands today. Surprise re-tests keep moving this table: a
+        candidate that slips is suspended, then revoked, in public.
       </p>
       {data && (
         <p className="mt-3 font-mono text-xs text-ink-muted">
@@ -69,11 +69,11 @@ export function IndexBoard() {
           <thead className="bg-paper-sunk font-mono text-xs uppercase tracking-wide text-ink-muted">
             <tr>
               <th scope="col" className="px-4 py-3">Candidate</th>
+              <th scope="col" className="px-4 py-3">Standing</th>
               <th scope="col" className="px-4 py-3">Exam</th>
               <th scope="col" className="px-4 py-3">Score</th>
               <th scope="col" className="px-4 py-3">Re-tests passed</th>
               <th scope="col" className="px-4 py-3">Last verified</th>
-              <th scope="col" className="px-4 py-3">Standing</th>
             </tr>
           </thead>
           <tbody>
@@ -99,6 +99,9 @@ export function IndexBoard() {
                       {revokedBefore > 0 && ` · revoked ${revokedBefore}× before`}
                     </span>
                   </th>
+                  <td className="px-4 py-3">
+                    <StatusBadge state={state} />
+                  </td>
                   <td className="hash px-4 py-3 text-ink-muted">
                     <Breakable text={cert.exam_id} />
                   </td>
@@ -108,9 +111,6 @@ export function IndexBoard() {
                   <td className="px-4 py-3 font-mono tabular-nums text-ink">{cert.retests_passed}</td>
                   <td className="px-4 py-3 font-mono text-xs text-ink-muted">
                     <time dateTime={new Date(cert.last_verified_ns / 1e6).toISOString()}>{formatUtc(cert.last_verified_ns / 1e6)}</time>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge state={state} />
                   </td>
                 </tr>
               );
