@@ -75,7 +75,7 @@ async function sentinelCheck(fetcher: typeof fetch): Promise<LiveCheck> {
 export async function runLiveChecks(fetcher: typeof fetch = fetch): Promise<LiveCheck[]> {
   const configRead = view(ConfigSchema, "get_config", {}, fetcher);
   const runnerTitle = "The registry grades with the released runner";
-  const timelockTitle = "The grader cannot change without 24 hours' notice";
+  const timelockTitle = "No new runner build can grade without 24 hours' notice";
   const [registry, escrow, config, sentinel] = await Promise.all([
     codeCheck("registry-code", REGISTRY, BUILDS.registry, fetcher),
     codeCheck("escrow-code", ESCROW, BUILDS.escrow, fetcher),

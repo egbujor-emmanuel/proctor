@@ -11,7 +11,7 @@
 // Asset ids come from GET /v0/tokens, never hard-coded.
 
 const ONE_CLICK = "https://1click.chaindefuser.com";
-const RPC = process.env.NEAR_RPC ?? "https://rpc.testnet.near.org";
+const RPC = process.env.NEAR_RPC ?? "https://rpc.testnet.fastnear.com";
 const REGISTRY = process.env.REGISTRY ?? "registry-v2.attrito.testnet";
 const YOCTO_PER_NEAR = 10n ** 24n;
 

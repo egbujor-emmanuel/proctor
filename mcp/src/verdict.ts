@@ -221,13 +221,24 @@ const STATE_REASON: Record<Exclude<CertState, "active">, string> = {
  * Decides from per-exam checks. With a required exam, only that exam counts;
  * otherwise any live certificate is enough.
  */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "10 Nov 2026, 04:17 UTC": the same format the website uses, so every reader sees one style. */
+export function readableUtc(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${hh}:${mm} UTC`;
+}
+
 export function decide(candidate: string, exams: ExamCheck[], market?: MarketAgent | null): Verdict {
   const reasons: string[] = [];
   const live = exams.filter((e) => e.state === "active");
   for (const exam of exams) {
     if (exam.state === "active" && exam.certificate) {
       const c = exam.certificate;
-      reasons.push(`certified on ${exam.exam_id}: scored ${c.score}, last verified ${c.last_verified}, ${c.retests_passed} surprise re-test(s) passed`);
+      reasons.push(`certified on ${exam.exam_id}: scored ${c.score}, last verified ${readableUtc(c.last_verified)}, ${c.retests_passed} surprise re-test(s) passed`);
       if (exam.not_trusted) {
         reasons.push(`caution: ${exam.exam_id} would not count by default: ${exam.not_trusted}`);
       }
@@ -243,6 +254,13 @@ export function decide(candidate: string, exams: ExamCheck[], market?: MarketAge
     }
   }
   if (exams.length === 0) reasons.push("no trusted PROCTOR exam was found to check");
+  // A hire beside a failed certificate is easy to misread: name what the hire rests on.
+  const failed = exams.filter((e) => e.state === "revoked" || e.state === "suspended");
+  if (live.length > 0 && failed.length > 0) {
+    const on = live.map((e) => e.exam_id).join(", ");
+    const against = failed.map((e) => `${e.exam_id} is ${e.state}`).join("; ");
+    reasons.push(`caution: hire rests on the live certificate on ${on}; the certificate on ${against}`);
+  }
 
   const verdict: Verdict = { decision: live.length > 0 ? "hire" : "do_not_hire", candidate, reasons, exams };
   if (market) {

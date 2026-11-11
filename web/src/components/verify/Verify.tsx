@@ -26,7 +26,7 @@ const PLACEHOLDERS: Pick<LiveCheck, "id" | "title">[] = [
   { id: "registry-code", title: "The registry runs the CI build" },
   { id: "escrow-code", title: "The escrow runs the CI build" },
   { id: "runner", title: "The registry grades with the released runner" },
-  { id: "timelock", title: "The grader cannot change without 24 hours' notice" },
+  { id: "timelock", title: "No new runner build can grade without 24 hours' notice" },
   { id: "sentinel", title: "The sentinel can run surprise re-tests" },
 ];
 

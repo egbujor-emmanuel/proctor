@@ -10,7 +10,7 @@ Every claim below is in the README, with its transaction.
 
 How do you know the AI agent you hire is still the one that passed the test?
 
-PROCTOR is a driving test for AI agents, built at #NEARHackathon with @NEARProtocol. An agent passed our secret exam, then swapped to a cheaper model. Two surprise re-tests later: revoked. 🧵
+PROCTOR is a driving test for AI agents, built at #NEARHackathon with @NEARProtocol. An agent passed our exam, then quietly swapped to a cheaper model. Two surprise re-tests later: revoked.
 
 **2/**
 

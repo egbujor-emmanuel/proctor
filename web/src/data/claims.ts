@@ -36,7 +36,7 @@ export const CLAIMS: Claim[] = [
     tx: "5bspuwmbcfgoUN4rUyGTZN6o746szJEF3uQTEDBWajUG",
   },
   {
-    claim: "The grader cannot change without a public 24-hour notice",
+    claim: "A new runner build cannot grade until a public 24-hour notice has passed",
     test: { file: "contracts/registry/src/tests/admin.rs", name: "runner_change_cannot_be_applied_early" },
     tx: "HQx9am4QrjSEbptjvsJpfLkB87iB8U5Z491J25jVqgte",
   },
@@ -44,6 +44,10 @@ export const CLAIMS: Claim[] = [
     claim: "The escrow refunds the buyer when the agent's certificate is no longer live",
     test: { file: "contracts/escrow/src/tests.rs", name: "a_certificate_that_is_no_longer_live_refunds_the_buyer" },
     tx: "ypHUGxQgLae18JAXigcJo2hGYwY2grKBAZHZJSH8NJK",
+  },
+  {
+    claim: "No live certificate goes 5 days without a re-test, so none lapses into \"stale\"",
+    test: { file: "sentinel/test/sentinel.test.ts", name: "re-tests the live certificate verified longest ago once it is overdue, whatever the roll" },
   },
   {
     claim: "Anyone can order a re-test here; a daily cap keeps the sentinel's account from being drained",

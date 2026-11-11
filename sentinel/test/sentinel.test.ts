@@ -21,7 +21,7 @@ const resolved = (outcome: unknown) => `EVENT_JSON:${JSON.stringify({ standard: 
 describe("plan", () => {
   it("re-tests only when the roll falls under the chance", () => {
     expect(plan([cert(0)], new Map(), NOW, 0.2, 0.5, () => 0)).toMatchObject({ expire: [], skip: expect.stringContaining("probability 0.2") });
-    expect(plan([cert(0)], new Map(), NOW, 0.2, 0.1, () => 0)).toEqual({ expire: [], retest: { cert_id: 0, candidate: "m0" } });
+    expect(plan([cert(0)], new Map(), NOW, 0.2, 0.1, () => 0)).toEqual({ expire: [], retest: { cert_id: 0, candidate: "m0", why: "drawn" } });
   });
 
   it("expires stuck re-tests on every tick, even when it does not re-test", () => {
@@ -35,6 +35,28 @@ describe("plan", () => {
     const revoked = cert(0, { status: { Revoked: { reason: "r", at_ns: 1 } } });
     const recent = cert(1, { last_retest_requested_ns: String(NOW - HOUR / 2n) });
     expect(plan([revoked, recent], new Map(), NOW, 1, 0, () => 0).skip).toContain("nothing eligible");
+  });
+
+  it("re-tests the live certificate verified longest ago once it is overdue, whatever the roll", () => {
+    const days = (n: bigint) => String(NOW - n * 24n * HOUR);
+    const fresh = cert(0, { last_verified_ns: days(1n) });
+    const older = cert(1, { last_verified_ns: days(6n) });
+    const oldest = cert(2, { last_verified_ns: days(9n) });
+    expect(plan([fresh, older, oldest], new Map(), NOW, 0.2, 0.99, () => 0).retest).toEqual({ cert_id: 2, candidate: "m2", why: "overdue" });
+  });
+
+  it("leaves overdue certificates that are suspended, revoked or re-tested within the hour to the usual rules", () => {
+    const old = String(NOW - 9n * 24n * HOUR);
+    const suspended = cert(0, { status: { Suspended: { reason: "r", at_ns: 1 } }, last_verified_ns: old });
+    const revoked = cert(1, { status: { Revoked: { reason: "r", at_ns: 1 } }, last_verified_ns: old });
+    const cooling = cert(2, { last_verified_ns: old, last_retest_requested_ns: String(NOW - HOUR / 2n) });
+    const fresh = cert(3, { last_verified_ns: String(NOW - HOUR) });
+    expect(plan([suspended, revoked, cooling, fresh], new Map(), NOW, 0.2, 0.99, () => 0).skip).toContain("probability");
+  });
+
+  it("counts only patrolled exams as overdue", () => {
+    const old = { ...cert(1, { last_verified_ns: String(NOW - 9n * 24n * HOUR) }), exam_id: "throwaway" };
+    expect(plan([old, cert(0)], new Map(), NOW, 0.2, 0.99, () => 0, new Set(["e"])).skip).toContain("probability");
   });
 });
 

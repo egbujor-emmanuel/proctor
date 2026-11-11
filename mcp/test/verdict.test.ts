@@ -38,6 +38,18 @@ describe("decide", () => {
     expect(verdict.reasons[0]).toContain("2 surprise re-test(s) passed");
   });
 
+  it("states the last verification as a readable UTC time", () => {
+    const verdict = decide("m", [checkExam("near-basics-v1", certificate())]);
+    expect(verdict.reasons[0]).toMatch(/last verified \d{1,2} [A-Z][a-z]{2} \d{4}, \d{2}:\d{2} UTC/);
+    expect(verdict.reasons[0]).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it("says plainly when a hire sits beside a revoked or suspended certificate on another exam", () => {
+    const verdict = decide("m", [checkExam("demo-v1", certificate({ status: revoked })), checkExam("pool-v1", certificate())]);
+    expect(verdict.decision).toBe("hire");
+    expect(verdict.reasons.join(" ")).toContain("caution: hire rests on the live certificate on pool-v1; the certificate on demo-v1 is revoked");
+  });
+
   it.each([
     ["none", null, "holds no PROCTOR certificate"],
     ["suspended", certificate({ status: suspended }), "suspended until it passes again"],

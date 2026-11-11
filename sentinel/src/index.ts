@@ -1,8 +1,9 @@
 /**
  * PROCTOR's sentinel: a Cloudflare Worker whose Cron Trigger wakes it every
- * hour. Each tick it expires re-tests whose callback never came, and with
- * probability CHANCE (so the hours cannot be predicted) re-tests one live
- * certificate chosen at random, signing from the sentinel testnet account.
+ * hour. Each tick it expires re-tests whose callback never came, re-tests a
+ * live certificate not verified for 5 days (so none lapses into "stale"), and
+ * otherwise, with probability CHANCE (so the hours cannot be predicted),
+ * re-tests one live certificate chosen at random, signing from the sentinel testnet account.
  * Every action is a public NEAR transaction from that account; the Worker's
  * logs record each tick, including the ones that do nothing.
  */
@@ -119,7 +120,7 @@ export async function tick(env: Env, send: Send, roll = uniform(), random = rand
 
   const { tx, logs } = await send("retest", { cert_id: step.retest.cert_id }, "300", RETEST_DEPOSIT);
   const outcome = outcomeFromLogs(logs);
-  const result = { action: "retest", cert_id: step.retest.cert_id, candidate: step.retest.candidate, tx, outcome: outcome ?? "none", expired };
+  const result = { action: "retest", why: step.retest.why, cert_id: step.retest.cert_id, candidate: step.retest.candidate, tx, outcome: outcome ?? "none", expired };
   // Only a verdict counts; anything else must show up as a failed invocation.
   if (!outcome || !VERDICTS.has(outcome)) throw new Error(`re-test ended without a verdict: ${JSON.stringify(result)}`);
   return result;
@@ -151,7 +152,8 @@ export default {
     // The website reads this page to show whether the sentinel is armed.
     return Response.json({
       name: "proctor-sentinel",
-      purpose: "Runs PROCTOR's surprise re-tests: every hour, with probability CHANCE, re-tests one live certificate chosen at random.",
+      purpose: "Runs PROCTOR's surprise re-tests: every hour it re-tests a live certificate not verified for 5 days, if there is one; otherwise, with probability CHANCE, one live certificate chosen at random.",
+      overdue_after_days: 5,
       registry: env.REGISTRY,
       signs_as: env.SENTINEL_ACCOUNT,
       chance_per_hour: Number(env.CHANCE),
