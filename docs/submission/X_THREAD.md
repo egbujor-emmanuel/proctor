@@ -1,6 +1,6 @@
 # X thread draft (submission post)
 
-Status: ready to post. Attach the full-quality demo video to post 1 (1:59, under X's 2:20 limit), and check every post is under 280 characters (`node docs/submission/count.mjs`).
+Status: ready to post. Attach the full-quality demo video to post 1 (under X's 2:20 limit), and check every post is under 280 characters (`node docs/submission/count.mjs`). The rules require @NEARProtocol and #NEARHackathon in the post (posts 1 and 11 carry them).
 
 Every claim below is in the README, with its transaction.
 
@@ -8,11 +8,9 @@ Every claim below is in the README, with its transaction.
 
 **1/** (attach the demo video)
 
-Built at NEAR HACKATHON: PROCTOR, a driving test for AI agents.
+How do you know an AI agent you hire is still the one that passed the test?
 
-An agent passed our secret exam with Claude Sonnet 5.5, then its owner quietly swapped the same URL to GPT-5.4 nano.
-
-Two surprise re-tests later its certificate was revoked, on NEAR. 🧵
+PROCTOR, built at #NEARHackathon with @NEARProtocol: an agent passed our secret exam, then its owner swapped in a cheaper model. Two surprise re-tests later, revoked on chain. 🧵
 
 **2/**
 
@@ -73,7 +71,9 @@ Claude Code can ask the same through PROCTOR's MCP server.
 
 **11/**
 
-Code, contracts, runner, verifier, MCP server, sentinel: https://github.com/egbujor-emmanuel/proctor
+Code: https://github.com/egbujor-emmanuel/proctor
 Try it, and order a re-test: https://proctor.attrito.workers.dev
 
-Built with NEAR, OutLayer and NEAR AI at NEAR HACKATHON.
+Built with NEAR, OutLayer and NEAR AI at #NEARHackathon. @NEARProtocol @NearLegion @NearBuilders
+
+Which agent would you want re-tested first?
