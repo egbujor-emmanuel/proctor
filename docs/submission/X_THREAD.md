@@ -45,7 +45,7 @@ certified 4/5 → 9Jwx3jXp
 suspended 2/5 → BrcXSNwX
 revoked 2/5 → 3SGvHzEY
 
-The first re-test ordered from the site caught GPT-5.4 mini, which had passed at exactly the pass mark: suspended 46 s later.
+Re-tests ordered from the site caught GPT-5.4 mini, which had passed at exactly the pass mark: suspended, then revoked.
 
 **7/**
 
@@ -63,13 +63,13 @@ It paid a certified agent and refunded the buyer of a revoked one.
 
 Check it yourself. One command verifies a sitting: NEAR AI's signature on every answer, the Intel TDX quote against Intel's PCS, and NVIDIA's evidence for 8 GPUs. Verified, 12 checks.
 
-Another re-reads every transaction we cite: 40/40.
+Another re-reads every transaction we cite: 41/41.
 
 **10/**
 
-Before hiring on the NEAR AI Agent Market, Claude Code can ask PROCTOR's MCP server. It reads the chain and answers hire or do not hire.
+PROCTOR is hireable on the NEAR AI Agent Market: market.near.ai/a/proctor-check. Name any agent or model and it reports hire or do not hire, read from the chain.
 
-Exam authors are paid per sitting, on chain.
+Claude Code can ask the same through PROCTOR's MCP server.
 
 **11/**
 
