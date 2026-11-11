@@ -1,6 +1,6 @@
-# X thread draft (submission post)
+# X thread (submission post)
 
-Status: ready to post. Attach the full-quality demo video to post 1 (under X's 2:20 limit), and check every post is under 280 characters (`node docs/submission/count.mjs`). The rules require @NEARProtocol and #NEARHackathon in the post (posts 1 and 11 carry them).
+Six posts. Attach the demo video to post 1 (under X's 2:20 limit). Every post is under 280 characters (`node docs/submission/count.mjs`). The rules require @NEARProtocol and #NEARHackathon in the post: posts 1 and 6 carry them.
 
 Every claim below is in the README, with its transaction.
 
@@ -8,72 +8,39 @@ Every claim below is in the README, with its transaction.
 
 **1/** (attach the demo video)
 
-How do you know an AI agent you hire is still the one that passed the test?
+How do you know the AI agent you hire is still the one that passed the test?
 
-PROCTOR, built at #NEARHackathon with @NEARProtocol: an agent passed our secret exam, then its owner swapped in a cheaper model. Two surprise re-tests later, revoked on chain. 🧵
+PROCTOR is a driving test for AI agents, built at #NEARHackathon with @NEARProtocol. An agent passed our secret exam, then swapped to a cheaper model. Two surprise re-tests later: revoked. 🧵
 
 **2/**
 
-The problem: public benchmarks leak into training data, and a score says nothing about tomorrow.
+The exam is never published. It is sealed in an OutLayer TEE (Intel TDX), opened only by one pinned runner build, only when our NEAR registry contract calls.
 
-An agent certified today can switch to a cheaper model behind the same endpoint, and a buyer has no way to notice.
+Each sitting draws 10 of 28 hidden questions, reworded by a NEAR AI model, so an agent can't recognise the test.
 
 **3/**
 
-The exam is sealed. It lives only as an OutLayer secret, decrypted inside an Intel TDX enclave for one runner build (pinned by SHA-256) and only on calls through the PROCTOR registry contract.
+Certificates are written on NEAR only from OutLayer's callback. Then anyone can order a surprise re-test from the site, no wallet needed. One fail suspends, a second revokes.
 
-Only the exam's hash goes on chain.
+GPT-5.4 mini passed at exactly the pass mark. Two re-tests ordered from the site: revoked.
 
 **4/**
 
-And an agent can't tell it is being tested. Each sitting draws 10 of 28 hidden questions, a TEE-hosted model rewords each one, and the framing changes every time.
+The PROCTOR Index: 22 NEAR AI models sat the secret exam. 12 certified (Claude Opus 5.5, Sonnet 5.5 and Fable 5.1 at 10/10), 2 failed.
 
-That runner went live after a public 24-hour timelock.
+An escrow pays an agent only while its certificate is live: it paid a certified agent and refunded the buyer of a revoked one.
 
 **5/**
 
-The certificate has to keep earning its place. A sentinel re-tests a live certificate at random hours, and anyone can order one from the site, free.
+Hire PROCTOR on the NEAR AI Agent Market to check any agent first: market.near.ai/a/proctor-check
 
-One fail suspends it. Two in a row revoke it. Outages never fail a model.
+Don't trust us: one command checks every answer's NEAR AI signature and the Intel TDX and NVIDIA GPU attestation under it. 12 checks, verified.
 
 **6/**
 
-The swap demo, on chain:
-certified 4/5 → 9Jwx3jXp
-suspended 2/5 → BrcXSNwX
-revoked 2/5 → 3SGvHzEY
-
-Re-tests ordered from the site caught GPT-5.4 mini, which had passed at exactly the pass mark: suspended, then revoked.
-
-**7/**
-
-The PROCTOR Index: 22 NEAR AI models sat the secret exam on NEAR.
-
-12 certified (Claude Opus 5.5, Sonnet 5.5 and Fable 5.1 at 10/10), 2 failed, and the ones that were down or too slow got no verdict instead of a fail.
-
-**8/**
-
-Money can follow the certificate. Our escrow contract pays an agent's owner only if its certificate is live at delivery, by a cross-contract call to the registry.
-
-It paid a certified agent and refunded the buyer of a revoked one.
-
-**9/**
-
-Check it yourself. One command verifies a sitting: NEAR AI's signature on every answer, the Intel TDX quote against Intel's PCS, and NVIDIA's evidence for 8 GPUs. Verified, 12 checks.
-
-Another re-reads every transaction we cite: 41/41.
-
-**10/**
-
-PROCTOR is hireable on the NEAR AI Agent Market: market.near.ai/a/proctor-check. Name any agent or model and it reports hire or do not hire, read from the chain.
-
-Claude Code can ask the same through PROCTOR's MCP server.
-
-**11/**
-
+Try it, and order a re-test yourself: https://proctor.attrito.workers.dev
 Code: https://github.com/egbujor-emmanuel/proctor
-Try it, and order a re-test: https://proctor.attrito.workers.dev
 
-Built with NEAR, OutLayer and NEAR AI at #NEARHackathon. @NEARProtocol @NearLegion @NearBuilders
+Built with NEAR, OutLayer and NEAR AI. @NEARProtocol @NearLegion @NearBuilders #NEARHackathon
 
-Which agent would you want re-tested first?
+Which agent would you re-test first?
