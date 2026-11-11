@@ -71,6 +71,23 @@ async function sentinelCheck(fetcher: typeof fetch): Promise<LiveCheck> {
   }
 }
 
+const DAY_NS = 86_400 * 1e9;
+
+/**
+ * Fails if a proposed runner build could take effect less than 24 hours after it was proposed.
+ * With nothing pending, the pinned runner (checked separately) is the only one that can grade.
+ */
+function timelockCheck(title: string, pending: { runner_hash: string; proposed_at_ns: number; effective_at_ns: number } | null | undefined): LiveCheck {
+  if (!pending) {
+    return { id: "timelock", title, ok: true, detail: "No new build is proposed, so only the pinned runner can grade. A new one must be proposed on chain and wait 24 hours" };
+  }
+  const waitNs = pending.effective_at_ns - pending.proposed_at_ns;
+  const hours = Math.round(waitNs / 3.6e12);
+  return waitNs >= DAY_NS
+    ? { id: "timelock", title, ok: true, detail: `A new build ${short(pending.runner_hash)} was proposed ${hours} hours before it can take effect, from ${formatUtc(pending.effective_at_ns / 1e6)}` }
+    : { id: "timelock", title, ok: false, detail: `A new build ${short(pending.runner_hash)} could take effect only ${hours} hours after it was proposed` };
+}
+
 /** Runs every check; each one is independent, so one failing read never hides the others. */
 export async function runLiveChecks(fetcher: typeof fetch = fetch): Promise<LiveCheck[]> {
   const configRead = view(ConfigSchema, "get_config", {}, fetcher);
@@ -94,9 +111,7 @@ export async function runLiveChecks(fetcher: typeof fetch = fetch): Promise<Live
       hash === BUILDS.runner
         ? { id: "runner", title: runnerTitle, ok: true, detail: `Pinned runner ${runnerVersion(hash) ?? "build"}, SHA-256 ${short(hash)}, the CI build in exam-runner/RELEASE.sha256` }
         : { id: "runner", title: runnerTitle, ok: false, detail: `The registry pins ${hash}, not the released build ${BUILDS.runner}` };
-    timelock = pending
-      ? { id: "timelock", title: timelockTitle, ok: true, detail: `A new build ${short(pending.runner_hash)} is proposed and can take effect from ${formatUtc(pending.effective_at_ns / 1e6)}` }
-      : { id: "timelock", title: timelockTitle, ok: true, detail: "No change is pending. A new build must be proposed on chain and wait 24 hours before it applies" };
+    timelock = timelockCheck(timelockTitle, pending);
   }
   return [registry, escrow, runner, timelock, sentinel];
 }

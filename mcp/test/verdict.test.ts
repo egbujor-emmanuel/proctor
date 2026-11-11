@@ -48,6 +48,7 @@ describe("decide", () => {
     const verdict = decide("m", [checkExam("demo-v1", certificate({ status: revoked })), checkExam("pool-v1", certificate())]);
     expect(verdict.decision).toBe("hire");
     expect(verdict.reasons.join(" ")).toContain("caution: hire rests on the live certificate on pool-v1; the certificate on demo-v1 is revoked");
+    expect(verdict.reasons[0]).toMatch(/^certified on pool-v1/);
   });
 
   it.each([

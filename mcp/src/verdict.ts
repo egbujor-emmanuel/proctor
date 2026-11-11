@@ -235,7 +235,9 @@ export function readableUtc(iso: string): string {
 export function decide(candidate: string, exams: ExamCheck[], market?: MarketAgent | null): Verdict {
   const reasons: string[] = [];
   const live = exams.filter((e) => e.state === "active");
-  for (const exam of exams) {
+  // What a hire rests on comes first: readers (and the site's one-line summary) see reasons[0].
+  const ordered = [...live, ...exams.filter((e) => e.state !== "active")];
+  for (const exam of ordered) {
     if (exam.state === "active" && exam.certificate) {
       const c = exam.certificate;
       reasons.push(`certified on ${exam.exam_id}: scored ${c.score}, last verified ${readableUtc(c.last_verified)}, ${c.retests_passed} surprise re-test(s) passed`);

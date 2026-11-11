@@ -65,7 +65,7 @@ export const ConfigSchema = z.object({
   outlayer_account: z.string(),
   runner_hash: z.string(),
   /** A proposed runner build waiting out the 24-hour timelock. */
-  pending_runner: z.optional(z.nullable(z.object({ runner_hash: z.string(), effective_at_ns: timestampNs }))),
+  pending_runner: z.optional(z.nullable(z.object({ runner_hash: z.string(), proposed_at_ns: timestampNs, effective_at_ns: timestampNs }))),
   exams: u32,
   certificates: u32,
   next_sitting_id: count,

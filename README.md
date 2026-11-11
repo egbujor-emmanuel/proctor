@@ -2,7 +2,7 @@
 
 PROCTOR certifies AI models and agents on secret exams. The exam is sealed inside an OutLayer TEE (Intel TDX), so it is never published for anyone to train on. The registry, a NEAR contract, writes a certificate only from OutLayer's callback, after re-checking the result. Anyone can pay for a surprise re-test at any time: one failed re-test suspends the certificate, and a second failure in a row revokes it.
 
-Everything below runs on **NEAR testnet** today.
+Everything below runs on **NEAR testnet** today. The one exception is PROCTOR's listing on the NEAR AI Agent Market, a paid service ($1.00 per check) whose verdicts are read from the same testnet registry.
 
 ## For judges: 60 seconds
 
@@ -90,7 +90,7 @@ In the output, about 30 seconds later, look for `EVENT_JSON` with `"event":"sitt
 bash scripts/test-all.sh
 ```
 
-This runs the grading core, exam runner and benchmark (Rust), the registry contract, the MCP server, the demo agent, the re-test picker and the website, and ends with `== all suites passed`. On Linux and macOS it also runs the registry against a local NEAR node (near-workspaces). CI runs all of it on every push, plus the reproducible release builds described under [Builds you can check](#builds-you-can-check).
+This runs the grading core, exam runner and benchmark (Rust), the registry and escrow contracts, the MCP server, the demo agent, the sentinel, the Agent Market agent, the re-test picker and the website, and ends with `== all suites passed`. On Linux and macOS it also runs the registry against a local NEAR node (near-workspaces). CI runs all of it on every push, plus the reproducible release builds described under [Builds you can check](#builds-you-can-check).
 
 ### 6. Reproduce the benchmark (needs a NEAR AI Cloud key)
 
@@ -158,7 +158,7 @@ sequenceDiagram
 Agents are certified as `agent:<owner-account>/<name>`, so only the account that registers an agent can first certify it, and `sit_exam` refuses `agent:` ids. The endpoint is stored on the certificate, and every re-test calls the same endpoint. An agent's endpoint sees the questions it is asked, so agent sittings are off unless the exam's author allows them (`set_exam_agents`; the demo exam allows them). Endpoints must be public `https` host names: no IP literals, ports, userinfo or local names. The host may use only lowercase letters, digits, dots and hyphens, and its top-level domain must be alphabetic (or punycode), so percent-encoded, look-alike or numeric hosts such as `0x7f.1` are refused.
 
 **Exams an agent cannot recognise (runner v0.4.0, live).** An agent that could tell it was being examined could switch to a stronger model for the test and back afterwards. Since v0.4.0 no two sittings look alike:
-- Each sitting asks a fresh random sample from a larger pool (`sample`), so the questions differ between the first sitting and every re-test.
+- Each sitting asks a fresh random sample from a larger pool (`sample`): on the pool exam, 10 of 28 drawn independently every time, so a re-test shares about a third of its questions with the first sitting on average, and which ones can't be predicted.
 - An author can write several wordings of each question (`variants`).
 - The runner can have a TEE-hosted NEAR AI model reword each question (`reword_model`). The new wording is used only if every number in the question survives it; otherwise the author's text is asked.
 - The framing changes too: sometimes there is a system message and sometimes not, and the line asking for the answer varies.
@@ -225,7 +225,7 @@ To see what earnings would pay out as on another chain, `node scripts/payout-quo
 | `openai/gpt-5.4-nano` | **Failed**, 6/10 | none | [`FmYN1gH6…`](https://testnet.near.rocks/tx/FmYN1gH6jCR4s7C8aFmBrjjbVAq9aFVWH6xk3MQUgxGE) |
 | `google/gemini-2.5-pro` | **Failed**, 6/10 | none | [`Ga8ByhG1…`](https://testnet.near.rocks/tx/Ga8ByhG12UEGrQX3rwCJCc2SLY2VbC63SnSmVoUNZc1D) |
 
-Eight models have no verdict yet, because PROCTOR never fails a model for an outage. `openai/o4-mini`, `moonshotai/kimi-k2.6` and `qwen/qwen3.7-max` were listed by NEAR AI but answered "The model is currently unavailable" on every call. `z-ai/glm-5.3`, `z-ai/glm-5.3-flash`, `Qwen/Qwen3.8-27B` and `deepseek/deepseek-v3.2` let some answers run past the 25-second cap; GLM-5.3 took 27 to 29 s per answer when timed directly. `x-ai/grok-4.7`'s run failed inside OutLayer. Each of these sittings is on chain as `Incomplete` or `RunnerFailed`, and the fee was refunded.
+Eight models have no verdict yet, because PROCTOR never fails a model for an outage. `openai/o4-mini`, `moonshotai/kimi-k2.6` and `qwen/qwen3.7-max` were listed by NEAR AI but answered "The model is currently unavailable" on every call. `z-ai/glm-5.3`, `z-ai/glm-5.3-flash`, `Qwen/Qwen3.8-27B` and `deepseek/deepseek-v3.2` let some answers run past the 25-second cap; GLM-5.3 took 27 to 29 s per answer when timed directly. `x-ai/grok-4.7`'s run failed inside OutLayer. Each of these sittings is on chain as `Incomplete` or `RunnerFailed`; the pool exam charges no author fee, and none of them counted against the model.
 
 DeepSeek V4.1 Flash shows why one score is not enough: its certificate on the demo exam was revoked after two failed surprise re-tests, while it passes the harder pool exam at 9/10. Each certificate stands or falls on its own exam, and on every re-test after it.
 
@@ -268,7 +268,7 @@ How to read it:
 
 **Every transaction this README cites can be re-checked in one command:** `node scripts/evidence.mjs` reads each one from NEAR testnet by its hash (no account or key) and prints who sent it, which method it called and what the registry or escrow recorded. Today: *"41/41 cited transactions found on NEAR testnet, 41 with every receipt succeeding"*.
 
-- **The exam can't leak to the public or to PROCTOR's operator.** It exists only as an OutLayer secret, opened inside the enclave for one runner build (pinned by SHA-256) and only on calls that come through the registry. The candidate necessarily sees each question it answers. For a TEE-hosted NEAR AI model that happens inside the model's TEE. An agent endpoint, or an external provider relayed by NEAR AI, sees them in the clear, which is why agent sittings are off unless the author allows them.
+- **The exam can't leak to the public.** Only its author and the enclave ever see it; for both live exams the author is `attrito.testnet`, the account that also runs the registry, so the author keeps the questions and the guarantee is against everyone else. It exists on OutLayer only as a secret, opened inside the enclave for one runner build (pinned by SHA-256) and only on calls that come through the registry. The candidate necessarily sees each question it answers. For a TEE-hosted NEAR AI model that happens inside the model's TEE. An agent endpoint, or an external provider relayed by NEAR AI, sees them in the clear, which is why agent sittings are off unless the author allows them.
 - **The score isn't self-reported.** Certificates are written only in the registry's own callback for OutLayer's result, after the re-checks above.
 - **A model's answers are real NEAR AI completions.** For a NEAR AI model candidate, the runner calls NEAR AI itself, so each answer is a NEAR AI completion; for an agent, its endpoint returns the ids, so they prove real completions but cannot be tied to its answers. The certificate stores a hash of the completion ids, and the ids are in the `sitting_resolved` event. [`mcp/src/verify.ts`](mcp/src/verify.ts) checks every one: NEAR AI's signature must be valid and its signer must be the key listed in NEAR AI's attestation report. It then checks the hardware under each signing key ([`mcp/src/attest.ts`](mcp/src/attest.ts)). The Intel TDX quote is checked against Intel's PCS: up-to-date TCB, no debug mode, the key and a fresh nonce bound in the quote, and measured software matching the reported configuration. NVIDIA's NRAS evidence is checked for every GPU, with NVIDIA's signature verified against its published keys. Events are accepted only from receipts the registry and OutLayer themselves executed, and are cross-checked against the registry's own record of the sitting. That is the model's own TEE for TEE-hosted models, or NEAR AI's gateway TEE for models at external providers. The signed request and response hashes cover the secret exam, so a third party sees them but cannot recompute them.
 - **An agent can't borrow a key.** The runner sends PROCTOR's NEAR AI key only to `https://cloud-api.near.ai/`, never to an agent endpoint. Look-alike hosts and userinfo tricks are tested in `exam-runner`.
@@ -279,7 +279,7 @@ How to read it:
 ## Builds you can check
 
 - **Runner:** [`scripts/build-runner.sh`](scripts/build-runner.sh) builds with rustc 1.99.1 and remaps source paths, so the wasm carries no machine paths. CI rebuilds it on every push and fails unless it hashes to [`exam-runner/RELEASE.sha256`](exam-runner/RELEASE.sha256). The release asset is the CI artifact.
-- **Registry:** [`scripts/build-registry.sh`](scripts/build-registry.sh) does the same with cargo-near 0.22.0, checked against [`contracts/registry/RELEASE.sha256`](contracts/registry/RELEASE.sha256). Compare it with the deployed code: `near account view-account-summary registry-v2.attrito.testnet network-config testnet now` shows the code hash (base58 of the same SHA-256).
+- **Registry:** [`scripts/build-registry.sh`](scripts/build-registry.sh) does the same with cargo-near 0.22.0, checked against [`contracts/registry/RELEASE.sha256`](contracts/registry/RELEASE.sha256). Compare it with the deployed code: `near account view-account-summary registry-v2.attrito.testnet network-config testnet now` shows the code hash (the same SHA-256, as a hex checksum).
 - **Escrow:** [`scripts/build-escrow.sh`](scripts/build-escrow.sh) uses the same reproducible build ([`scripts/build-contract.sh`](scripts/build-contract.sh)), checked against [`contracts/escrow/RELEASE.sha256`](contracts/escrow/RELEASE.sha256) by its own CI job. The deployed `proctor-escrow.testnet` code hashes to it.
 
 ## NEAR technology used

@@ -18,6 +18,9 @@ cargo test --workspace
 step "registry contract"
 (cd contracts/registry && cargo test)
 
+step "escrow contract"
+(cd contracts/escrow && cargo test)
+
 step "MCP server"
 (cd mcp && npm ci --silent && npm run -s typecheck && npm test)
 

@@ -260,6 +260,7 @@ async function verdictAfterClick(page, label) {
   // ---- every external link ----
   const hrefs = [...new Set(await page.locator('a[href^="http"]').evaluateAll((as) => as.map((a) => a.href)))];
   const bad = [];
+  const limited = [];
   for (const href of hrefs) {
     // GitHub rate-limits bursts: pace its links, and back off when it says 429.
     if (href.includes('github.com')) await new Promise((r) => setTimeout(r, 1500));
@@ -268,9 +269,12 @@ async function verdictAfterClick(page, label) {
       await new Promise((r) => setTimeout(r, wait));
       status = await linkStatus(context.request, href);
     }
-    if (status !== 200) bad.push(`${status} ${href}`);
+    // Still rate-limited after backing off: the host is throttling this runner, not reporting a broken link.
+    if (status === 429) limited.push(href);
+    else if (status !== 200) bad.push(`${status} ${href}`);
   }
-  check(`external links return 200 (${hrefs.length} checked)`, bad.length === 0, bad.length ? `${bad.length} not 200: ${bad.slice(0, 4).join(' | ')}` : '');
+  const limitedNote = limited.length ? `; ${limited.length} rate-limited, not checked: ${limited.slice(0, 2).join(' | ')}` : '';
+  check(`external links return 200 (${hrefs.length - limited.length} of ${hrefs.length} checked)`, bad.length === 0, (bad.length ? `${bad.length} not 200: ${bad.slice(0, 4).join(' | ')}` : '') + limitedNote);
   const blankWithoutRel = await page.locator('a[target=_blank]:not([rel*=noopener])').count();
   check('new-tab links carry rel=noopener', blankWithoutRel === 0);
 

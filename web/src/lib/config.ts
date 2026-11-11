@@ -2,13 +2,13 @@
 
 export const NETWORK = "testnet";
 export const REGISTRY = "registry-v2.attrito.testnet";
-/** Asked in parallel; the first good answer wins, so one slow node cannot stall the page. */
 /**
- * NEAR testnet RPC nodes, tried in this order. The site asks the first and moves on only if it
- * fails: rpc.testnet.near.org rate-limits bursts, and its refusals carry no CORS header, so the
- * browser would log them as CORS errors if it were asked on every read.
+ * NEAR testnet RPC nodes, tried in this order: the site asks the first and moves on only if it
+ * fails, and the primary is asked once more last, so one dropped connection never shows as
+ * "not checked". rpc.testnet.near.org is left out: it is deprecated, rate-limits bursts, and its
+ * refusals carry no CORS header, so a browser can't use it as a fallback anyway.
  */
-export const RPC_URLS = ["https://rpc.testnet.fastnear.com", "https://test.rpc.fastnear.com", "https://rpc.testnet.near.org"] as const;
+export const RPC_URLS = ["https://rpc.testnet.fastnear.com", "https://test.rpc.fastnear.com", "https://rpc.testnet.fastnear.com"] as const;
 // NEAR Rocks (FastNear): renders for people and for automated readers alike.
 export const EXPLORER = "https://testnet.near.rocks";
 export const RUNNER_RELEASES = "https://github.com/egbujor-emmanuel/proctor-runner/releases";
