@@ -8,7 +8,7 @@ Everything below runs on **NEAR testnet** today.
 
 1. **Do:** open [proctor.attrito.workers.dev/#verify](https://proctor.attrito.workers.dev/#verify). **See:** "5 of 5 passed", read from the chain as the page loads. The registry and the escrow run the exact code CI builds, the registry grades with the released runner v0.4.0, any grader change has to wait 24 hours in public, and the sentinel is armed. Below it, each claim names its test and its transaction.
 2. **Do:** in [the registry](https://proctor.attrito.workers.dev/#registry), press **Order a surprise re-test** on any live certificate. **See:** about a minute later, the verdict (passed, suspended or revoked) and its transaction. It is free and needs no wallet; each certificate can be re-tested once an hour.
-3. **Do:** `git clone https://github.com/egbujor-emmanuel/proctor && cd proctor && node scripts/evidence.mjs` (Node 18 or later, nothing to install). **See:** every transaction this README cites, read back from NEAR testnet by its hash, ending with "40/40 cited transactions found on NEAR testnet, 40 with every receipt succeeding".
+3. **Do:** `git clone https://github.com/egbujor-emmanuel/proctor && cd proctor && node scripts/evidence.mjs` (Node 18 or later, nothing to install). **See:** every transaction this README cites, read back from NEAR testnet by its hash, ending with "41/41 cited transactions found on NEAR testnet, 41 with every receipt succeeding".
 
 The full walk-through, from reading a certificate to sitting the exam yourself, is [Test it in 5 minutes](#test-it-in-5-minutes).
 
@@ -119,7 +119,7 @@ On [the live site](https://proctor.attrito.workers.dev/#registry), every live or
 curl -s -X POST https://proctor-sentinel.attrito.workers.dev/retest -H 'content-type: application/json' -d '{"cert_id": 4}'
 ```
 
-You should get `{"cert_id":4,"candidate":"anthropic/claude-sonnet-5-5","tx":"…","outcome":"RetestPassed",…}`, or the reason it was refused. The registry allows one re-test per certificate per hour, revoked certificates cannot be re-tested, and the sentinel caps the website's re-tests at 48 a day so nobody can drain its account. The first one ordered this way re-tested `openai/gpt-5.4-mini`, which had passed the pool exam at exactly the pass mark: on fresh questions it fell short, and its certificate was **suspended** 46 seconds later ([`Eokg4Rja…`](https://testnet.near.rocks/tx/Eokg4Rja1MzFuHDKo998LNrtJNuqSRk21H9qF22PkK4U)).
+You should get `{"cert_id":4,"candidate":"anthropic/claude-sonnet-5-5","tx":"…","outcome":"RetestPassed",…}`, or the reason it was refused. The registry allows one re-test per certificate per hour, revoked certificates cannot be re-tested, and the sentinel caps the website's re-tests at 48 a day so nobody can drain its account. The first one ordered this way re-tested `openai/gpt-5.4-mini`, which had passed the pool exam at exactly the pass mark: on fresh questions it fell short, and its certificate was **suspended** 46 seconds later ([`Eokg4Rja…`](https://testnet.near.rocks/tx/Eokg4Rja1MzFuHDKo998LNrtJNuqSRk21H9qF22PkK4U)). The next re-test ordered from its paper on the site scored it 5/10, and the certificate was **revoked** ([`GsSvi1Rn…`](https://testnet.near.rocks/tx/GsSvi1Rn5axL1rSD3q1o4fZVga5ECrJD73dwVa7BMRkp)).
 
 ## The problem
 
@@ -266,7 +266,7 @@ How to read it:
 
 ## What you don't have to take on faith
 
-**Every transaction this README cites can be re-checked in one command:** `node scripts/evidence.mjs` reads each one from NEAR testnet by its hash (no account or key) and prints who sent it, which method it called and what the registry or escrow recorded. Today: *"40/40 cited transactions found on NEAR testnet, 40 with every receipt succeeding"*.
+**Every transaction this README cites can be re-checked in one command:** `node scripts/evidence.mjs` reads each one from NEAR testnet by its hash (no account or key) and prints who sent it, which method it called and what the registry or escrow recorded. Today: *"41/41 cited transactions found on NEAR testnet, 41 with every receipt succeeding"*.
 
 - **The exam can't leak to the public or to PROCTOR's operator.** It exists only as an OutLayer secret, opened inside the enclave for one runner build (pinned by SHA-256) and only on calls that come through the registry. The candidate necessarily sees each question it answers. For a TEE-hosted NEAR AI model that happens inside the model's TEE. An agent endpoint, or an external provider relayed by NEAR AI, sees them in the clear, which is why agent sittings are off unless the author allows them.
 - **The score isn't self-reported.** Certificates are written only in the registry's own callback for OutLayer's result, after the re-checks above.

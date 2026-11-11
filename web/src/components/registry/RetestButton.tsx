@@ -15,8 +15,12 @@ const TONE: Record<OutcomeTone, string> = {
   muted: "border-rule bg-paper-sunk text-ink-muted",
 };
 
-/** Orders a surprise re-test of one certificate, paid by the sentinel, and shows what it did. */
-export function RetestButton({ certId }: { certId: number }) {
+/**
+ * Orders a surprise re-test of one certificate, paid by the sentinel, and shows what it did.
+ * A revoked certificate cannot be re-tested, so it shows nothing, unless the re-test just
+ * ordered here is what revoked it: then the verdict and its transaction stay on screen.
+ */
+export function RetestButton({ certId, revoked = false }: { certId: number; revoked?: boolean }) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [now, setNow] = useState(0);
 
@@ -38,17 +42,20 @@ export function RetestButton({ certId }: { certId: number }) {
 
   const seconds = phase.kind === "running" ? Math.max(0, Math.round((now - phase.startedAt) / 1000)) : 0;
   const outcome = phase.kind === "done" && phase.result.ok ? describeOutcome(phase.result.outcome) : undefined;
+  if (revoked && phase.kind === "idle") return null;
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <button
-        type="button"
-        onClick={run}
-        disabled={phase.kind === "running"}
-        className="inline-flex min-h-11 items-center justify-center rounded bg-ink px-4 text-sm font-medium text-paper transition-colors hover:bg-seal disabled:cursor-wait disabled:opacity-70"
-      >
-        {phase.kind === "running" ? `Re-testing… ${seconds}s` : "Order a surprise re-test"}
-      </button>
+      {!revoked && (
+        <button
+          type="button"
+          onClick={run}
+          disabled={phase.kind === "running"}
+          className="inline-flex min-h-11 items-center justify-center rounded bg-ink px-4 text-sm font-medium text-paper transition-colors hover:bg-seal disabled:cursor-wait disabled:opacity-70"
+        >
+          {phase.kind === "running" ? `Re-testing… ${seconds}s` : "Order a surprise re-test"}
+        </button>
+      )}
       <div aria-live="polite" className="text-xs text-ink-muted">
         {phase.kind === "idle" && <p>Free: the sentinel pays. At most once an hour per certificate.</p>}
         {phase.kind === "running" && <p>The runner is sitting the exam again inside OutLayer. About a minute.</p>}
