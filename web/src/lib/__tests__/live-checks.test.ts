@@ -76,11 +76,19 @@ describe("runLiveChecks", () => {
   });
 
   it("shows a pending grader change with the time it can take effect", async () => {
-    const effective = 1_794_400_000_000_000_000;
-    const checks = await runLiveChecks(world({ pending: { runner_hash: "cd".repeat(32), effective_at_ns: effective } }));
+    const proposed = 1_794_400_000_000_000_000;
+    const checks = await runLiveChecks(world({ pending: { runner_hash: "cd".repeat(32), proposed_at_ns: proposed, effective_at_ns: proposed + 86_400e9 } }));
     const timelock = checks.find((c) => c.id === "timelock")!;
     expect(timelock.ok).toBe(true);
-    expect(timelock.detail).toMatch(/proposed/i);
+    expect(timelock.detail).toMatch(/proposed 24 hours before/i);
+  });
+
+  it("fails the timelock check when a proposed build could take effect in under 24 hours", async () => {
+    const proposed = 1_794_400_000_000_000_000;
+    const checks = await runLiveChecks(world({ pending: { runner_hash: "cd".repeat(32), proposed_at_ns: proposed, effective_at_ns: proposed + 3_600e9 } }));
+    const timelock = checks.find((c) => c.id === "timelock")!;
+    expect(timelock.ok).toBe(false);
+    expect(timelock.detail).toContain("only 1 hours");
   });
 
   it("fails the sentinel check when it holds no key", async () => {

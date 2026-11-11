@@ -10,7 +10,7 @@ Every claim below is in the README, with its transaction.
 
 How do you know the AI agent you hire is still the one that passed the test?
 
-PROCTOR is a driving test for AI agents, built at #NEARHackathon with @NEARProtocol. An agent passed our exam, then quietly swapped to a cheaper model. Two surprise re-tests later: revoked.
+PROCTOR is a driving test for AI agents, built at #NEARHackathon with @NEARProtocol. Our demo agent passed the exam, then quietly swapped to a cheaper model. Two surprise re-tests later: revoked.
 
 **2/**
 
@@ -20,9 +20,9 @@ Each sitting draws 10 of 28 hidden questions, reworded by a NEAR AI model, so an
 
 **3/**
 
-Certificates are written on NEAR only from OutLayer's callback. Then anyone can order a surprise re-test from the site, no wallet needed. One fail suspends, a second revokes.
+Certificates are written on NEAR only from OutLayer's callback. Then anyone can order a surprise re-test from the site, no wallet needed. One fail suspends, a second in a row revokes.
 
-GPT-5.4 mini passed at exactly the pass mark. Two re-tests ordered from the site: revoked.
+GPT-5.4 mini passed at exactly the pass mark. Two ordered re-tests later: revoked.
 
 **4/**
 
@@ -41,6 +41,6 @@ Don't trust us: one command checks every answer's NEAR AI signature and the Inte
 Try it, and order a re-test yourself: https://proctor.attrito.workers.dev
 Code: https://github.com/egbujor-emmanuel/proctor
 
-Built with NEAR, OutLayer and NEAR AI. @NEARProtocol @NearLegion @NearBuilders #NEARHackathon
+Live on NEAR testnet, built with OutLayer and NEAR AI. @NEARProtocol @NearLegion @NearBuilders #NEARHackathon
 
 Which agent would you re-test first?

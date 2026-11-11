@@ -16,7 +16,7 @@ const CLAIMS = [
   },
   {
     claim: "The grader can't change without notice",
-    why: "A new runner build is announced on chain and can take effect only 24 hours later. Ownership moves in two steps. The registry account can still upgrade the contract's code at once; every upgrade is a public transaction.",
+    why: "A new runner build is announced on chain and can take effect only 24 hours later. Ownership moves in two steps. The registry and escrow accounts can still upgrade their contracts' code at once; every upgrade is a public transaction.",
   },
   {
     claim: "Outages don't fail anyone",

@@ -62,7 +62,17 @@ export function summarize(entry) {
   };
 }
 
+/** One retry: a single dropped connection should not fail the whole check. */
 async function fetchBatch(hashes) {
+  try {
+    return await fetchBatchOnce(hashes);
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    return fetchBatchOnce(hashes);
+  }
+}
+
+async function fetchBatchOnce(hashes) {
   const res = await fetch(API, {
     method: "POST",
     headers: { "content-type": "application/json", "user-agent": "proctor-evidence/1.0" },
