@@ -225,7 +225,7 @@ export function CertificatePaper({ cert }: { cert: Certificate }) {
             Verify on NEAR Explorer
             <span className="sr-only"> (opens in a new tab)</span>
           </a>
-          {state !== "revoked" && <RetestButton certId={cert.cert_id} />}
+          <RetestButton certId={cert.cert_id} revoked={state === "revoked"} />
         </div>
         <svg
           data-seal
